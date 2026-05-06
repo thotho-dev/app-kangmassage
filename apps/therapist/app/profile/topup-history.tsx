@@ -6,10 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
 import { supabase } from '../../lib/supabase';
-import { format } from 'date-fns';
+import { format, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-
 import { useAlert } from '../../components/CustomAlert';
+
+const CANCEL_TIMEOUT_MINUTES = 5;
 
 export default function TopupHistoryScreen() {
   const t = useThemeColors();
@@ -21,6 +22,13 @@ export default function TopupHistoryScreen() {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  // Update 'now' every second for countdown
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchHistory = async () => {
     if (!profile) return;
@@ -42,43 +50,6 @@ export default function TopupHistoryScreen() {
     }
   };
 
-  const handleCancel = async (id: string) => {
-    console.log('Attempting to cancel topup:', id);
-    showAlert(
-      'warning',
-      'Batalkan Top Up?',
-      'Apakah Anda yakin ingin membatalkan transaksi ini?',
-      [
-        { text: 'Tidak' },
-        { 
-          text: 'Ya, Batalkan', 
-          style: 'destructive', 
-          onPress: async () => {
-            console.log('User confirmed cancellation for:', id);
-            try {
-              const { error } = await supabase
-                .from('therapist_topups')
-                .update({ status: 'failed' })
-                .eq('id', id);
-              
-              if (error) throw error;
-              
-              // Optimistic Update: Langsung ubah di layar agar instan
-              setHistory(prev => prev.map(h => 
-                h.id === id ? { ...h, status: 'failed' } : h
-              ));
-              
-              console.log('Cancellation successful and UI updated locally');
-            } catch (error: any) {
-              console.error('Cancellation error:', error.message || error);
-              showAlert('error', 'Gagal', 'Tidak dapat membatalkan transaksi.');
-            }
-          }
-        }
-      ]
-    );
-  };
-
   useEffect(() => {
     if (profile) {
       fetchHistory();
@@ -90,6 +61,15 @@ export default function TopupHistoryScreen() {
     fetchHistory();
   };
 
+  const markAsFailed = async (id: string) => {
+    try {
+      await supabase.from('therapist_topups').update({ status: 'failed' }).eq('id', id);
+      setHistory(prev => prev.map(h => h.id === id ? { ...h, status: 'failed' } : h));
+    } catch (e) {
+      console.error('Auto cancel error:', e);
+    }
+  };
+
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'paid': return { color: t.success, bg: t.success + '15', label: 'Sukses' };
@@ -99,12 +79,25 @@ export default function TopupHistoryScreen() {
     }
   };
 
+  const renderCountdown = (createdAt: string, id: string) => {
+    const expiry = addMinutes(new Date(createdAt), CANCEL_TIMEOUT_MINUTES);
+    const diff = differenceInSeconds(expiry, now);
+
+    if (diff <= 0) {
+      markAsFailed(id);
+      return null;
+    }
+
+    const minutes = Math.floor(diff / 60);
+    const seconds = diff % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
   return (
     <View style={styles.container}>
       {AlertComponent}
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: t.headerBg }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Riwayat Top Up</Text>
@@ -128,6 +121,8 @@ export default function TopupHistoryScreen() {
         ) : (
           history.map((item) => {
             const status = getStatusStyle(item.status);
+            const isPending = item.status === 'pending';
+            
             return (
               <View key={item.id} style={styles.card}>
                 <View style={styles.cardTop}>
@@ -158,17 +153,19 @@ export default function TopupHistoryScreen() {
                   )}
                 </View>
 
-                {item.status === 'pending' && (
+                {isPending && (
+                  <View style={styles.timerContainer}>
+                    <Ionicons name="time-outline" size={14} color={t.danger} />
+                    <Text style={styles.timerText}>
+                      Batal otomatis dalam <Text style={{ fontWeight: 'bold' }}>{renderCountdown(item.created_at, item.id)}</Text>
+                    </Text>
+                  </View>
+                )}
+
+                {isPending && (
                   <View style={styles.actionRow}>
                     <TouchableOpacity 
-                      style={[styles.actionBtn, { borderColor: t.danger + '40' }]} 
-                      onPress={() => handleCancel(item.id)}
-                    >
-                      <Text style={[styles.actionText, { color: t.danger }]}>Batalkan</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={[styles.actionBtn, { backgroundColor: t.secondary, borderColor: t.secondary }]} 
+                      style={[styles.actionBtn, { backgroundColor: t.secondary, borderColor: t.secondary, flex: 1 }]} 
                       onPress={() => router.push({
                         pathname: '/profile/payment-details',
                         params: { data: JSON.stringify(item.payment_data) }
@@ -190,37 +187,28 @@ export default function TopupHistoryScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
   headerTitle: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg, paddingBottom: 40 },
-  
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
   emptyIcon: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg },
   emptyTitle: { ...TYPOGRAPHY.h4, color: t.text, marginBottom: 8 },
   emptySub: { ...TYPOGRAPHY.bodySmall, color: t.textMuted, textAlign: 'center' },
-
-  card: {
-    backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.md,
-    marginBottom: SPACING.md, borderWidth: 1, borderColor: t.border,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
+  card: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: t.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: SPACING.md },
   iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   amount: { ...TYPOGRAPHY.body, color: t.text, fontFamily: 'Inter_700Bold' },
   date: { ...TYPOGRAPHY.caption, color: t.textMuted },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
   statusText: { ...TYPOGRAPHY.caption, fontFamily: 'Inter_700Bold' },
-  
   cardBottom: { borderTopWidth: 1, borderTopColor: t.border, paddingTop: SPACING.sm, gap: 4 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailLabel: { ...TYPOGRAPHY.caption, color: t.textMuted },
   detailValue: { ...TYPOGRAPHY.caption, color: t.textSecondary, fontFamily: 'Inter_600SemiBold' },
-  
+  timerContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, backgroundColor: t.danger + '10', padding: 8, borderRadius: 8 },
+  timerText: { fontSize: 12, color: t.danger },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: SPACING.md, borderTopWidth: 1, borderTopColor: t.border, paddingTop: SPACING.md },
-  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  actionBtn: { paddingVertical: 12, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   actionText: { ...TYPOGRAPHY.bodySmall, fontFamily: 'Inter_700Bold' },
 });
