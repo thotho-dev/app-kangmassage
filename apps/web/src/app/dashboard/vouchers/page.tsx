@@ -388,7 +388,7 @@ export default function VouchersPage() {
                     className="p-1.5 hover:bg-primary/10 rounded-lg transition-colors text-text-primary/40 hover:text-text-primary">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => handleDelete(voucher.id)}
+                  <button onClick={() => handleDeleteVoucher(voucher.id)}
                     className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-text-primary/40 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
