@@ -7,6 +7,7 @@
 - **Halaman Instruksi Pembayaran (Custom UI)**: Layar penuh yang menampilkan Nomor VA, QRIS, dan Kode Pembayaran dengan tema Deep Blue yang konsisten.
 - **Halaman Riwayat Top Up**: Fitur pelacakan transaksi dengan status Sukses, Pending, dan Gagal.
 - **Fitur Batal Otomatis (Timer)**: Implementasi countdown 5 menit untuk transaksi pending. Transaksi otomatis gagal jika tidak dibayar tepat waktu.
+- **Notifikasi Real-time (In-App & Push)**: Implementasi Supabase Realtime untuk update saldo instan dan Expo Push Notifications untuk pemberitahuan saat aplikasi di background.
 - **Ringkasan Pembayaran**: Penambahan rincian biaya admin (Rp 2.500) dan total bayar sebelum checkout.
 - **Pull-to-Refresh**: Sinkronisasi data real-time pada halaman Home, Profil, dan Riwayat.
 
@@ -31,6 +32,5 @@
 ## 📅 Future Roadmap
 - [ ] **QRIS Payment Collection**: Fitur agar terapis bisa menerima pembayaran langsung dari pelanggan via QRIS yang terintegrasi ke saldo aplikasi.
 - [ ] **Sistem Withdraw (Tarik Dana)**: Integrasi Midtrans Iris untuk memudahkan terapis mencairkan saldo ke rekening bank mereka secara instan.
-- [ ] **Notifikasi Real-time**: Push notification saat ada pembayaran masuk atau status top-up berubah.
 
 *Dokumen ini diperbarui secara berkala seiring berjalannya pengembangan.*
