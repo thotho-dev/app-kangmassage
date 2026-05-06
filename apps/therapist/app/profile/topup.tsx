@@ -13,26 +13,14 @@ const PRESETS = [50000, 100000, 200000, 500000, 1000000];
 const MIN_TOPUP = 20000;
 const ADMIN_FEE = 2500;
 
-// High-quality and reliable logo URLs
-const LOGOS = {
-  gopay: 'https://rekreartive.com/wp-content/uploads/2019/03/Logo-Gopay-Vector-PNG-Baru-Transparan.png',
-  shopeepay: 'https://rekreartive.com/wp-content/uploads/2019/12/Logo-ShopeePay-PNG-Transparan.png',
-  bca: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Bank_Central_Asia.svg/1280px-Bank_Central_Asia.svg.png',
-  mandiri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/1280px-Bank_Mandiri_logo_2016.svg.png',
-  bni: 'https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/1280px-BNI_logo.svg.png',
-  bri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/BRI_Logo.svg/1280px-BRI_Logo.svg.png',
-  alfamart: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Alfamart_logo.svg/1280px-Alfamart_logo.svg.png',
-  indomaret: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Logo_Indomaret.svg/1280px-Logo_Indomaret.svg.png',
-};
-
 const PAYMENT_GROUPS = [
   {
     id: 'ewallet',
     title: 'E-Wallet & QRIS',
     icon: 'qr-code-outline',
     items: [
-      { id: 'gopay', name: 'GoPay / QRIS', image: LOGOS.gopay },
-      { id: 'shopeepay', name: 'ShopeePay', image: LOGOS.shopeepay },
+      { id: 'gopay', name: 'GoPay / QRIS', image: 'https://img.icons8.com/color/100/000000/google-pay.png' }, // Placeholder for testing
+      { id: 'shopeepay', name: 'ShopeePay', image: 'https://img.icons8.com/color/100/000000/wallet--v1.png' },
     ]
   },
   {
@@ -40,10 +28,10 @@ const PAYMENT_GROUPS = [
     title: 'Virtual Account (Transfer Bank)',
     icon: 'card-outline',
     items: [
-      { id: 'bca_va', name: 'BCA Virtual Account', image: LOGOS.bca },
-      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: LOGOS.mandiri },
-      { id: 'bni_va', name: 'BNI Virtual Account', image: LOGOS.bni },
-      { id: 'bri_va', name: 'BRI Virtual Account', image: LOGOS.bri },
+      { id: 'bca_va', name: 'BCA Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
+      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
+      { id: 'bni_va', name: 'BNI Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
+      { id: 'bri_va', name: 'BRI Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
     ]
   },
   {
@@ -51,8 +39,8 @@ const PAYMENT_GROUPS = [
     title: 'Gerai Retail',
     icon: 'storefront-outline',
     items: [
-      { id: 'alfamart', name: 'Alfamart', image: LOGOS.alfamart },
-      { id: 'indomaret', name: 'Indomaret', image: LOGOS.indomaret },
+      { id: 'alfamart', name: 'Alfamart', image: 'https://img.icons8.com/color/100/000000/shop.png' },
+      { id: 'indomaret', name: 'Indomaret', image: 'https://img.icons8.com/color/100/000000/shop.png' },
     ]
   }
 ];
@@ -197,9 +185,7 @@ export default function TopupScreen() {
                   <View style={styles.groupContent}>
                     {group.items.map((item) => (
                       <TouchableOpacity key={item.id} style={[styles.methodItem, selectedMethod === item.id && { borderColor: t.secondary, backgroundColor: t.secondary + '05' }]} onPress={() => setSelectedMethod(item.id)}>
-                        <View style={styles.logoWrapper}>
-                          <Image source={{ uri: item.image }} style={styles.paymentLogo} />
-                        </View>
+                        <Image source={{ uri: item.image }} style={styles.paymentLogo} />
                         <Text style={styles.methodName}>{item.name}</Text>
                         <View style={[styles.radio, selectedMethod === item.id && { borderColor: t.secondary }]}>
                           {selectedMethod === item.id && <View style={[styles.radioInner, { backgroundColor: t.secondary }]} />}
@@ -266,8 +252,7 @@ const getStyles = (t: any) => StyleSheet.create({
   groupTitle: { ...TYPOGRAPHY.body, color: t.text, flex: 1, fontFamily: 'Inter_600SemiBold' },
   groupContent: { padding: SPACING.sm, gap: SPACING.xs },
   methodItem: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: RADIUS.md, padding: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
-  logoWrapper: { width: 50, height: 30, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 6, padding: 4 },
-  paymentLogo: { width: '100%', height: '100%', resizeMode: 'contain' },
+  paymentLogo: { width: 32, height: 32, resizeMode: 'contain' },
   methodName: { ...TYPOGRAPHY.bodySmall, color: t.text, flex: 1, fontFamily: 'Inter_500Medium' },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
