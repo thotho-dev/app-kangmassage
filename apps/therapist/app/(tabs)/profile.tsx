@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
@@ -27,8 +27,9 @@ const MENU_ITEMS = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile, isOnline, loading, toggleOnline } = useTherapistStore();
+  const { profile, isOnline, loading, toggleOnline, fetchProfile } = useTherapistStore();
   const [isToggling, setIsToggling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const t = useThemeColors();
@@ -52,6 +53,12 @@ export default function ProfileScreen() {
         { text: 'Ya, Keluar', style: 'destructive', onPress: handleLogout },
       ]
     );
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProfile();
+    setRefreshing(false);
   };
 
   const handleToggle = async () => {
@@ -83,7 +90,17 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       {AlertComponent}
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={t.secondary}
+            colors={[t.secondary]}
+          />
+        }
+      >
         {/* Header */}
         <View style={[styles.header, { backgroundColor: t.headerBg, paddingBottom: SPACING.xl, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }]}>
           <View style={styles.profileRow}>

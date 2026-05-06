@@ -45,6 +45,13 @@ export async function POST(req: NextRequest) {
     // 3. Call Midtrans API
     const authString = Buffer.from(`${MIDTRANS_SERVER_KEY}:`).toString('base64');
     
+    // Map UI payment method to Midtrans enabled_payments
+    let enabled_payments: string[] | undefined = undefined;
+    if (payment_method && payment_method !== 'other') {
+      if (payment_method === 'gopay') enabled_payments = ['gopay', 'qris'];
+      else enabled_payments = [payment_method];
+    }
+
     const payload = {
       transaction_details: {
         order_id: order_id,
@@ -63,7 +70,7 @@ export async function POST(req: NextRequest) {
           name: 'Top Up Saldo Mitra Pijat',
         },
       ],
-      enabled_payments: payment_method ? [payment_method] : undefined,
+      enabled_payments: enabled_payments,
     };
 
     // If no real server key, return mock

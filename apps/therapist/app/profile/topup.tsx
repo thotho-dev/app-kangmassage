@@ -12,10 +12,15 @@ import { useAlert } from '../../components/CustomAlert';
 const PRESETS = [50000, 100000, 200000, 500000, 1000000];
 
 const PAYMENT_METHODS = [
-  { id: 'bca_va', name: 'BCA Virtual Account', icon: 'business-outline' },
-  { id: 'mandiri_va', name: 'Mandiri Virtual Account', icon: 'business-outline' },
   { id: 'gopay', name: 'GoPay / QRIS', icon: 'qr-code-outline' },
   { id: 'shopeepay', name: 'ShopeePay', icon: 'wallet-outline' },
+  { id: 'bca_va', name: 'BCA Virtual Account', icon: 'business-outline' },
+  { id: 'mandiri_va', name: 'Mandiri Virtual Account', icon: 'business-outline' },
+  { id: 'bni_va', name: 'BNI Virtual Account', icon: 'business-outline' },
+  { id: 'bri_va', name: 'BRI Virtual Account', icon: 'business-outline' },
+  { id: 'alfamart', name: 'Alfamart', icon: 'storefront-outline' },
+  { id: 'indomaret', name: 'Indomaret', icon: 'storefront-outline' },
+  { id: 'other', name: 'Metode Lainnya', icon: 'apps-outline' },
 ];
 
 export default function TopupScreen() {
@@ -84,7 +89,10 @@ export default function TopupScreen() {
         'success', 
         'Transaksi Selesai', 
         'Silakan cek saldo Anda secara berkala dalam beberapa menit.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        [{ text: 'OK', onPress: () => {
+          useTherapistStore.getState().fetchProfile(); // Ambil data saldo terbaru
+          router.back();
+        }}]
       );
     }
   };

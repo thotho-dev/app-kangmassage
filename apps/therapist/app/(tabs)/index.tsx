@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator,
+  ActivityIndicator, RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Droplet, Layers } from 'lucide-react-native';
@@ -22,6 +22,8 @@ export default function DashboardScreen() {
   const [networkType, setNetworkType] = useState<string>('Unknown');
   const [currentAddress, setCurrentAddress] = useState('Mencari lokasi...');
   const [isLocating, setIsLocating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const { fetchProfile } = useTherapistStore();
   
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
@@ -124,6 +126,16 @@ export default function DashboardScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchProfile(),
+      fetchDashboardData(),
+      updateLocation()
+    ]);
+    setRefreshing(false);
+  };
+
   const styles = getStyles(t);
 
   const stats = [
@@ -168,7 +180,18 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor={t.secondary}
+            colors={[t.secondary]}
+          />
+        }
+      >
         
         {/* Current Location */}
         <View style={styles.locationContainer}>
@@ -179,17 +202,6 @@ export default function DashboardScreen() {
               {currentAddress}
             </Text>
           </View>
-          <TouchableOpacity 
-            style={styles.refreshBtn} 
-            onPress={updateLocation}
-            disabled={isLocating}
-          >
-            {isLocating ? (
-              <ActivityIndicator size="small" color={t.secondary} />
-            ) : (
-              <Ionicons name="refresh-outline" size={16} color={t.textMuted} />
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* Balance Card - Solid Blue */}
