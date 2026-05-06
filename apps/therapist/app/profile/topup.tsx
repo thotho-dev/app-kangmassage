@@ -13,15 +13,16 @@ const PRESETS = [50000, 100000, 200000, 500000, 1000000];
 const MIN_TOPUP = 20000;
 const ADMIN_FEE = 2500;
 
+// High-quality and reliable logo URLs
 const LOGOS = {
-  gopay: 'https://i.ibb.co/8Ym8F2n/gopay.png',
-  shopeepay: 'https://i.ibb.co/vYm6zW2/shopeepay.png',
-  bca: 'https://i.ibb.co/M9V6Y6T/bca.png',
-  mandiri: 'https://i.ibb.co/mH0y2Kq/mandiri.png',
-  bni: 'https://i.ibb.co/k0rN2Xq/bni.png',
-  bri: 'https://i.ibb.co/VWV6zW2/bri.png',
-  alfamart: 'https://i.ibb.co/mH0y2Kq/alfamart.png',
-  indomaret: 'https://i.ibb.co/M9V6Y6T/indomaret.png',
+  gopay: 'https://rekreartive.com/wp-content/uploads/2019/03/Logo-Gopay-Vector-PNG-Baru-Transparan.png',
+  shopeepay: 'https://rekreartive.com/wp-content/uploads/2019/12/Logo-ShopeePay-PNG-Transparan.png',
+  bca: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Bank_Central_Asia.svg/1280px-Bank_Central_Asia.svg.png',
+  mandiri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/1280px-Bank_Mandiri_logo_2016.svg.png',
+  bni: 'https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/1280px-BNI_logo.svg.png',
+  bri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/BRI_Logo.svg/1280px-BRI_Logo.svg.png',
+  alfamart: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Alfamart_logo.svg/1280px-Alfamart_logo.svg.png',
+  indomaret: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Logo_Indomaret.svg/1280px-Logo_Indomaret.svg.png',
 };
 
 const PAYMENT_GROUPS = [
@@ -30,8 +31,8 @@ const PAYMENT_GROUPS = [
     title: 'E-Wallet & QRIS',
     icon: 'qr-code-outline',
     items: [
-      { id: 'gopay', name: 'GoPay / QRIS', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Gopay_logo.svg/512px-Gopay_logo.svg.png' },
-      { id: 'shopeepay', name: 'ShopeePay', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/ShopeePay.svg/512px-ShopeePay.svg.png' },
+      { id: 'gopay', name: 'GoPay / QRIS', image: LOGOS.gopay },
+      { id: 'shopeepay', name: 'ShopeePay', image: LOGOS.shopeepay },
     ]
   },
   {
@@ -39,10 +40,10 @@ const PAYMENT_GROUPS = [
     title: 'Virtual Account (Transfer Bank)',
     icon: 'card-outline',
     items: [
-      { id: 'bca_va', name: 'BCA Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Bank_Central_Asia.svg/512px-Bank_Central_Asia.svg.png' },
-      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/512px-Bank_Mandiri_logo_2016.svg.png' },
-      { id: 'bni_va', name: 'BNI Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/512px-BNI_logo.svg.png' },
-      { id: 'bri_va', name: 'BRI Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/BRI_Logo.svg/512px-BRI_Logo.svg.png' },
+      { id: 'bca_va', name: 'BCA Virtual Account', image: LOGOS.bca },
+      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: LOGOS.mandiri },
+      { id: 'bni_va', name: 'BNI Virtual Account', image: LOGOS.bni },
+      { id: 'bri_va', name: 'BRI Virtual Account', image: LOGOS.bri },
     ]
   },
   {
@@ -50,8 +51,8 @@ const PAYMENT_GROUPS = [
     title: 'Gerai Retail',
     icon: 'storefront-outline',
     items: [
-      { id: 'alfamart', name: 'Alfamart', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Alfamart_logo.svg/512px-Alfamart_logo.svg.png' },
-      { id: 'indomaret', name: 'Indomaret', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Logo_Indomaret.svg/512px-Logo_Indomaret.svg.png' },
+      { id: 'alfamart', name: 'Alfamart', image: LOGOS.alfamart },
+      { id: 'indomaret', name: 'Indomaret', image: LOGOS.indomaret },
     ]
   }
 ];
@@ -197,7 +198,7 @@ export default function TopupScreen() {
                     {group.items.map((item) => (
                       <TouchableOpacity key={item.id} style={[styles.methodItem, selectedMethod === item.id && { borderColor: t.secondary, backgroundColor: t.secondary + '05' }]} onPress={() => setSelectedMethod(item.id)}>
                         <View style={styles.logoWrapper}>
-                          <Image source={{ uri: item.image }} style={styles.paymentLogo} resizeMode="contain" />
+                          <Image source={{ uri: item.image }} style={styles.paymentLogo} />
                         </View>
                         <Text style={styles.methodName}>{item.name}</Text>
                         <View style={[styles.radio, selectedMethod === item.id && { borderColor: t.secondary }]}>
@@ -265,8 +266,8 @@ const getStyles = (t: any) => StyleSheet.create({
   groupTitle: { ...TYPOGRAPHY.body, color: t.text, flex: 1, fontFamily: 'Inter_600SemiBold' },
   groupContent: { padding: SPACING.sm, gap: SPACING.xs },
   methodItem: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: RADIUS.md, padding: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
-  logoWrapper: { width: 40, height: 24, justifyContent: 'center', alignItems: 'center' },
-  paymentLogo: { width: '100%', height: '100%' },
+  logoWrapper: { width: 50, height: 30, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 6, padding: 4 },
+  paymentLogo: { width: '100%', height: '100%', resizeMode: 'contain' },
   methodName: { ...TYPOGRAPHY.bodySmall, color: t.text, flex: 1, fontFamily: 'Inter_500Medium' },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
