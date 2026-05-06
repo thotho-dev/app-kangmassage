@@ -27,13 +27,16 @@ export async function POST(req: NextRequest) {
     if (tError || !therapist) return NextResponse.json({ error: 'Therapist not found' }, { status: 404 });
 
     const order_id = `TOPUP-${Date.now()}-${therapist.id.slice(0, 8)}`;
+    const ADMIN_FEE = 2500;
+    const netAmount = amount - ADMIN_FEE;
 
     // 2. Create Topup Record
     const { data: topup, error: topupError } = await supabase
       .from('therapist_topups')
       .insert([{
         therapist_id,
-        amount,
+        amount: netAmount,
+        fee: ADMIN_FEE,
         status: 'pending',
         external_id: order_id,
         payment_method,
