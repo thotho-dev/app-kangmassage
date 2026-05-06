@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, LayoutAnimation, Image, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation } from 'react-native';
 import { useThemeColors } from '../../store/themeStore';
 import { useTherapistStore } from '../../store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,9 +54,6 @@ export default function TopupScreen() {
   const [selectedMethod, setSelectedMethod] = useState('');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
-  
-  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
-  const [paymentData, setPaymentData] = useState<any>(null);
 
   const formatNumber = (num: string) => {
     const value = num.replace(/\D/g, '');
@@ -69,11 +66,6 @@ export default function TopupScreen() {
   const toggleGroup = (groupId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedGroup(expandedGroup === groupId ? null : groupId);
-  };
-
-  const copyToClipboard = (text: string) => {
-    Clipboard.setString(text);
-    showAlert('success', 'Berhasil', 'Nomor berhasil disalin ke clipboard');
   };
 
   const handleTopup = async () => {
@@ -102,8 +94,11 @@ export default function TopupScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      setPaymentData(result.data);
-      setShowPaymentDetails(true);
+      // Navigate to full screen payment details
+      router.push({
+        pathname: '/profile/payment-details',
+        params: { data: JSON.stringify(result.data) }
+      });
     } catch (error: any) {
       showAlert('error', 'Gagal', error.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -112,73 +107,6 @@ export default function TopupScreen() {
   };
 
   const isAmountValid = getRawAmount() >= MIN_TOPUP;
-
-  const renderPaymentInstructions = () => {
-    if (!paymentData) return null;
-
-    const { payment_type, va_numbers, permata_va_number, bill_key, biller_code, actions, payment_code } = paymentData;
-    let code = '';
-    let label = 'Nomor Bayar';
-    let qrUrl = '';
-
-    if (va_numbers) {
-      code = va_numbers[0].va_number;
-      label = `VA ${va_numbers[0].bank.toUpperCase()}`;
-    } else if (permata_va_number) {
-      code = permata_va_number;
-      label = 'VA PERMATA';
-    } else if (bill_key) {
-      code = `${biller_code} ${bill_key}`;
-      label = 'Mandiri Bill Code';
-    } else if (payment_type === 'gopay' || payment_type === 'qris') {
-      qrUrl = actions?.find((a: any) => a.name === 'generate-qr-code')?.url;
-    } else if (payment_code) {
-      code = payment_code;
-      label = 'Kode Pembayaran';
-    }
-
-    return (
-      <View style={styles.paymentCard}>
-        <Text style={styles.paymentMethodTitle}>{label}</Text>
-        
-        {qrUrl ? (
-          <View style={styles.qrContainer}>
-            <Image source={{ uri: qrUrl }} style={styles.qrImage} />
-            <Text style={styles.qrHint}>Scan QR di atas menggunakan aplikasi pembayaran Anda</Text>
-          </View>
-        ) : (
-          <View style={styles.codeRow}>
-            <Text style={styles.paymentCode}>{code}</Text>
-            <TouchableOpacity onPress={() => copyToClipboard(code)} style={styles.copyBtn}>
-              <Ionicons name="copy-outline" size={20} color={t.secondary} />
-              <Text style={{ color: t.secondary, fontWeight: 'bold' }}>Salin</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.instrContainer}>
-          <Text style={styles.instrTitle}>Total Pembayaran</Text>
-          <Text style={styles.instrAmount}>Rp {parseInt(paymentData.gross_amount).toLocaleString('id-ID')}</Text>
-          <View style={styles.divider} />
-          <Text style={styles.instrStep}>1. Buka aplikasi perbankan Anda</Text>
-          <Text style={styles.instrStep}>2. Pilih menu Transfer / Pembayaran</Text>
-          <Text style={styles.instrStep}>3. Masukkan nomor di atas</Text>
-          <Text style={styles.instrStep}>4. Pastikan nominal sesuai dan bayar</Text>
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.doneBtn, { backgroundColor: t.secondary }]} 
-          onPress={() => {
-            setShowPaymentDetails(false);
-            useTherapistStore.getState().fetchProfile();
-            router.push('/profile/topup-history');
-          }}
-        >
-          <Text style={styles.doneBtnText}>Cek Status Pembayaran</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -195,7 +123,6 @@ export default function TopupScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Amount Selection UI ... */}
           <View style={styles.infoCard}>
             <View>
               <Text style={styles.infoLabel}>Saldo Saat Ini</Text>
@@ -284,24 +211,9 @@ export default function TopupScreen() {
                 {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
               </LinearGradient>
             </TouchableOpacity>
+            <Text style={styles.footerNote}>Keamanan transaksi dijamin oleh Midtrans</Text>
           </View>
         </ScrollView>
-
-        <Modal visible={showPaymentDetails} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Instruksi Pembayaran</Text>
-                <TouchableOpacity onPress={() => setShowPaymentDetails(false)}>
-                  <Ionicons name="close" size={24} color={t.text} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                {renderPaymentInstructions()}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -342,28 +254,5 @@ const getStyles = (t: any) => StyleSheet.create({
   
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: RADIUS.full, shadowColor: t.secondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
-  
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: t.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
-  modalTitle: { ...TYPOGRAPHY.h4, color: t.text },
-  
-  paymentCard: { gap: SPACING.md },
-  paymentMethodTitle: { ...TYPOGRAPHY.label, color: t.textSecondary, textAlign: 'center' },
-  codeRow: { backgroundColor: t.surface, padding: 20, borderRadius: RADIUS.lg, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: t.border },
-  paymentCode: { fontSize: 32, color: t.primary, fontFamily: 'Inter_700Bold', letterSpacing: 2 },
-  copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  
-  qrContainer: { alignItems: 'center', gap: 12 },
-  qrImage: { width: 250, height: 250, borderRadius: 16, backgroundColor: '#FFFFFF' },
-  qrHint: { ...TYPOGRAPHY.caption, color: t.textMuted, textAlign: 'center' },
-  
-  instrContainer: { backgroundColor: t.surface, padding: SPACING.lg, borderRadius: RADIUS.lg, gap: 8 },
-  instrTitle: { ...TYPOGRAPHY.caption, color: t.textMuted },
-  instrAmount: { ...TYPOGRAPHY.h2, color: t.text, fontFamily: 'Inter_700Bold' },
-  divider: { height: 1, backgroundColor: t.border, marginVertical: 8 },
-  instrStep: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
-  
-  doneBtn: { paddingVertical: 16, borderRadius: RADIUS.full, alignItems: 'center', marginTop: SPACING.lg },
-  doneBtnText: { ...TYPOGRAPHY.body, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
+  footerNote: { ...TYPOGRAPHY.caption, color: t.textMuted, textAlign: 'center', marginTop: SPACING.md },
 });

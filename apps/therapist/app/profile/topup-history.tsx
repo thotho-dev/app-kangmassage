@@ -49,8 +49,8 @@ export default function TopupHistoryScreen() {
 
   const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'paid': return { color: t.success, bg: t.success + '15', label: 'Berhasil' };
-      case 'pending': return { color: t.warning, bg: t.warning + '15', label: 'Menunggu' };
+      case 'paid': return { color: t.success, bg: t.success + '15', label: 'Sukses' };
+      case 'pending': return { color: t.warning, bg: t.warning + '15', label: 'Pending' };
       case 'failed': return { color: t.danger, bg: t.danger + '15', label: 'Gagal' };
       default: return { color: t.textSecondary, bg: t.border, label: status };
     }
