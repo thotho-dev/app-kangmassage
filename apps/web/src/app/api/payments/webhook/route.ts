@@ -65,6 +65,28 @@ export async function POST(req: NextRequest) {
           });
           if (transError) console.error('Webhook Error: Failed to insert transaction record', transError);
 
+          // 3. Send Push Notification
+          const { data: therapistData } = await supabase.from('therapists').select('push_token').eq('id', topup.therapist_id).single();
+          
+          if (therapistData?.push_token) {
+            try {
+              await fetch('https://exp.host/--/api/v2/push/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  to: therapistData.push_token,
+                  title: 'Top Up Berhasil! 🎉',
+                  body: `Saldo Rp ${topup.amount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
+                  data: { type: 'topup_success' },
+                  sound: 'default',
+                  priority: 'high',
+                }),
+              });
+            } catch (err) {
+              console.error('Failed to send push notification:', err);
+            }
+          }
+
           await supabase.from('notifications').insert({
             therapist_id: topup.therapist_id,
             title: 'Top Up Berhasil!',

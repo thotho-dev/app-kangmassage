@@ -7,6 +7,16 @@ import { supabase } from '../lib/supabase';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
+import { useTopupListener } from '../hooks/useTopupListener';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 // Register background event handler
 try {
@@ -59,6 +69,9 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const t = useThemeColors();
   const isDarkMode = useThemeStore(state => state.isDarkMode);
+
+  // Activate Realtime Payment Listener
+  useTopupListener();
 
   const [loaded, error] = useFonts({
     Inter_400Regular,
