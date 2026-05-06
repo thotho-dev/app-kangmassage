@@ -62,8 +62,13 @@ export default function TopupHistoryScreen() {
                 .eq('id', id);
               
               if (error) throw error;
-              console.log('Cancellation successful in DB');
-              fetchHistory();
+              
+              // Optimistic Update: Langsung ubah di layar agar instan
+              setHistory(prev => prev.map(h => 
+                h.id === id ? { ...h, status: 'failed' } : h
+              ));
+              
+              console.log('Cancellation successful and UI updated locally');
             } catch (error: any) {
               console.error('Cancellation error:', error.message || error);
               showAlert('error', 'Gagal', 'Tidak dapat membatalkan transaksi.');
