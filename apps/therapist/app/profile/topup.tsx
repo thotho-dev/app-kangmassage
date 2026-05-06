@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation } from 'react-native';
 import { useThemeColors } from '../../store/themeStore';
 import { useTherapistStore } from '../../store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
 import { useAlert } from '../../components/CustomAlert';
 
 const PRESETS = [50000, 100000, 200000, 500000, 1000000];
 const MIN_TOPUP = 20000;
+const ADMIN_FEE = 2500;
 
 const PAYMENT_GROUPS = [
   {
@@ -55,6 +56,15 @@ export default function TopupScreen() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
 
+  // Reset inputs when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setDisplayAmount('');
+      setSelectedMethod('');
+      setExpandedGroup('ewallet');
+    }, [])
+  );
+
   const formatNumber = (num: string) => {
     const value = num.replace(/\D/g, '');
     return value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -86,7 +96,7 @@ export default function TopupScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           therapist_id: profile?.id,
-          amount: rawAmount,
+          amount: rawAmount + ADMIN_FEE, // Total with fee for Midtrans
           payment_method: selectedMethod,
         }),
       });
@@ -94,7 +104,6 @@ export default function TopupScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      // Navigate to full screen payment details
       router.push({
         pathname: '/profile/payment-details',
         params: { data: JSON.stringify(result.data) }
@@ -107,6 +116,7 @@ export default function TopupScreen() {
   };
 
   const isAmountValid = getRawAmount() >= MIN_TOPUP;
+  const currentSelectedMethodName = PAYMENT_GROUPS.flatMap(g => g.items).find(i => i.id === selectedMethod)?.name || '-';
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -204,7 +214,33 @@ export default function TopupScreen() {
             ))}
           </View>
 
-          <View style={{ marginTop: SPACING.xl, paddingBottom: 60 }}>
+          {/* Ringkasan Pembayaran */}
+          {isAmountValid && selectedMethod !== '' && (
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Ringkasan Pembayaran</Text>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Nominal Top Up</Text>
+                <Text style={styles.summaryValue}>Rp {getRawAmount().toLocaleString('id-ID')}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Biaya Transaksi</Text>
+                <Text style={styles.summaryValue}>Rp {ADMIN_FEE.toLocaleString('id-ID')}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Metode</Text>
+                <Text style={styles.summaryValue}>{currentSelectedMethodName}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: t.text, fontFamily: 'Inter_700Bold' }]}>Total Bayar</Text>
+                <Text style={[styles.summaryValue, { color: t.secondary, fontSize: 18, fontFamily: 'Inter_800ExtraBold' }]}>
+                  Rp {(getRawAmount() + ADMIN_FEE).toLocaleString('id-ID')}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <View style={{ marginTop: SPACING.lg, paddingBottom: 60 }}>
             <TouchableOpacity onPress={handleTopup} disabled={loading || !isAmountValid || !selectedMethod} activeOpacity={0.85}>
               <LinearGradient colors={loading || !isAmountValid || !selectedMethod ? [t.border, t.border] : [t.secondary, '#EA580C']} style={styles.btn}>
                 <Text style={styles.btnText}>{loading ? 'Memproses...' : 'Lanjutkan Pembayaran'}</Text>
@@ -251,6 +287,13 @@ const getStyles = (t: any) => StyleSheet.create({
   methodName: { ...TYPOGRAPHY.bodySmall, color: t.text, flex: 1, fontFamily: 'Inter_500Medium' },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
+
+  summaryCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: t.secondary + '30', marginTop: SPACING.md },
+  summaryTitle: { ...TYPOGRAPHY.body, color: t.text, fontFamily: 'Inter_700Bold', marginBottom: SPACING.md },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  summaryLabel: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
+  summaryValue: { ...TYPOGRAPHY.bodySmall, color: t.text, fontFamily: 'Inter_600SemiBold' },
+  summaryDivider: { height: 1, backgroundColor: t.border, marginVertical: 12, borderStyle: 'dashed' },
   
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: RADIUS.full, shadowColor: t.secondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
