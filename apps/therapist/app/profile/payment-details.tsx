@@ -47,7 +47,7 @@ export default function PaymentDetailsScreen() {
     <View style={styles.container}>
       {AlertComponent}
       <View style={[styles.header, { backgroundColor: t.headerBg }]}>
-        <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/profile/topup-history')} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Instruksi Pembayaran</Text>

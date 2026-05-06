@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { supabase } from '../../lib/supabase';
 import { useAlert } from '../../components/CustomAlert';
 
 const PRESETS = [50000, 100000, 200000, 500000, 1000000];
@@ -91,6 +92,26 @@ export default function TopupScreen() {
 
     setLoading(true);
     try {
+      // 1. Check for existing pending transaction
+      const { data: pendingTx, error: checkError } = await supabase
+        .from('therapist_topups')
+        .select('id')
+        .eq('therapist_id', profile?.id)
+        .eq('status', 'pending')
+        .limit(1);
+
+      if (pendingTx && pendingTx.length > 0) {
+        showAlert(
+          'warning', 
+          'Transaksi Tertunda', 
+          'Anda masih memiliki transaksi yang belum dibayar. Silakan selesaikan atau tunggu hingga batal otomatis.',
+          [{ text: 'Lihat Riwayat', onPress: () => router.push('/profile/topup-history') }]
+        );
+        setLoading(false);
+        return;
+      }
+
+      // 2. Proceed with creating new transaction
       const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
