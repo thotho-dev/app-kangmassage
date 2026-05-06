@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
         amount,
         status: 'pending',
         external_id: order_id,
+        payment_method,
       }])
       .select()
       .single();
