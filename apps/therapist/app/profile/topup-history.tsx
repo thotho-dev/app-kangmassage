@@ -9,11 +9,14 @@ import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
+import { useAlert } from '../../components/CustomAlert';
+
 export default function TopupHistoryScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
   const router = useRouter();
   const { profile } = useTherapistStore();
+  const { showAlert, AlertComponent } = useAlert();
   
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +33,9 @@ export default function TopupHistoryScreen() {
 
       if (error) throw error;
       setHistory(data || []);
-    } catch (error) {
-      console.error('Error fetching history:', error);
+    } catch (error: any) {
+      console.error('Error fetching history:', error.message || error);
+      showAlert('error', 'Gagal Memuat', 'Tidak dapat mengambil riwayat transaksi.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -39,8 +43,10 @@ export default function TopupHistoryScreen() {
   };
 
   useEffect(() => {
-    fetchHistory();
-  }, []);
+    if (profile) {
+      fetchHistory();
+    }
+  }, [profile]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -58,6 +64,7 @@ export default function TopupHistoryScreen() {
 
   return (
     <View style={styles.container}>
+      {AlertComponent}
       {/* Header */}
       <View style={[styles.header, { backgroundColor: t.headerBg }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
