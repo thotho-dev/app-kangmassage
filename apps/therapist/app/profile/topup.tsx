@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation, Image } from 'react-native';
 import { useThemeColors } from '../../store/themeStore';
 import { useTherapistStore } from '../../store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,14 +13,25 @@ const PRESETS = [50000, 100000, 200000, 500000, 1000000];
 const MIN_TOPUP = 20000;
 const ADMIN_FEE = 2500;
 
+const LOGOS = {
+  gopay: 'https://i.ibb.co/8Ym8F2n/gopay.png',
+  shopeepay: 'https://i.ibb.co/vYm6zW2/shopeepay.png',
+  bca: 'https://i.ibb.co/M9V6Y6T/bca.png',
+  mandiri: 'https://i.ibb.co/mH0y2Kq/mandiri.png',
+  bni: 'https://i.ibb.co/k0rN2Xq/bni.png',
+  bri: 'https://i.ibb.co/VWV6zW2/bri.png',
+  alfamart: 'https://i.ibb.co/mH0y2Kq/alfamart.png',
+  indomaret: 'https://i.ibb.co/M9V6Y6T/indomaret.png',
+};
+
 const PAYMENT_GROUPS = [
   {
     id: 'ewallet',
     title: 'E-Wallet & QRIS',
     icon: 'qr-code-outline',
     items: [
-      { id: 'gopay', name: 'GoPay / QRIS', icon: 'qr-code-outline' },
-      { id: 'shopeepay', name: 'ShopeePay', icon: 'wallet-outline' },
+      { id: 'gopay', name: 'GoPay / QRIS', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Gopay_logo.svg/512px-Gopay_logo.svg.png' },
+      { id: 'shopeepay', name: 'ShopeePay', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/ShopeePay.svg/512px-ShopeePay.svg.png' },
     ]
   },
   {
@@ -28,10 +39,10 @@ const PAYMENT_GROUPS = [
     title: 'Virtual Account (Transfer Bank)',
     icon: 'card-outline',
     items: [
-      { id: 'bca_va', name: 'BCA Virtual Account', icon: 'business-outline' },
-      { id: 'mandiri_va', name: 'Mandiri Virtual Account', icon: 'business-outline' },
-      { id: 'bni_va', name: 'BNI Virtual Account', icon: 'business-outline' },
-      { id: 'bri_va', name: 'BRI Virtual Account', icon: 'business-outline' },
+      { id: 'bca_va', name: 'BCA Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Bank_Central_Asia.svg/512px-Bank_Central_Asia.svg.png' },
+      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/512px-Bank_Mandiri_logo_2016.svg.png' },
+      { id: 'bni_va', name: 'BNI Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/512px-BNI_logo.svg.png' },
+      { id: 'bri_va', name: 'BRI Virtual Account', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/BRI_Logo.svg/512px-BRI_Logo.svg.png' },
     ]
   },
   {
@@ -39,8 +50,8 @@ const PAYMENT_GROUPS = [
     title: 'Gerai Retail',
     icon: 'storefront-outline',
     items: [
-      { id: 'alfamart', name: 'Alfamart', icon: 'storefront-outline' },
-      { id: 'indomaret', name: 'Indomaret', icon: 'storefront-outline' },
+      { id: 'alfamart', name: 'Alfamart', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Alfamart_logo.svg/512px-Alfamart_logo.svg.png' },
+      { id: 'indomaret', name: 'Indomaret', image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Logo_Indomaret.svg/512px-Logo_Indomaret.svg.png' },
     ]
   }
 ];
@@ -57,7 +68,6 @@ export default function TopupScreen() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
 
-  // Reset inputs when screen is focused
   useFocusEffect(
     useCallback(() => {
       setDisplayAmount('');
@@ -92,8 +102,7 @@ export default function TopupScreen() {
 
     setLoading(true);
     try {
-      // 1. Check for existing pending transaction
-      const { data: pendingTx, error: checkError } = await supabase
+      const { data: pendingTx } = await supabase
         .from('therapist_topups')
         .select('id')
         .eq('therapist_id', profile?.id)
@@ -101,23 +110,17 @@ export default function TopupScreen() {
         .limit(1);
 
       if (pendingTx && pendingTx.length > 0) {
-        showAlert(
-          'warning', 
-          'Transaksi Tertunda', 
-          'Anda masih memiliki transaksi yang belum dibayar. Silakan selesaikan atau tunggu hingga batal otomatis.',
-          [{ text: 'Lihat Riwayat', onPress: () => router.push('/profile/topup-history') }]
-        );
+        showAlert('warning', 'Transaksi Tertunda', 'Anda masih memiliki transaksi yang belum dibayar.', [{ text: 'Lihat Riwayat', onPress: () => router.push('/profile/topup-history') }]);
         setLoading(false);
         return;
       }
 
-      // 2. Proceed with creating new transaction
       const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           therapist_id: profile?.id,
-          amount: rawAmount + ADMIN_FEE, // Total with fee for Midtrans
+          amount: rawAmount + ADMIN_FEE,
           payment_method: selectedMethod,
         }),
       });
@@ -125,10 +128,7 @@ export default function TopupScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      router.push({
-        pathname: '/profile/payment-details',
-        params: { data: JSON.stringify(result.data) }
-      });
+      router.push({ pathname: '/profile/payment-details', params: { data: JSON.stringify(result.data) } });
     } catch (error: any) {
       showAlert('error', 'Gagal', error.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -168,29 +168,13 @@ export default function TopupScreen() {
             <Text style={styles.sectionTitle}>Pilih Nominal Top Up</Text>
             <View style={[styles.inputCard, !isAmountValid && displayAmount !== '' && { borderColor: t.danger }]}>
               <Text style={styles.currency}>Rp</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0"
-                placeholderTextColor={t.textMuted}
-                keyboardType="number-pad"
-                value={displayAmount}
-                onChangeText={handleAmountChange}
-              />
+              <TextInput style={styles.input} placeholder="0" placeholderTextColor={t.textMuted} keyboardType="number-pad" value={displayAmount} onChangeText={handleAmountChange} />
             </View>
-            <Text style={[styles.minText, !isAmountValid && displayAmount !== '' ? { color: t.danger } : { color: t.textMuted }]}>
-              Minimal TopUp Rp 20.000
-            </Text>
-
+            <Text style={[styles.minText, !isAmountValid && displayAmount !== '' ? { color: t.danger } : { color: t.textMuted }]}>Minimal TopUp Rp 20.000</Text>
             <View style={styles.presetGrid}>
               {PRESETS.map(p => (
-                <TouchableOpacity
-                  key={p}
-                  style={[styles.presetBtn, getRawAmount() === p && { borderColor: t.secondary, backgroundColor: t.secondary + '10' }]}
-                  onPress={() => handleAmountChange(p.toString())}
-                >
-                  <Text style={[styles.presetText, getRawAmount() === p && { color: t.secondary }]}>
-                    {p >= 1000000 ? `${p / 1000000} Juta` : `${p / 1000}rb`}
-                  </Text>
+                <TouchableOpacity key={p} style={[styles.presetBtn, getRawAmount() === p && { borderColor: t.secondary, backgroundColor: t.secondary + '10' }]} onPress={() => handleAmountChange(p.toString())}>
+                  <Text style={[styles.presetText, getRawAmount() === p && { color: t.secondary }]}>{p >= 1000000 ? `${p / 1000000} Juta` : `${p / 1000}rb`}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -200,11 +184,7 @@ export default function TopupScreen() {
             <Text style={styles.sectionTitle}>Metode Pembayaran</Text>
             {PAYMENT_GROUPS.map((group) => (
               <View key={group.id} style={styles.accordionContainer}>
-                <TouchableOpacity 
-                  style={[styles.groupHeader, expandedGroup === group.id && styles.groupHeaderActive]} 
-                  onPress={() => toggleGroup(group.id)}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={[styles.groupHeader, expandedGroup === group.id && styles.groupHeaderActive]} onPress={() => toggleGroup(group.id)} activeOpacity={0.7}>
                   <View style={[styles.groupIcon, { backgroundColor: t.background }]}>
                     <Ionicons name={group.icon as any} size={20} color={t.textSecondary} />
                   </View>
@@ -215,13 +195,9 @@ export default function TopupScreen() {
                 {expandedGroup === group.id && (
                   <View style={styles.groupContent}>
                     {group.items.map((item) => (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[styles.methodItem, selectedMethod === item.id && { borderColor: t.secondary, backgroundColor: t.secondary + '05' }]}
-                        onPress={() => setSelectedMethod(item.id)}
-                      >
-                        <View style={[styles.methodIcon, { backgroundColor: t.background }]}>
-                          <Ionicons name={item.icon as any} size={18} color={t.primary} />
+                      <TouchableOpacity key={item.id} style={[styles.methodItem, selectedMethod === item.id && { borderColor: t.secondary, backgroundColor: t.secondary + '05' }]} onPress={() => setSelectedMethod(item.id)}>
+                        <View style={styles.logoWrapper}>
+                          <Image source={{ uri: item.image }} style={styles.paymentLogo} resizeMode="contain" />
                         </View>
                         <Text style={styles.methodName}>{item.name}</Text>
                         <View style={[styles.radio, selectedMethod === item.id && { borderColor: t.secondary }]}>
@@ -235,28 +211,16 @@ export default function TopupScreen() {
             ))}
           </View>
 
-          {/* Ringkasan Pembayaran */}
           {isAmountValid && selectedMethod !== '' && (
             <View style={styles.summaryCard}>
               <Text style={styles.summaryTitle}>Ringkasan Pembayaran</Text>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Nominal Top Up</Text>
-                <Text style={styles.summaryValue}>Rp {getRawAmount().toLocaleString('id-ID')}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Biaya Transaksi</Text>
-                <Text style={styles.summaryValue}>Rp {ADMIN_FEE.toLocaleString('id-ID')}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Metode</Text>
-                <Text style={styles.summaryValue}>{currentSelectedMethodName}</Text>
-              </View>
+              <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Nominal Top Up</Text><Text style={styles.summaryValue}>Rp {getRawAmount().toLocaleString('id-ID')}</Text></View>
+              <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Biaya Transaksi</Text><Text style={styles.summaryValue}>Rp {ADMIN_FEE.toLocaleString('id-ID')}</Text></View>
+              <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Metode</Text><Text style={styles.summaryValue}>{currentSelectedMethodName}</Text></View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: t.text, fontFamily: 'Inter_700Bold' }]}>Total Bayar</Text>
-                <Text style={[styles.summaryValue, { color: t.secondary, fontSize: 18, fontFamily: 'Inter_800ExtraBold' }]}>
-                  Rp {(getRawAmount() + ADMIN_FEE).toLocaleString('id-ID')}
-                </Text>
+                <Text style={[styles.summaryValue, { color: t.secondary, fontSize: 18, fontFamily: 'Inter_800ExtraBold' }]}>Rp {(getRawAmount() + ADMIN_FEE).toLocaleString('id-ID')}</Text>
               </View>
             </View>
           )}
@@ -268,7 +232,6 @@ export default function TopupScreen() {
                 {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
               </LinearGradient>
             </TouchableOpacity>
-            <Text style={styles.footerNote}>Keamanan transaksi dijamin oleh Midtrans</Text>
           </View>
         </ScrollView>
       </View>
@@ -295,28 +258,24 @@ const getStyles = (t: any) => StyleSheet.create({
   presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.md },
   presetBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: RADIUS.full, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border },
   presetText: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, fontFamily: 'Inter_600SemiBold' },
-  
   accordionContainer: { marginBottom: SPACING.sm, backgroundColor: t.surface, borderRadius: RADIUS.lg, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
   groupHeader: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, gap: 12 },
   groupHeaderActive: { borderBottomWidth: 1, borderBottomColor: t.border },
   groupIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   groupTitle: { ...TYPOGRAPHY.body, color: t.text, flex: 1, fontFamily: 'Inter_600SemiBold' },
   groupContent: { padding: SPACING.sm, gap: SPACING.xs },
-  
   methodItem: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: RADIUS.md, padding: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
-  methodIcon: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  logoWrapper: { width: 40, height: 24, justifyContent: 'center', alignItems: 'center' },
+  paymentLogo: { width: '100%', height: '100%' },
   methodName: { ...TYPOGRAPHY.bodySmall, color: t.text, flex: 1, fontFamily: 'Inter_500Medium' },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
-
   summaryCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: t.secondary + '30', marginTop: SPACING.md },
   summaryTitle: { ...TYPOGRAPHY.body, color: t.text, fontFamily: 'Inter_700Bold', marginBottom: SPACING.md },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   summaryLabel: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
   summaryValue: { ...TYPOGRAPHY.bodySmall, color: t.text, fontFamily: 'Inter_600SemiBold' },
   summaryDivider: { height: 1, backgroundColor: t.border, marginVertical: 12, borderStyle: 'dashed' },
-  
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: RADIUS.full, shadowColor: t.secondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
-  footerNote: { ...TYPOGRAPHY.caption, color: t.textMuted, textAlign: 'center', marginTop: SPACING.md },
 });
