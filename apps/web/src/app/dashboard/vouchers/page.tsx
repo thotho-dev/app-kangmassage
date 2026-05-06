@@ -467,8 +467,8 @@ export default function VouchersPage() {
         <Portal>
           <VoucherModal
             voucher={modal.voucher}
-            onClose={() => setModal({ open: false })}
-            onSave={() => { setModal({ open: false }); fetchVouchers(); }}
+            onClose={() => setModal({ open: false, voucher: null })}
+            onSave={() => { setModal({ open: false, voucher: null }); fetchVouchers(); }}
           />
         </Portal>
       )}
