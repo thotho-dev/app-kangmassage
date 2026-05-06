@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Pijat Therapist",
+    "slug": "pijat-therapist",
+    "version": "1.0.0",
+    "scheme": "pijat-therapist",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F172A"
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysPermission": "Allow Pijat Therapist to use your location even when the app is in background to receive nearby orders."
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ebf580f7-7482-41e0-b221-aa2495fc4f3e"
+      }
+    },
+    "owner": "rmhbgr"
+  }
+}

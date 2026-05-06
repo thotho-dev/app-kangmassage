@@ -1,0 +1,42 @@
+{
+  "name": "pijat-ondemand",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "apps/user",
+    "apps/therapist",
+    "packages/*"
+  ],
+  "scripts": {
+    "web": "npm run dev --workspace=apps/web",
+    "mobile:user": "npm run start --workspace=apps/user",
+    "mobile:therapist": "npm run start --workspace=apps/therapist"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.1",
+    "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.105.1",
+    "clsx": "^2.1.1",
+    "expo-router": "^6.0.23",
+    "lucide-react-native": "^1.14.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-reanimated": "~4.1.1",
+    "react-native-svg": "^15.15.4",
+    "react-native-web": "^0.21.0",
+    "react-native-worklets": "0.5.1",
+    "tailwind-merge": "^3.5.0"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.1"
+  }
+}
