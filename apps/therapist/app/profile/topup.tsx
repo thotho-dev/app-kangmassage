@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, LayoutAnimation } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, LayoutAnimation, Image, Clipboard } from 'react-native';
 import { useThemeColors } from '../../store/themeStore';
 import { useTherapistStore } from '../../store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { WebView } from 'react-native-webview';
 import { useAlert } from '../../components/CustomAlert';
 
 const PRESETS = [50000, 100000, 200000, 500000, 1000000];
+const MIN_TOPUP = 20000;
 
 const PAYMENT_GROUPS = [
   {
@@ -50,23 +50,36 @@ export default function TopupScreen() {
   const { profile } = useTherapistStore();
   const { showAlert, AlertComponent } = useAlert();
 
-  const [amount, setAmount] = useState('');
+  const [displayAmount, setDisplayAmount] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
   
-  const [showWebView, setShowWebView] = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState('');
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [paymentData, setPaymentData] = useState<any>(null);
+
+  const formatNumber = (num: string) => {
+    const value = num.replace(/\D/g, '');
+    return value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const handleAmountChange = (text: string) => setDisplayAmount(formatNumber(text));
+  const getRawAmount = () => parseInt(displayAmount.replace(/\./g, '')) || 0;
 
   const toggleGroup = (groupId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedGroup(expandedGroup === groupId ? null : groupId);
   };
 
+  const copyToClipboard = (text: string) => {
+    Clipboard.setString(text);
+    showAlert('success', 'Berhasil', 'Nomor berhasil disalin ke clipboard');
+  };
+
   const handleTopup = async () => {
-    const numAmount = parseInt(amount);
-    if (!amount || numAmount < 10000) {
-      showAlert('warning', 'Nominal Tidak Valid', 'Minimal top up adalah Rp 10.000');
+    const rawAmount = getRawAmount();
+    if (rawAmount < MIN_TOPUP) {
+      showAlert('warning', 'Nominal Kurang', `Minimal top up adalah Rp ${MIN_TOPUP.toLocaleString('id-ID')}`);
       return;
     }
     if (!selectedMethod) {
@@ -81,7 +94,7 @@ export default function TopupScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           therapist_id: profile?.id,
-          amount: numAmount,
+          amount: rawAmount,
           payment_method: selectedMethod,
         }),
       });
@@ -89,12 +102,8 @@ export default function TopupScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      if (result.data?.redirect_url) {
-        setPaymentUrl(result.data.redirect_url);
-        setShowWebView(true);
-      } else {
-        throw new Error('Gagal mendapatkan link pembayaran');
-      }
+      setPaymentData(result.data);
+      setShowPaymentDetails(true);
     } catch (error: any) {
       showAlert('error', 'Gagal', error.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -102,19 +111,73 @@ export default function TopupScreen() {
     }
   };
 
-  const onWebViewStateChange = (navState: any) => {
-    if (navState.url.includes('finish') || navState.url.includes('error') || navState.url.includes('callback')) {
-      setShowWebView(false);
-      showAlert(
-        'success', 
-        'Transaksi Selesai', 
-        'Silakan cek saldo Anda secara berkala dalam beberapa menit.',
-        [{ text: 'OK', onPress: () => {
-          useTherapistStore.getState().fetchProfile();
-          router.back();
-        }}]
-      );
+  const isAmountValid = getRawAmount() >= MIN_TOPUP;
+
+  const renderPaymentInstructions = () => {
+    if (!paymentData) return null;
+
+    const { payment_type, va_numbers, permata_va_number, bill_key, biller_code, actions, payment_code } = paymentData;
+    let code = '';
+    let label = 'Nomor Bayar';
+    let qrUrl = '';
+
+    if (va_numbers) {
+      code = va_numbers[0].va_number;
+      label = `VA ${va_numbers[0].bank.toUpperCase()}`;
+    } else if (permata_va_number) {
+      code = permata_va_number;
+      label = 'VA PERMATA';
+    } else if (bill_key) {
+      code = `${biller_code} ${bill_key}`;
+      label = 'Mandiri Bill Code';
+    } else if (payment_type === 'gopay' || payment_type === 'qris') {
+      qrUrl = actions?.find((a: any) => a.name === 'generate-qr-code')?.url;
+    } else if (payment_code) {
+      code = payment_code;
+      label = 'Kode Pembayaran';
     }
+
+    return (
+      <View style={styles.paymentCard}>
+        <Text style={styles.paymentMethodTitle}>{label}</Text>
+        
+        {qrUrl ? (
+          <View style={styles.qrContainer}>
+            <Image source={{ uri: qrUrl }} style={styles.qrImage} />
+            <Text style={styles.qrHint}>Scan QR di atas menggunakan aplikasi pembayaran Anda</Text>
+          </View>
+        ) : (
+          <View style={styles.codeRow}>
+            <Text style={styles.paymentCode}>{code}</Text>
+            <TouchableOpacity onPress={() => copyToClipboard(code)} style={styles.copyBtn}>
+              <Ionicons name="copy-outline" size={20} color={t.secondary} />
+              <Text style={{ color: t.secondary, fontWeight: 'bold' }}>Salin</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.instrContainer}>
+          <Text style={styles.instrTitle}>Total Pembayaran</Text>
+          <Text style={styles.instrAmount}>Rp {parseInt(paymentData.gross_amount).toLocaleString('id-ID')}</Text>
+          <View style={styles.divider} />
+          <Text style={styles.instrStep}>1. Buka aplikasi perbankan Anda</Text>
+          <Text style={styles.instrStep}>2. Pilih menu Transfer / Pembayaran</Text>
+          <Text style={styles.instrStep}>3. Masukkan nomor di atas</Text>
+          <Text style={styles.instrStep}>4. Pastikan nominal sesuai dan bayar</Text>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.doneBtn, { backgroundColor: t.secondary }]} 
+          onPress={() => {
+            setShowPaymentDetails(false);
+            useTherapistStore.getState().fetchProfile();
+            router.push('/profile/topup-history');
+          }}
+        >
+          <Text style={styles.doneBtnText}>Cek Status Pembayaran</Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -132,6 +195,7 @@ export default function TopupScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Amount Selection UI ... */}
           <View style={styles.infoCard}>
             <View>
               <Text style={styles.infoLabel}>Saldo Saat Ini</Text>
@@ -144,26 +208,29 @@ export default function TopupScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Pilih Nominal Top Up</Text>
-            <View style={styles.inputCard}>
+            <View style={[styles.inputCard, !isAmountValid && displayAmount !== '' && { borderColor: t.danger }]}>
               <Text style={styles.currency}>Rp</Text>
               <TextInput
                 style={styles.input}
                 placeholder="0"
                 placeholderTextColor={t.textMuted}
                 keyboardType="number-pad"
-                value={amount}
-                onChangeText={setAmount}
+                value={displayAmount}
+                onChangeText={handleAmountChange}
               />
             </View>
+            <Text style={[styles.minText, !isAmountValid && displayAmount !== '' ? { color: t.danger } : { color: t.textMuted }]}>
+              Minimal TopUp Rp 20.000
+            </Text>
 
             <View style={styles.presetGrid}>
               {PRESETS.map(p => (
                 <TouchableOpacity
                   key={p}
-                  style={[styles.presetBtn, amount === p.toString() && { borderColor: t.secondary, backgroundColor: t.secondary + '10' }]}
-                  onPress={() => setAmount(p.toString())}
+                  style={[styles.presetBtn, getRawAmount() === p && { borderColor: t.secondary, backgroundColor: t.secondary + '10' }]}
+                  onPress={() => handleAmountChange(p.toString())}
                 >
-                  <Text style={[styles.presetText, amount === p.toString() && { color: t.secondary }]}>
+                  <Text style={[styles.presetText, getRawAmount() === p && { color: t.secondary }]}>
                     {p >= 1000000 ? `${p / 1000000} Juta` : `${p / 1000}rb`}
                   </Text>
                 </TouchableOpacity>
@@ -184,11 +251,7 @@ export default function TopupScreen() {
                     <Ionicons name={group.icon as any} size={20} color={t.textSecondary} />
                   </View>
                   <Text style={styles.groupTitle}>{group.title}</Text>
-                  <Ionicons 
-                    name={expandedGroup === group.id ? "chevron-up" : "chevron-down"} 
-                    size={20} 
-                    color={t.textMuted} 
-                  />
+                  <Ionicons name={expandedGroup === group.id ? "chevron-up" : "chevron-down"} size={20} color={t.textMuted} />
                 </TouchableOpacity>
 
                 {expandedGroup === group.id && (
@@ -215,46 +278,28 @@ export default function TopupScreen() {
           </View>
 
           <View style={{ marginTop: SPACING.xl, paddingBottom: 60 }}>
-            <TouchableOpacity
-              onPress={handleTopup}
-              disabled={loading || !amount || !selectedMethod}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={loading || !amount || !selectedMethod ? [t.border, t.border] : [t.secondary, '#EA580C']}
-                style={styles.btn}
-              >
+            <TouchableOpacity onPress={handleTopup} disabled={loading || !isAmountValid || !selectedMethod} activeOpacity={0.85}>
+              <LinearGradient colors={loading || !isAmountValid || !selectedMethod ? [t.border, t.border] : [t.secondary, '#EA580C']} style={styles.btn}>
                 <Text style={styles.btnText}>{loading ? 'Memproses...' : 'Lanjutkan Pembayaran'}</Text>
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-                )}
+                {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
               </LinearGradient>
             </TouchableOpacity>
-            <Text style={styles.footerNote}>Keamanan transaksi dijamin oleh Midtrans</Text>
           </View>
         </ScrollView>
 
-        <Modal visible={showWebView} animationType="slide">
-          <View style={{ flex: 1 }}>
-            <View style={styles.webViewHeader}>
-              <TouchableOpacity onPress={() => setShowWebView(false)} style={styles.closeBtn}>
-                <Ionicons name="close" size={28} color={t.text} />
-              </TouchableOpacity>
-              <Text style={styles.webViewTitle}>Pembayaran Aman</Text>
-              <View style={{ width: 40 }} />
+        <Modal visible={showPaymentDetails} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Instruksi Pembayaran</Text>
+                <TouchableOpacity onPress={() => setShowPaymentDetails(false)}>
+                  <Ionicons name="close" size={24} color={t.text} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {renderPaymentInstructions()}
+              </ScrollView>
             </View>
-            <WebView
-              source={{ uri: paymentUrl }}
-              onNavigationStateChange={onWebViewStateChange}
-              startInLoadingState={true}
-              renderLoading={() => (
-                <View style={styles.webLoading}>
-                  <ActivityIndicator size="large" color={t.primary} />
-                </View>
-              )}
-            />
           </View>
         </Modal>
       </View>
@@ -264,35 +309,22 @@ export default function TopupScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
   headerTitle: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg },
-  infoCard: {
-    backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.lg,
-    borderWidth: 1, borderColor: t.border, marginBottom: SPACING.xl,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
+  infoCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: t.border, marginBottom: SPACING.xl, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   infoLabel: { ...TYPOGRAPHY.caption, color: t.textSecondary, marginBottom: 4 },
   infoValue: { ...TYPOGRAPHY.h2, color: t.text, fontFamily: 'Inter_700Bold' },
   walletIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   section: { marginBottom: SPACING.xl },
   sectionTitle: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, marginBottom: SPACING.md, fontFamily: 'Inter_600SemiBold' },
-  inputCard: {
-    backgroundColor: t.surface, borderRadius: RADIUS.lg, paddingHorizontal: SPACING.lg,
-    paddingVertical: 16, borderWidth: 1.5, borderColor: t.border,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
+  inputCard: { backgroundColor: t.surface, borderRadius: RADIUS.lg, paddingHorizontal: SPACING.lg, paddingVertical: 16, borderWidth: 1.5, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 10 },
   currency: { ...TYPOGRAPHY.h2, color: t.text, fontFamily: 'Inter_700Bold' },
   input: { ...TYPOGRAPHY.h2, color: t.text, flex: 1, fontFamily: 'Inter_700Bold', padding: 0 },
+  minText: { ...TYPOGRAPHY.caption, marginTop: 6, marginLeft: 4, fontFamily: 'Inter_500Medium' },
   presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.md },
-  presetBtn: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: RADIUS.full,
-    backgroundColor: t.surface, borderWidth: 1, borderColor: t.border,
-  },
+  presetBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: RADIUS.full, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border },
   presetText: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, fontFamily: 'Inter_600SemiBold' },
   
   accordionContainer: { marginBottom: SPACING.sm, backgroundColor: t.surface, borderRadius: RADIUS.lg, overflow: 'hidden', borderWidth: 1, borderColor: t.border },
@@ -302,26 +334,36 @@ const getStyles = (t: any) => StyleSheet.create({
   groupTitle: { ...TYPOGRAPHY.body, color: t.text, flex: 1, fontFamily: 'Inter_600SemiBold' },
   groupContent: { padding: SPACING.sm, gap: SPACING.xs },
   
-  methodItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: RADIUS.md, padding: SPACING.sm,
-    borderWidth: 1, borderColor: 'transparent',
-  },
+  methodItem: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: RADIUS.md, padding: SPACING.sm, borderWidth: 1, borderColor: 'transparent' },
   methodIcon: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   methodName: { ...TYPOGRAPHY.bodySmall, color: t.text, flex: 1, fontFamily: 'Inter_500Medium' },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
   
-  btn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    paddingVertical: 16, borderRadius: RADIUS.full,
-    shadowColor: t.secondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
-  },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: RADIUS.full, shadowColor: t.secondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
-  footerNote: { ...TYPOGRAPHY.caption, color: t.textMuted, textAlign: 'center', marginTop: SPACING.md },
   
-  webViewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.surface },
-  webViewTitle: { ...TYPOGRAPHY.h4, color: t.text },
-  closeBtn: { padding: 4 },
-  webLoading: { ...StyleSheet.absoluteFillObject, backgroundColor: t.background, alignItems: 'center', justifyContent: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: t.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.lg, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
+  modalTitle: { ...TYPOGRAPHY.h4, color: t.text },
+  
+  paymentCard: { gap: SPACING.md },
+  paymentMethodTitle: { ...TYPOGRAPHY.label, color: t.textSecondary, textAlign: 'center' },
+  codeRow: { backgroundColor: t.surface, padding: 20, borderRadius: RADIUS.lg, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: t.border },
+  paymentCode: { fontSize: 32, color: t.primary, fontFamily: 'Inter_700Bold', letterSpacing: 2 },
+  copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  
+  qrContainer: { alignItems: 'center', gap: 12 },
+  qrImage: { width: 250, height: 250, borderRadius: 16, backgroundColor: '#FFFFFF' },
+  qrHint: { ...TYPOGRAPHY.caption, color: t.textMuted, textAlign: 'center' },
+  
+  instrContainer: { backgroundColor: t.surface, padding: SPACING.lg, borderRadius: RADIUS.lg, gap: 8 },
+  instrTitle: { ...TYPOGRAPHY.caption, color: t.textMuted },
+  instrAmount: { ...TYPOGRAPHY.h2, color: t.text, fontFamily: 'Inter_700Bold' },
+  divider: { height: 1, backgroundColor: t.border, marginVertical: 8 },
+  instrStep: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
+  
+  doneBtn: { paddingVertical: 16, borderRadius: RADIUS.full, alignItems: 'center', marginTop: SPACING.lg },
+  doneBtnText: { ...TYPOGRAPHY.body, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
 });

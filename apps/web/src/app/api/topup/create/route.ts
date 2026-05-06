@@ -3,30 +3,32 @@ import { createAdminClient } from '@/lib/supabase/server';
 
 const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY;
 const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === 'true';
-
-const API_URL = MIDTRANS_IS_PRODUCTION
-  ? 'https://app.midtrans.com/snap/v1/transactions'
-  : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
+const MIDTRANS_BASE_URL = MIDTRANS_IS_PRODUCTION 
+  ? 'https://api.midtrans.com/v2' 
+  : 'https://api.sandbox.midtrans.com/v2';
 
 export async function POST(req: NextRequest) {
   try {
     const { therapist_id, amount, payment_method } = await req.json();
+
+    if (!therapist_id || !amount || !payment_method) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
     const supabase = createAdminClient();
 
-    // 1. Get Therapist Info
+    // 1. Get Therapist Data
     const { data: therapist, error: tError } = await supabase
       .from('therapists')
-      .select('full_name, email, phone')
+      .select('*')
       .eq('id', therapist_id)
       .single();
 
-    if (tError || !therapist) {
-      return NextResponse.json({ error: 'Therapist not found' }, { status: 404 });
-    }
+    if (tError || !therapist) return NextResponse.json({ error: 'Therapist not found' }, { status: 404 });
 
-    const order_id = `TOPUP-${Date.now()}-${therapist_id.slice(0, 8)}`;
+    const order_id = `TOPUP-${Date.now()}-${therapist.id.slice(0, 8)}`;
 
-    // 2. Create Topup record
+    // 2. Create Topup Record
     const { data: topup, error: topupError } = await supabase
       .from('therapist_topups')
       .insert([{
@@ -39,21 +41,13 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (topupError) {
-      return NextResponse.json({ error: 'Failed to create topup record' }, { status: 500 });
-    }
+    if (topupError) throw topupError;
 
-    // 3. Call Midtrans API
+    // 3. Call Midtrans Core API (Charge)
     const authString = Buffer.from(`${MIDTRANS_SERVER_KEY}:`).toString('base64');
     
-    // Map UI payment method to Midtrans enabled_payments
-    let enabled_payments: string[] | undefined = undefined;
-    if (payment_method && payment_method !== 'other') {
-      if (payment_method === 'gopay') enabled_payments = ['gopay', 'qris'];
-      else enabled_payments = [payment_method];
-    }
-
-    const payload = {
+    let payload: any = {
+      payment_type: '',
       transaction_details: {
         order_id: order_id,
         gross_amount: amount,
@@ -63,35 +57,30 @@ export async function POST(req: NextRequest) {
         email: therapist.email || `${therapist.phone}@pijat.com`,
         phone: therapist.phone,
       },
-      item_details: [
-        {
-          id: 'TOPUP',
-          price: amount,
-          quantity: 1,
-          name: 'Top Up Saldo Mitra Pijat',
-        },
-      ],
-      enabled_payments: enabled_payments,
     };
 
-    // If no real server key, return mock
-    if (!MIDTRANS_SERVER_KEY || MIDTRANS_SERVER_KEY === 'your_midtrans_server_key') {
-      const mockToken = `mock_${Date.now()}`;
-      const mockUrl = `https://app.sandbox.midtrans.com/snap/v2/vtweb/${mockToken}`;
-      return NextResponse.json({
-        data: {
-          token: mockToken,
-          redirect_url: mockUrl,
-          order_id: order_id,
-        }
-      });
+    // Configure payload based on method
+    if (payment_method.includes('_va')) {
+      payload.payment_type = 'bank_transfer';
+      const bank = payment_method.split('_')[0];
+      payload.bank_transfer = { bank: bank };
+    } else if (payment_method === 'gopay') {
+      payload.payment_type = 'gopay';
+    } else if (payment_method === 'shopeepay') {
+      payload.payment_type = 'shopeepay';
+    } else if (payment_method === 'alfamart' || payment_method === 'indomaret') {
+      payload.payment_type = 'cstore';
+      payload.cstore = { store: payment_method, message: 'Topup Saldo Pijat' };
+    } else {
+      // Default to QRIS if unknown
+      payload.payment_type = 'qris';
     }
 
-    const response = await fetch(API_URL, {
+    const response = await fetch(`${MIDTRANS_BASE_URL}/charge`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'Authorization': `Basic ${authString}`,
       },
       body: JSON.stringify(payload),
@@ -99,20 +88,18 @@ export async function POST(req: NextRequest) {
 
     const midtransData = await response.json();
 
-    if (!response.ok) {
-      return NextResponse.json({ error: midtransData.error_messages || 'Midtrans Error' }, { status: 500 });
+    if (midtransData.status_code !== '201') {
+      console.error('Midtrans Charge Error:', midtransData);
+      return NextResponse.json({ error: midtransData.status_message || 'Midtrans error' }, { status: 400 });
     }
 
-    return NextResponse.json({
-      data: {
-        token: midtransData.token,
-        redirect_url: midtransData.redirect_url,
-        order_id: order_id,
-      }
+    return NextResponse.json({ 
+      status: 'success',
+      data: midtransData 
     });
 
   } catch (error: any) {
-    console.error('Topup Error:', error);
+    console.error('Topup API Error:', error.message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
