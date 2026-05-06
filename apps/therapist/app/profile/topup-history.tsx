@@ -42,6 +42,34 @@ export default function TopupHistoryScreen() {
     }
   };
 
+  const handleCancel = async (id: string) => {
+    showAlert(
+      'warning',
+      'Batalkan Top Up?',
+      'Apakah Anda yakin ingin membatalkan transaksi ini?',
+      [
+        { text: 'Tidak' },
+        { 
+          text: 'Ya, Batalkan', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('therapist_topups')
+                .update({ status: 'failed' })
+                .eq('id', id);
+              
+              if (error) throw error;
+              fetchHistory();
+            } catch (error) {
+              showAlert('error', 'Gagal', 'Tidak dapat membatalkan transaksi.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   useEffect(() => {
     if (profile) {
       fetchHistory();
@@ -120,6 +148,28 @@ export default function TopupHistoryScreen() {
                     </View>
                   )}
                 </View>
+
+                {item.status === 'pending' && (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { borderColor: t.danger + '40' }]} 
+                      onPress={() => handleCancel(item.id)}
+                    >
+                      <Text style={[styles.actionText, { color: t.danger }]}>Batalkan</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: t.secondary, borderColor: t.secondary }]} 
+                      onPress={() => router.push({
+                        pathname: '/profile/payment-details',
+                        params: { data: JSON.stringify(item.payment_data) }
+                      })}
+                      disabled={!item.payment_data}
+                    >
+                      <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Lanjut Bayar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             );
           })
@@ -160,4 +210,8 @@ const getStyles = (t: any) => StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailLabel: { ...TYPOGRAPHY.caption, color: t.textMuted },
   detailValue: { ...TYPOGRAPHY.caption, color: t.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: SPACING.md, borderTopWidth: 1, borderTopColor: t.border, paddingTop: SPACING.md },
+  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  actionText: { ...TYPOGRAPHY.bodySmall, fontFamily: 'Inter_700Bold' },
 });

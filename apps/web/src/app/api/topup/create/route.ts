@@ -93,6 +93,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: midtransData.status_message || 'Midtrans error' }, { status: 400 });
     }
 
+    // 4. Update Topup Record with Payment Data
+    await supabase
+      .from('therapist_topups')
+      .update({ payment_data: midtransData })
+      .eq('id', topup.id);
+
     return NextResponse.json({ 
       status: 'success',
       data: midtransData 
