@@ -43,6 +43,7 @@ export default function TopupHistoryScreen() {
   };
 
   const handleCancel = async (id: string) => {
+    console.log('Attempting to cancel topup:', id);
     showAlert(
       'warning',
       'Batalkan Top Up?',
@@ -53,6 +54,7 @@ export default function TopupHistoryScreen() {
           text: 'Ya, Batalkan', 
           style: 'destructive', 
           onPress: async () => {
+            console.log('User confirmed cancellation for:', id);
             try {
               const { error } = await supabase
                 .from('therapist_topups')
@@ -60,8 +62,10 @@ export default function TopupHistoryScreen() {
                 .eq('id', id);
               
               if (error) throw error;
+              console.log('Cancellation successful in DB');
               fetchHistory();
-            } catch (error) {
+            } catch (error: any) {
+              console.error('Cancellation error:', error.message || error);
               showAlert('error', 'Gagal', 'Tidak dapat membatalkan transaksi.');
             }
           }
