@@ -77,13 +77,15 @@ export default function TopupScreen() {
   };
 
   const onWebViewStateChange = (navState: any) => {
-    // Detect completion (Midtrans usually redirects back or shows a finish page)
-    if (navState.url.includes('callback') || navState.url.includes('finish') || navState.url.includes('error')) {
-      setTimeout(() => {
-        setShowWebView(false);
-        router.back();
-        showAlert('success', 'Transaksi Selesai', 'Silakan cek saldo Anda beberapa saat lagi.');
-      }, 2000);
+    // Detect completion (Midtrans redirects)
+    if (navState.url.includes('finish') || navState.url.includes('error') || navState.url.includes('callback')) {
+      setShowWebView(false);
+      showAlert(
+        'success', 
+        'Transaksi Selesai', 
+        'Silakan cek saldo Anda secara berkala dalam beberapa menit.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
     }
   };
 

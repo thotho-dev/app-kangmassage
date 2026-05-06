@@ -31,37 +31,47 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (fetchError || !topup) {
+        console.error('Webhook Error: Topup record not found for ID', order_id);
         return NextResponse.json({ error: 'Topup record not found' }, { status: 404 });
       }
 
       // Update Topup Status
-      await supabase.from('therapist_topups').update({ 
+      const { error: updateTopupError } = await supabase.from('therapist_topups').update({ 
         status: paymentStatus === 'paid' ? 'paid' : paymentStatus === 'failed' ? 'failed' : 'pending' 
       }).eq('id', topup.id);
 
+      if (updateTopupError) console.error('Webhook Error: Failed to update topup status', updateTopupError);
+
       // If Paid, Update Balance & Create Transaction
       if (paymentStatus === 'paid' && topup.status !== 'paid') {
-        const { data: therapist } = await supabase.from('therapists').select('wallet_balance').eq('id', topup.therapist_id).single();
-        const newBalance = (therapist?.wallet_balance || 0) + topup.amount;
+        const { data: therapist, error: therapistError } = await supabase.from('therapists').select('wallet_balance').eq('id', topup.therapist_id).single();
         
-        await supabase.from('therapists').update({ wallet_balance: newBalance }).eq('id', topup.therapist_id);
+        if (therapistError) {
+          console.error('Webhook Error: Failed to fetch therapist balance', therapistError);
+        } else {
+          const newBalance = (therapist?.wallet_balance || 0) + topup.amount;
+          
+          const { error: balanceError } = await supabase.from('therapists').update({ wallet_balance: newBalance }).eq('id', topup.therapist_id);
+          if (balanceError) console.error('Webhook Error: Failed to update therapist balance', balanceError);
 
-        await supabase.from('transactions').insert({
-          therapist_id: topup.therapist_id,
-          type: 'credit',
-          amount: topup.amount,
-          balance_before: therapist?.wallet_balance || 0,
-          balance_after: newBalance,
-          description: `Topup Saldo via Midtrans`,
-          reference_id: body.transaction_id,
-        });
+          const { error: transError } = await supabase.from('transactions').insert({
+            therapist_id: topup.therapist_id,
+            type: 'credit',
+            amount: topup.amount,
+            balance_before: therapist?.wallet_balance || 0,
+            balance_after: newBalance,
+            description: `Topup Saldo via Midtrans`,
+            reference_id: body.transaction_id,
+          });
+          if (transError) console.error('Webhook Error: Failed to insert transaction record', transError);
 
-        await supabase.from('notifications').insert({
-          therapist_id: topup.therapist_id,
-          title: 'Top Up Berhasil!',
-          body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
-          type: 'topup_success',
-        });
+          await supabase.from('notifications').insert({
+            therapist_id: topup.therapist_id,
+            title: 'Top Up Berhasil!',
+            body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
+            type: 'topup_success',
+          });
+        }
       }
       
       return NextResponse.json({ status: 'ok', type: 'topup' });
