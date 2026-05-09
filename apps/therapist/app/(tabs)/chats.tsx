@@ -1,70 +1,102 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { useThemeColors, useThemeStore } from '../../store/themeStore';
+import { useTherapistStore } from '../../store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { LinearGradient } from 'expo-linear-gradient';
-
-const MOCK_CHATS = [
-  {
-    id: '1',
-    name: 'Siti Rahayu',
-    lastMessage: 'Mas, sudah sampai mana ya? Saya sudah di lokasi.',
-    time: '10:30',
-    unread: 2,
-    online: true,
-    avatar: 'https://i.pravatar.cc/150?u=siti',
-  },
-  {
-    id: '2',
-    name: 'Budi Santoso',
-    lastMessage: 'Terima kasih mas, pijatannya enak sekali.',
-    time: 'Kemarin',
-    unread: 0,
-    online: false,
-    avatar: 'https://i.pravatar.cc/150?u=budi',
-  },
-  {
-    id: '3',
-    name: 'Anisa Putri',
-    lastMessage: 'Bisa minta tolong bawakan aromaterapi yang lavender?',
-    time: 'Kemarin',
-    unread: 0,
-    online: true,
-    avatar: 'https://i.pravatar.cc/150?u=anisa',
-  },
-];
+import { useRouter, useFocusEffect } from 'expo-router';
+import { supabase } from '../../lib/supabase';
+import { format } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 
 export default function ChatsScreen() {
   const t = useThemeColors();
-  const [search, setSearch] = useState('');
+  const isDarkMode = useThemeStore(state => state.isDarkMode);
+  const { profile } = useTherapistStore();
+  const router = useRouter();
 
-  const renderItem = ({ item }: { item: typeof MOCK_CHATS[0] }) => (
+  const [search, setSearch] = useState('');
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchConversations = async (isRefreshing = false) => {
+    if (!profile) return;
+    if (!isRefreshing) setLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+          *,
+          users (id, full_name, avatar_url)
+        `)
+        .eq('therapist_id', profile.id)
+        .order('last_message_at', { ascending: false });
+
+      if (error) throw error;
+      setConversations(data || []);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchConversations();
+    }, [profile])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchConversations(true);
+  };
+
+  const filteredChats = conversations.filter(chat => 
+    chat.users?.full_name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+
+  const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={[styles.chatCard, { backgroundColor: t.surface, borderColor: t.border }]}
       activeOpacity={0.7}
+      onPress={() => router.push(`/chats/${item.id}`)}
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.avatar }} style={styles.avatar} />
-        {item.online && <View style={[styles.onlineBadge, { borderColor: t.surface }]} />}
+        {item.users?.avatar_url ? (
+          <Image source={{ uri: item.users.avatar_url }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: t.primary + '20', alignItems: 'center', justifyContent: 'center' }]}>
+            <Text style={{ color: t.primary, fontWeight: 'bold' }}>{item.users?.full_name?.[0]}</Text>
+          </View>
+        )}
       </View>
       
       <View style={styles.chatInfo}>
         <View style={styles.chatHeader}>
-          <Text style={[styles.name, { color: t.text }]}>{item.name}</Text>
-          <Text style={[styles.time, { color: t.textMuted }]}>{item.time}</Text>
+          <Text style={[styles.name, { color: t.text }]}>{item.users?.full_name || 'Pelanggan'}</Text>
+          <Text style={[styles.time, { color: t.textMuted }]}>
+            {item.last_message_at ? format(new Date(item.last_message_at), 'HH:mm', { locale: localeId }) : ''}
+          </Text>
         </View>
         
         <View style={styles.messageRow}>
           <Text 
             numberOfLines={1} 
-            style={[styles.lastMessage, { color: item.unread > 0 ? t.text : t.textMuted, fontFamily: item.unread > 0 ? 'Inter_600SemiBold' : 'Inter_400Regular' }]}
+            style={[styles.lastMessage, { 
+              color: item.therapist_unread_count > 0 ? t.text : t.textMuted, 
+              fontFamily: item.therapist_unread_count > 0 ? 'Inter_600SemiBold' : 'Inter_400Regular' 
+            }]}
           >
-            {item.lastMessage}
+            {item.last_message || 'Belum ada pesan'}
           </Text>
-          {item.unread > 0 && (
+          {item.therapist_unread_count > 0 && (
             <View style={[styles.unreadBadge, { backgroundColor: t.secondary }]}>
-              <Text style={styles.unreadText}>{item.unread}</Text>
+              <Text style={styles.unreadText}>{item.therapist_unread_count}</Text>
             </View>
           )}
         </View>
@@ -75,21 +107,21 @@ export default function ChatsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Pesan</Text>
-          <TouchableOpacity style={styles.headerIcon}>
-            <Ionicons name="settings-outline" size={22} color="#fff" />
+          <Text style={[styles.headerTitle, { color: t.text }]}>Pesan</Text>
+          <TouchableOpacity style={[styles.headerIcon, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }]}>
+            <Ionicons name="settings-outline" size={22} color={t.text} />
           </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
-          <Ionicons name="search-outline" size={20} color="rgba(255,255,255,0.6)" />
+        <View style={[styles.searchContainer, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)' }]}>
+          <Ionicons name="search-outline" size={20} color={t.textMuted} />
           <TextInput
             placeholder="Cari percakapan..."
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            style={styles.searchInput}
+            placeholderTextColor={t.textMuted}
+            style={[styles.searchInput, { color: t.text }]}
             value={search}
             onChangeText={setSearch}
           />
@@ -97,15 +129,20 @@ export default function ChatsScreen() {
       </View>
 
       <FlatList
-        data={MOCK_CHATS}
+        data={filteredChats}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="chatbubbles-outline" size={64} color={t.textMuted} />
-            <Text style={[styles.emptyText, { color: t.textMuted }]}>Belum ada percakapan</Text>
-          </View>
+          loading ? (
+            <ActivityIndicator size="small" color={t.primary} style={{ marginTop: 40 }} />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="chatbubbles-outline" size={64} color={t.textMuted} />
+              <Text style={[styles.emptyText, { color: t.textMuted }]}>Belum ada percakapan</Text>
+            </View>
+          )
         }
       />
     </View>
@@ -120,8 +157,6 @@ const styles = StyleSheet.create({
     paddingTop: 52,
     paddingHorizontal: SPACING.lg,
     paddingBottom: 24,
-    borderBottomLeftRadius: RADIUS.xl,
-    borderBottomRightRadius: RADIUS.xl,
   },
   headerTop: {
     flexDirection: 'row',
@@ -131,7 +166,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...TYPOGRAPHY.h2,
-    color: '#fff',
   },
   headerIcon: {
     width: 40,

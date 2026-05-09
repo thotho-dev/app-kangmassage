@@ -100,6 +100,7 @@ export default function RootLayout() {
           headerShown: false,
           contentStyle: { backgroundColor: t.background },
           animation: 'slide_from_right',
+          animationDuration: 200,
 
         }}
       >
@@ -109,11 +110,14 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="notifications/settings" />
         <Stack.Screen name="orders/[id]" />
+        <Stack.Screen name="chats/[id]" />
         <Stack.Screen name="profile/topup" />
         <Stack.Screen name="profile/change-password" />
         <Stack.Screen name="profile/change-phone" />
         <Stack.Screen name="profile/address" />
         <Stack.Screen name="profile/payment" />
+        <Stack.Screen name="profile/withdraw" />
+        <Stack.Screen name="profile/withdraw-history" />
         <Stack.Screen name="support/help" />
         <Stack.Screen name="support/faq" />
         <Stack.Screen name="support/privacy" />

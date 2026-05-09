@@ -205,7 +205,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* Balance Card - Solid Blue */}
-        <View style={[styles.balanceCard, { backgroundColor: t.headerBg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}>
+        <View style={[styles.balanceCard, { backgroundColor: t.brandBlue, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}>
           {/* Silhouette Icon - Towels & Oil */}
           <View style={styles.silhouetteContainer}>
             <Layers color="#FFFFFF" size={140} strokeWidth={1} style={styles.silhouetteTowels} />

@@ -1,20 +1,24 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
-  ArrowLeft, 
-  Calendar, 
   Clock, 
   Star, 
-  ChevronRight,
-  CheckCircle2,
-  XCircle,
   FileText,
-  RefreshCcw
+  Heart,
+  MessageSquare
 } from 'lucide-react-native';
-import Card from '../../components/ui/Card';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { COLORS } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
+
+const PURPLE = '#240080';
+const GOLD = '#FDB927';
+const SUCCESS = '#00A896';
+const ERROR = '#E74C3C';
+const TEXT_DARK = '#1A1A2E';
+const TEXT_MUTED = '#6B7280';
+const BORDER = '#F0F0F0';
+const BG = '#F5F5F7';
 
 const HISTORY_DATA = [
   {
@@ -48,80 +52,204 @@ const HISTORY_DATA = [
   }
 ];
 
+const FAV_DATA = [
+  {
+    id: 'fav-1',
+    name: 'Maya Putri',
+    rating: 4.9,
+    orders: 124,
+    image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
+    specialty: 'Swedish & Deep Tissue'
+  },
+  {
+    id: 'fav-2',
+    name: 'Siti Aminah',
+    rating: 4.8,
+    orders: 89,
+    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecee?w=400',
+    specialty: 'Refleksi & Totok'
+  }
+];
+
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
+
 export default function HistoryScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { profile } = useAuth();
+  const [activeTab, setActiveTab] = React.useState<'riwayat' | 'favorit'>('riwayat');
+  const [orders, setOrders] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  useEffect(() => {
+    if (profile?.id) {
+      fetchOrders();
+    }
+  }, [profile?.id]);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          services:service_id(name, image_url),
+          therapists:therapist_id(full_name, avatar_url)
+        `)
+        .eq('user_id', profile?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', { 
+      day: '2-digit', 
+      month: 'short', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'completed': return 'Selesai';
+      case 'cancelled': return 'Dibatalkan';
+      case 'pending': return 'Menunggu';
+      case 'accepted': return 'Diterima';
+      case 'on_way': return 'Di Jalan';
+      case 'processing': return 'Diproses';
+      default: return status;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return SUCCESS;
+      case 'cancelled': return ERROR;
+      case 'pending': return GOLD;
+      default: return PURPLE;
+    }
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <View style={[styles.container, { backgroundColor: BG }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-          <ArrowLeft size={24} color={theme.text} />
+        <Text style={styles.headerTitle}>
+          {activeTab === 'riwayat' ? 'Riwayat Pesanan' : 'Terapis Favorit'}
+        </Text>
+      </View>
+
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'riwayat' && styles.activeTab]}
+          onPress={() => setActiveTab('riwayat')}
+        >
+          <Text style={[styles.tabText, activeTab === 'riwayat' && styles.activeTabText]}>Riwayat</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Riwayat Pesanan</Text>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'favorit' && styles.activeTab]}
+          onPress={() => setActiveTab('favorit')}
+        >
+          <Text style={[styles.tabText, activeTab === 'favorit' && styles.activeTabText]}>Favorit</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {HISTORY_DATA.map((item) => (
-          <TouchableOpacity key={item.id} activeOpacity={0.9} style={styles.cardWrapper}>
-            <Card style={[styles.orderCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <View style={[styles.cardHeader, { backgroundColor: theme.surfaceVariant, borderBottomColor: theme.border }]}>
-                <View style={styles.orderIdContainer}>
-                  <View style={[
-                    styles.statusIndicator,
-                    item.status === 'completed' ? styles.indicatorCompleted : styles.indicatorCancelled
-                  ]} />
-                  <Text style={[styles.orderId, { color: theme.text }]}>{item.id}</Text>
-                </View>
-                <View style={[
-                  styles.statusBadge, 
-                  item.status === 'completed' ? styles.statusCompleted : styles.statusCancelled
-                ]}>
-                  <Text style={[
-                    styles.statusText,
-                    item.status === 'completed' ? styles.statusTextCompleted : styles.statusTextCancelled
-                  ]}>
-                    {item.status === 'completed' ? 'SELESAI' : 'DIBATALKAN'}
-                  </Text>
-                </View>
-              </View>
+        {activeTab === 'riwayat' ? (
+          orders.length > 0 ? (
+            orders.map((item) => {
+              const statusColor = getStatusColor(item.status);
+              return (
+                <TouchableOpacity key={item.id} activeOpacity={0.85} style={styles.card}>
+                  {/* Card Header */}
+                  <View style={styles.cardHeader}>
+                    <View style={styles.orderIdRow}>
+                      <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                      <Text style={styles.orderId}>{item.order_number || item.id.substring(0, 8)}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+                      <Text style={[styles.statusText, { color: statusColor }]}>
+                        {getStatusLabel(item.status)}
+                      </Text>
+                    </View>
+                  </View>
 
-              <View style={styles.cardBody}>
-                <Image source={{ uri: item.image }} style={styles.therapistImage} />
-                <View style={styles.infoContainer}>
-                  <Text style={[styles.therapistName, { color: theme.text }]}>{item.therapist}</Text>
-                  <Text style={[styles.serviceName, { color: theme.textSecondary }]}>{item.service}</Text>
-                  <View style={styles.metaRow}>
-                    <Clock size={12} color={theme.textSecondary} />
-                    <Text style={[styles.dateText, { color: theme.textSecondary }]}>{item.date}</Text>
+                  {/* Card Body */}
+                  <View style={styles.cardBody}>
+                    <Image 
+                      source={{ uri: item.therapists?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
+                      style={styles.therapistImage} 
+                    />
+                    <View style={styles.infoBox}>
+                      <Text style={styles.therapistName}>{item.therapists?.full_name || 'Mencari Terapis...'}</Text>
+                      <Text style={styles.serviceName}>{item.services?.name}</Text>
+                      <View style={styles.metaRow}>
+                        <Clock size={11} color={TEXT_MUTED} />
+                        <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.rightBox}>
+                      <Text style={styles.priceText}>Rp {item.total_price?.toLocaleString('id-ID')}</Text>
+                    </View>
+                  </View>
+
+                  {/* Card Footer */}
+                  <View style={styles.cardFooter}>
+                    <TouchableOpacity style={styles.footerBtn}>
+                      <FileText size={14} color={GOLD} />
+                      <Text style={styles.footerBtnText}>Detail</Text>
+                    </TouchableOpacity>
+                    <View style={styles.footerDivider} />
+                    <TouchableOpacity style={styles.footerBtn} onPress={() => router.push({ pathname: '/(main)/chat', params: { orderId: item.id } })}>
+                      <MessageSquare size={14} color={PURPLE} />
+                      <Text style={styles.footerBtnText}>Chat</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Belum ada riwayat pesanan</Text>
+            </View>
+          )
+        ) : (
+          FAV_DATA.map((item) => (
+            <TouchableOpacity key={item.id} activeOpacity={0.85} style={styles.card}>
+              <View style={styles.favRow}>
+                <Image source={{ uri: item.image }} style={styles.favAvatar} />
+                <View style={styles.favInfo}>
+                  <Text style={styles.favName}>{item.name}</Text>
+                  <Text style={styles.favSpecialty}>{item.specialty}</Text>
+                  <View style={styles.favMeta}>
+                    <View style={styles.favRatingRow}>
+                      <Star size={11} color={GOLD} fill={GOLD} />
+                      <Text style={styles.favRatingText}>{item.rating}</Text>
+                    </View>
+                    <Text style={styles.favOrdersText}>• {item.orders} Pesanan</Text>
                   </View>
                 </View>
-                <View style={styles.rightContainer}>
-                   <Text style={[styles.priceText, { color: theme.text }]}>{item.price}</Text>
-                   {item.rating && (
-                     <View style={styles.ratingContainer}>
-                        <Star size={10} color={COLORS.gold[500]} fill={COLORS.gold[500]} />
-                        <Text style={styles.ratingText}>{item.rating}.0</Text>
-                     </View>
-                   )}
-                </View>
+                <TouchableOpacity style={styles.bookBtn}>
+                  <Text style={styles.bookBtnText}>Pesan</Text>
+                </TouchableOpacity>
               </View>
-              
-              <View style={[styles.cardFooter, { borderTopColor: theme.border, backgroundColor: theme.surfaceVariant }]}>
-                 <TouchableOpacity style={styles.footerAction}>
-                    <FileText size={14} color={COLORS.gold[500]} />
-                    <Text style={[styles.footerActionText, { color: theme.textSecondary }]}>Struk</Text>
-                 </TouchableOpacity>
-                 <View style={[styles.footerDivider, { backgroundColor: theme.border }]} />
-                 <TouchableOpacity style={styles.footerAction}>
-                    <RefreshCcw size={14} color={COLORS.primary[400]} />
-                    <Text style={[styles.footerActionText, { color: theme.textSecondary }]}>Pesan Lagi</Text>
-                 </TouchableOpacity>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -130,170 +258,262 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BG,
   },
+
+  // Header
   header: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-  },
-  backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
-    fontSize: 24,
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
   },
+
+  // Tab Bar
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+  },
+  tab: {
+    paddingVertical: 7,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: BORDER,
+    backgroundColor: 'transparent',
+  },
+  activeTab: {
+    backgroundColor: PURPLE,
+    borderColor: PURPLE,
+  },
+  tabText: {
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    color: TEXT_MUTED,
+  },
+  activeTabText: {
+    color: '#FFFFFF',
+  },
+
+  // Scroll
   scrollContent: {
-    paddingHorizontal: 24,
+    padding: 16,
+    gap: 12,
     paddingBottom: 40,
   },
-  cardWrapper: {
-    marginBottom: 20,
-  },
-  orderCard: {
-    padding: 0,
+
+  // Order Card
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
     overflow: 'hidden',
-    borderRadius: 28,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FAFAFA',
     borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  orderIdContainer: {
+  orderIdRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
-  statusIndicator: {
-    width: 8,
-    height: 8,
+  statusDot: {
+    width: 7,
+    height: 7,
     borderRadius: 4,
   },
-  indicatorCompleted: {
-    backgroundColor: COLORS.success,
-  },
-  indicatorCancelled: {
-    backgroundColor: COLORS.error,
-  },
   orderId: {
-    fontWeight: '800',
-    fontSize: 14,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
+    letterSpacing: 0.3,
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 8,
   },
-  statusCompleted: {
-    backgroundColor: 'rgba(0, 168, 150, 0.1)',
-  },
-  statusCancelled: {
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-  },
   statusText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  statusTextCompleted: {
-    color: COLORS.success,
-  },
-  statusTextCancelled: {
-    color: COLORS.error,
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.3,
   },
   cardBody: {
     flexDirection: 'row',
-    padding: 20,
     alignItems: 'center',
-    gap: 16,
+    padding: 14,
+    gap: 12,
   },
   therapistImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
   },
-  infoContainer: {
+  infoBox: {
     flex: 1,
+    gap: 3,
   },
   therapistName: {
-    fontWeight: '800',
-    fontSize: 17,
-    fontFamily: TYPOGRAPHY.h3.fontFamily,
-    marginBottom: 4,
+    fontSize: 15,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
   },
   serviceName: {
     fontSize: 13,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    marginTop: 2,
   },
   dateText: {
-    fontSize: 12,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '500',
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
   },
-  rightContainer: {
+  rightBox: {
     alignItems: 'flex-end',
     gap: 6,
   },
   priceText: {
-    fontWeight: '800',
-    fontSize: 15,
-    fontFamily: TYPOGRAPHY.h3.fontFamily,
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
   },
-  ratingContainer: {
+  ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(253, 185, 39, 0.1)',
+    gap: 3,
+    backgroundColor: 'rgba(253,185,39,0.1)',
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   ratingText: {
-    color: COLORS.gold[500],
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '800',
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
+    color: GOLD,
   },
   cardFooter: {
     flexDirection: 'row',
     borderTopWidth: 1,
+    borderTopColor: BORDER,
   },
-  footerAction: {
+  footerBtn: {
     flex: 1,
-    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-  },
-  footerActionText: {
-    fontSize: 13,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '700',
+    paddingVertical: 12,
+    gap: 6,
   },
   footerDivider: {
     width: 1,
-  }
+    backgroundColor: BORDER,
+  },
+  footerBtnText: {
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    color: TEXT_MUTED,
+  },
+
+  // Favorit Card
+  favRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+  },
+  favAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  favInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  favName: {
+    fontSize: 15,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
+  },
+  favSpecialty: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+  },
+  favMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  favRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  favRatingText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
+  },
+  favOrdersText: {
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+  },
+  bookBtn: {
+    backgroundColor: '#EDE8FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  bookBtnText: {
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
+    color: PURPLE,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 100,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+  },
 });

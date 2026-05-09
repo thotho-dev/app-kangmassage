@@ -19,10 +19,15 @@ export function useServices() {
         id: item.id,
         name: item.name,
         price: item.base_price,
-        duration: item.duration_min > 0 ? `${item.duration_min} Menit` : '1x Treatment',
+        duration: item.duration_min > 0 ? `${item.duration_min} Min` : '1 Treatment',
         description: item.description,
         icon: item.icon,
         color: item.color,
+        image: item.image_url,
+        price_type: item.price_type,
+        duration_options: item.duration_options,
+        category_slug: item.category_slug,
+        image_url: item.image_url,
       })) as Service[];
     },
   });

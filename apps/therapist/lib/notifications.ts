@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
+import Constants from 'expo-constants';
 
 export async function registerForPushNotificationsAsync(therapistId: string) {
   if (!Device.isDevice) {
@@ -22,8 +23,12 @@ export async function registerForPushNotificationsAsync(therapistId: string) {
     return null;
   }
 
+  const projectId = 
+    Constants.expoConfig?.extra?.eas?.projectId ?? 
+    Constants.easConfig?.projectId;
+
   const token = (await Notifications.getExpoPushTokenAsync({
-    projectId: '36b817ad-e362-40c2-8024-dfa6948b8488' // ID Proyek Anda
+    projectId
   })).data;
 
   console.log('Expo Push Token:', token);

@@ -22,7 +22,7 @@ export const useTopupListener = () => {
 
     // 1. Listen to Topup Status Changes
     const topupChannel = supabase
-      .channel('topup-status-changes')
+      .channel(`topup-status-${profile.id}-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         {

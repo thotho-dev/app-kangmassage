@@ -102,14 +102,14 @@ export default function ProfileScreen() {
         }
       >
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: t.headerBg, paddingBottom: SPACING.xl, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }]}>
+        <View style={[styles.header, { backgroundColor: t.headerBg, paddingBottom: SPACING.xl, borderBottomWidth: 1, borderBottomColor: t.border }]}>
           <View style={styles.profileRow}>
             <View style={styles.avatarWrap}>
               {profile?.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatar, { backgroundColor: t.secondary }]}>
-                  <Text style={styles.avatarText}>{profile?.full_name?.charAt(0) || '?'}</Text>
+                  <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>{profile?.full_name?.charAt(0) || '?'}</Text>
                 </View>
               )}
               {profile?.is_verified && (
@@ -120,28 +120,28 @@ export default function ProfileScreen() {
             </View>
             <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View>
-                <Text style={[styles.name, { color: '#FFFFFF' }]}>{profile?.full_name || 'Mitra Terapis'}</Text>
-                <Text style={[styles.phone, { color: 'rgba(255,255,255,0.7)' }]}>{profile?.phone || '-'}</Text>
+                <Text style={[styles.name, { color: t.text }]}>{profile?.full_name || 'Mitra Terapis'}</Text>
+                <Text style={[styles.phone, { color: t.textSecondary }]}>{profile?.phone || '-'}</Text>
                 <View style={styles.tierBadge}>
                   <Ionicons name="star" size={12} color={t.warning} />
                   <Text style={styles.tierText}>{profile?.tier?.toUpperCase() || 'BRONZE'} MEMBER</Text>
                 </View>
               </View>
               <TouchableOpacity 
-                style={styles.editBtn} 
+                style={[styles.editBtn, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderColor: t.border }]} 
                 onPress={() => router.push('/profile/detail')}
               >
-                <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="create-outline" size={20} color={t.text} />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Stats */}
-          <View style={[styles.statsRow, { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1 }]}>
+          <View style={[styles.statsRow, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : t.surfaceLight, borderColor: t.border, borderWidth: 1 }]}>
             {stats.map(s => (
               <View key={s.label} style={styles.statItem}>
-                <Text style={[styles.statValue, { color: '#FFFFFF' }]}>{s.value}</Text>
-                <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.8)' }]}>{s.label}</Text>
+                <Text style={[styles.statValue, { color: t.text }]}>{s.value}</Text>
+                <Text style={[styles.statLabel, { color: t.textSecondary }]}>{s.label}</Text>
               </View>
             ))}
           </View>
@@ -218,7 +218,6 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
     paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl, gap: SPACING.lg,
-    borderBottomLeftRadius: RADIUS.xl, borderBottomRightRadius: RADIUS.xl,
   },
   profileRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   avatarWrap: { position: 'relative' },

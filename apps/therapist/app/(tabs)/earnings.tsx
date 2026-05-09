@@ -1,48 +1,118 @@
-import { useState } from 'react';
-import { useThemeColors } from '../../store/themeStore';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useState, useCallback, useEffect } from 'react';
+import { useThemeColors, useThemeStore } from '../../store/themeStore';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { supabase } from '../../lib/supabase';
+import { useTherapistStore } from '../../store/therapistStore';
+import { startOfDay, startOfWeek, startOfMonth, isWithinInterval, endOfDay } from 'date-fns';
 
-const HISTORY = [
-  { id: '1', name: 'Siti Rahayu', service: 'Pijat Relaksasi 90 menit', date: 'Hari ini, 10:30', amount: 150000, status: 'completed', rating: 5 },
-  { id: '2', name: 'Budi Santoso', service: 'Deep Tissue 60 menit', date: 'Hari ini, 08:00', amount: 200000, status: 'completed', rating: 4 },
-  { id: '3', name: 'Rina Wulandari', service: 'Refleksi Kaki 45 menit', date: 'Kemarin, 15:00', amount: 100000, status: 'completed', rating: 5 },
-  { id: '4', name: 'Doni Pratama', service: 'Pijat Kepala 30 menit', date: 'Kemarin, 11:00', amount: 75000, status: 'cancelled', rating: 0 },
-  { id: '5', name: 'Maya Sari', service: 'Pijat Badan Full 120 menit', date: '2 hari lalu, 14:00', amount: 250000, status: 'completed', rating: 5 },
-];
-
-const SUMMARY_PERIODS = ['Hari Ini', 'Minggu Ini', 'Bulan Ini', 'Pilih Bulan'];
+const SUMMARY_PERIODS = ['Hari Ini', 'Minggu Ini', 'Bulan Ini', 'Semua'];
 const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const CURRENT_MONTH = new Date().getMonth();
 const VISIBLE_MONTHS = MONTHS.slice(0, CURRENT_MONTH + 1);
 
 export default function EarningsScreen() {
   const t = useThemeColors();
+  const isDarkMode = useThemeStore(state => state.isDarkMode);
+  const router = useRouter();
   const styles = getStyles(t);
+  const { profile } = useTherapistStore();
   
   const [period, setPeriod] = useState(0);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [summary, setSummary] = useState({ gross: 0, net: 0, orders: 0, commission: 0 });
 
-  const summaryData = [
-    { gross: 450000, net: 360000, orders: 3, commission: 90000 },
-    { gross: 2150000, net: 1720000, orders: 14, commission: 430000 },
-    { gross: 4750000, net: 3800000, orders: 31, commission: 950000 },
-    { gross: 5200000, net: 4160000, orders: 38, commission: 1040000 },
-  ];
-  const current = summaryData[period];
+  const fetchData = async (isRefreshing = false) => {
+    if (!profile) return;
+    if (!isRefreshing) setLoading(true);
+
+    try {
+      // 1. Fetch History
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          users (full_name),
+          services (name)
+        `)
+        .eq('therapist_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setHistory(orders || []);
+
+      // 2. Calculate Summary
+      calculateSummary(orders || [], period);
+
+    } catch (error) {
+      console.error('Error fetching earnings data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const calculateSummary = (orders: any[], periodIdx: number) => {
+    const now = new Date();
+    let startDate: Date;
+
+    switch (periodIdx) {
+      case 0: startDate = startOfDay(now); break;
+      case 1: startDate = startOfWeek(now, { weekStartsOn: 1 }); break;
+      case 2: startDate = startOfMonth(now); break;
+      default: startDate = new Date(0); // All time
+    }
+
+    const filtered = orders.filter(o => {
+      if (o.status !== 'completed') return false;
+      const date = new Date(o.created_at);
+      return date >= startDate;
+    });
+
+    const gross = filtered.reduce((acc, o) => acc + (Number(o.total_price) || 0), 0);
+    const commission = gross * 0.2; // 20%
+    const net = gross - commission;
+
+    setSummary({
+      gross,
+      net,
+      orders: filtered.length,
+      commission
+    });
+  };
+
+  useEffect(() => {
+    if (history.length > 0) calculateSummary(history, period);
+  }, [period]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [profile])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData(true);
+  };
+
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
-        <Text style={[styles.title, { color: '#FFFFFF' }]}>Pendapatan</Text>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
+        <Text style={[styles.title, { color: t.text }]}>Pendapatan</Text>
 
         {/* Period Selector */}
-        <View style={styles.periods}>
+        <View style={[styles.periods, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }]}>
           {SUMMARY_PERIODS.map((p, i) => (
-            <TouchableOpacity key={p} style={[styles.periodBtn, period === i && styles.periodActive]} onPress={() => setPeriod(i)}>
-              <Text style={[styles.periodText, period === i && styles.periodTextActive]}>{p}</Text>
+            <TouchableOpacity key={p} style={[styles.periodBtn, period === i && { backgroundColor: t.background }]} onPress={() => setPeriod(i)}>
+              <Text style={[styles.periodText, { color: period === i ? t.text : (isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') }]}>{p}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -53,10 +123,10 @@ export default function EarningsScreen() {
             {VISIBLE_MONTHS.map((m, i) => (
               <TouchableOpacity 
                 key={m} 
-                style={[styles.monthItem, selectedMonth === i && { backgroundColor: t.background, borderColor: t.background }]} 
+                style={[styles.monthItem, selectedMonth === i && { backgroundColor: t.primary, borderColor: t.primary }]} 
                 onPress={() => setSelectedMonth(i)}
               >
-                <Text style={[styles.monthText, { color: selectedMonth === i ? t.text : 'rgba(255,255,255,0.6)' }]}>{m}</Text>
+                <Text style={[styles.monthText, { color: selectedMonth === i ? '#FFFFFF' : (isDarkMode ? 'rgba(255,255,255,0.6)' : t.textSecondary) }]}>{m}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -64,69 +134,82 @@ export default function EarningsScreen() {
 
         {/* Big Earnings Card */}
         <LinearGradient colors={[t.secondary, '#EA580C']} style={styles.earningsCard}>
-          <Text style={styles.cardSubLabel}>{period === 3 ? `Total Pendapatan ${VISIBLE_MONTHS[selectedMonth]}` : 'Total Pendapatan Bersih'}</Text>
-          <Text style={styles.earningsValue}>Rp {current.net.toLocaleString('id-ID')}</Text>
+          <Text style={styles.cardSubLabel}>{period === 3 ? `Total Seluruh Pendapatan` : 'Total Pendapatan Bersih'}</Text>
+          <Text style={styles.earningsValue}>Rp {summary.net.toLocaleString('id-ID')}</Text>
           <View style={styles.earningsMeta}>
             <View style={styles.earningsMetaItem}>
               <Text style={styles.earningsMetaLabel}>Bruto</Text>
-              <Text style={styles.earningsMetaValue}>Rp {current.gross.toLocaleString('id-ID')}</Text>
+              <Text style={styles.earningsMetaValue}>Rp {summary.gross.toLocaleString('id-ID')}</Text>
             </View>
             <View style={styles.separator} />
             <View style={styles.earningsMetaItem}>
               <Text style={styles.earningsMetaLabel}>Komisi (20%)</Text>
-              <Text style={[styles.earningsMetaValue, { color: 'rgba(255,255,255,0.7)' }]}>-Rp {current.commission.toLocaleString('id-ID')}</Text>
+              <Text style={[styles.earningsMetaValue, { color: 'rgba(255,255,255,0.7)' }]}>-Rp {summary.commission.toLocaleString('id-ID')}</Text>
             </View>
             <View style={styles.separator} />
             <View style={styles.earningsMetaItem}>
               <Text style={styles.earningsMetaLabel}>Pesanan</Text>
-              <Text style={styles.earningsMetaValue}>{current.orders}</Text>
+              <Text style={styles.earningsMetaValue}>{summary.orders}</Text>
             </View>
           </View>
         </LinearGradient>
 
         {/* Withdraw Button */}
-        <TouchableOpacity style={styles.withdrawBtn} activeOpacity={0.85}>
-          <LinearGradient colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']} style={styles.withdrawGradient}>
-            <Ionicons name="wallet-outline" size={20} color="#FFFFFF" />
-            <Text style={[styles.withdrawText, { color: '#FFFFFF' }]}>Tarik Saldo ke Rekening</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+        <TouchableOpacity style={styles.withdrawBtn} activeOpacity={0.85} onPress={() => router.push('/profile/withdraw')}>
+          <LinearGradient 
+            colors={isDarkMode ? ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)'] : [t.surfaceLight, t.surface]} 
+            style={[styles.withdrawGradient, { borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : t.border }]}
+          >
+            <Ionicons name="wallet-outline" size={20} color={t.text} />
+            <Text style={[styles.withdrawText, { color: t.text }]}>Tarik Saldo ke Rekening</Text>
+            <Ionicons name="arrow-forward" size={16} color={t.textMuted} />
           </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scroll} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.secondary} />}
+      >
         <Text style={styles.historyTitle}>Riwayat Transaksi</Text>
 
-        {HISTORY.map(item => (
-          <View key={item.id} style={styles.historyCard}>
-            <View style={styles.historyLeft}>
-              <View style={[styles.historyIcon, { backgroundColor: item.status === 'cancelled' ? t.danger + '15' : t.primary + '10' }]}>
-                <Ionicons
-                  name={item.status === 'cancelled' ? 'close-circle' : 'checkmark-circle'}
-                  size={24}
-                  color={item.status === 'cancelled' ? t.danger : t.primary}
-                />
-              </View>
-              <View style={styles.historyInfo}>
-                <Text style={styles.historyName}>{item.name}</Text>
-                <Text style={styles.historyService}>{item.service}</Text>
-                <Text style={styles.historyDate}>{item.date}</Text>
-              </View>
-            </View>
-            <View style={styles.historyRight}>
-              <Text style={[styles.historyAmount, { color: item.status === 'cancelled' ? t.textMuted : t.primary }]}>
-                {item.status === 'cancelled' ? '—' : `+Rp ${item.amount.toLocaleString('id-ID')}`}
-              </Text>
-              {item.rating > 0 && (
-                <View style={styles.ratingRow}>
-                  {Array.from({ length: item.rating }).map((_, i) => (
-                    <Ionicons key={i} name="star" size={10} color={t.warning} />
-                  ))}
+        {loading ? (
+          <ActivityIndicator size="small" color={t.primary} style={{ marginTop: 20 }} />
+        ) : history.length === 0 ? (
+          <Text style={{ textAlign: 'center', color: t.textMuted, marginTop: 20 }}>Belum ada riwayat</Text>
+        ) : (
+          history.map(item => (
+            <View key={item.id} style={styles.historyCard}>
+              <View style={styles.historyLeft}>
+                <View style={[styles.historyIcon, { backgroundColor: item.status === 'cancelled' ? t.danger + '15' : t.primary + '10' }]}>
+                  <Ionicons
+                    name={item.status === 'cancelled' ? 'close-circle' : 'checkmark-circle'}
+                    size={24}
+                    color={item.status === 'cancelled' ? t.danger : t.primary}
+                  />
                 </View>
-              )}
+                <View style={styles.historyInfo}>
+                  <Text style={styles.historyName}>{item.users?.full_name || 'Pelanggan'}</Text>
+                  <Text style={styles.historyService}>{item.services?.name || 'Pijat Relaksasi'}</Text>
+                  <Text style={styles.historyDate}>{new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+                </View>
+              </View>
+              <View style={styles.historyRight}>
+                <Text style={[styles.historyAmount, { color: item.status === 'cancelled' ? t.textMuted : t.primary }]}>
+                  {item.status === 'cancelled' ? '—' : `+Rp ${(Number(item.total_price) || 0).toLocaleString('id-ID')}`}
+                </Text>
+                {item.rating > 0 && (
+                  <View style={styles.ratingRow}>
+                    {Array.from({ length: item.rating }).map((_, i) => (
+                      <Ionicons key={i} name="star" size={10} color={t.warning} />
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -136,9 +219,8 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
     paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl, gap: SPACING.md,
-    borderBottomLeftRadius: RADIUS.xl, borderBottomRightRadius: RADIUS.xl,
   },
-  title: { ...TYPOGRAPHY.h2, color: '#FFFFFF' },
+  title: { ...TYPOGRAPHY.h2 },
   periods: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: RADIUS.full, padding: 4 },
   periodBtn: { flex: 1, paddingVertical: 8, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
   periodActive: { backgroundColor: t.background },

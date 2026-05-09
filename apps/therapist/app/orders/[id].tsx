@@ -3,12 +3,13 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, Animated, PanResponder, Dimensions,
 } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors, useThemeStore } from '../../store/themeStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
 import { supabase } from '../../lib/supabase';
+import { useTherapistStore } from '../../store/therapistStore';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -130,9 +131,11 @@ function SwipeButton({ label, onSwipe, t }: { label: string; onSwipe: () => void
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function OrderDetailScreen() {
   const t = useThemeColors();
+  const isDarkMode = useThemeStore(state => state.isDarkMode);
   const styles = getStyles(t);
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { profile } = useTherapistStore();
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -180,6 +183,42 @@ export default function OrderDetailScreen() {
     supabase.from('orders').update({ status: nextStatus }).eq('id', order.id).then();
   }, [order]);
 
+  const handleChat = async () => {
+    if (!order || !profile) return;
+    
+    try {
+      // 1. Check if conversation already exists
+      const { data: existing, error: fetchError } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', order.user_id)
+        .eq('therapist_id', profile.id)
+        .maybeSingle();
+
+      if (existing) {
+        router.push(`/chats/${existing.id}`);
+        return;
+      }
+
+      // 2. Create new conversation if not exists
+      const { data: newConv, error: createError } = await supabase
+        .from('conversations')
+        .insert({
+          user_id: order.user_id,
+          therapist_id: profile.id,
+          last_message: 'Halo, saya terapis Anda.'
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+      router.push(`/chats/${newConv.id}`);
+
+    } catch (error) {
+      console.error('Error initiating chat:', error);
+    }
+  };
+
   if (loading) return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.background }}>
       <ActivityIndicator size="large" color={t.secondary} />
@@ -199,15 +238,15 @@ export default function OrderDetailScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.orderId}>#{String(order.id).slice(0, 8).toUpperCase()}</Text>
-          <View style={styles.statusBadge}>
+          <Text style={[styles.orderId, { color: t.text }]}>#{String(order.id).slice(0, 8).toUpperCase()}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }]}>
             <View style={styles.statusDot} />
-            <Text style={styles.statusText}>{order.status.replace('_', ' ').toUpperCase()}</Text>
+            <Text style={[styles.statusText, { color: t.text }]}>{order.status.replace('_', ' ').toUpperCase()}</Text>
           </View>
         </View>
       </View>
@@ -256,7 +295,7 @@ export default function OrderDetailScreen() {
           <TouchableOpacity style={styles.callBtn}>
             <Ionicons name="call" size={20} color={t.success} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.chatBtn}>
+          <TouchableOpacity style={styles.chatBtn} onPress={handleChat}>
             <Ionicons name="chatbubble" size={20} color={t.secondary} />
           </TouchableOpacity>
         </View>
@@ -377,10 +416,10 @@ const getStyles = (t: any) => StyleSheet.create({
   header: { paddingHorizontal: SPACING.lg, paddingTop: 52, paddingBottom: SPACING.lg, flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   backBtn: { padding: 4 },
   headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  orderId: { ...TYPOGRAPHY.h3, color: '#FFFFFF' },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 5 },
+  orderId: { ...TYPOGRAPHY.h3 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 5 },
   statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#10B981' },
-  statusText: { ...TYPOGRAPHY.caption, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
+  statusText: { ...TYPOGRAPHY.caption, fontFamily: 'Inter_700Bold' },
   scroll: { paddingBottom: 32 },
   mapPlaceholder: { height: 220, justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' },
   mapContent: { alignItems: 'center', gap: 6 },

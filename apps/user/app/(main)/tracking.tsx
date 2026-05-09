@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar, Animated, PanResponder, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Phone, MessageCircle, MapPin, Clock, ShieldCheck, Navigation } from 'lucide-react-native';
+import { ChevronLeft, Phone, MessageCircle, MapPin, Clock, Navigation } from 'lucide-react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { COLORS } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -13,119 +14,260 @@ export default function TrackingScreen() {
   const { theme, isDark } = useTheme();
   const { id } = useLocalSearchParams();
 
+  // Animations
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const lastOffset = useRef(0);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 10,
+      onPanResponderGrant: () => {
+        slideAnim.setOffset(lastOffset.current);
+        slideAnim.setValue(0);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Prevent sliding up past the very top (0)
+        const newY = gestureState.dy;
+        if (lastOffset.current + newY < 0) {
+          slideAnim.setValue(-lastOffset.current);
+        } else {
+          slideAnim.setValue(newY);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        slideAnim.flattenOffset();
+        const currentY = lastOffset.current + gestureState.dy;
+        
+        let toValue = 0;
+        // Thresholds for snapping down
+        if (gestureState.dy > 50 || gestureState.vy > 0.5) {
+          toValue = 350;
+        // Thresholds for snapping up
+        } else if (gestureState.dy < -50 || gestureState.vy < -0.5) {
+          toValue = 0;
+        } else {
+          // Snap to closest position
+          toValue = currentY > 175 ? 350 : 0;
+        }
+
+        lastOffset.current = toValue;
+        Animated.spring(slideAnim, {
+          toValue,
+          useNativeDriver: true,
+          bounciness: 4,
+        }).start();
+      },
+    })
+  ).current;
+
+  // Interpolations
+  const headerOpacity = slideAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const therapistCardTranslateY = slideAnim.interpolate({
+    inputRange: [0, 200],
+    outputRange: [0, -80], // 140 (floatingInfo) - 60 (header) = 80
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      {/* Map Placeholder */}
+      {/* Map Area */}
       <View style={styles.mapContainer}>
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1569336415962-a4bd9f6dfc0f?w=1200' }}
+        <MapView
           style={styles.map}
-        />
+          initialRegion={{
+            latitude: -6.2020,
+            longitude: 106.8250,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.015,
+          }}
+          showsUserLocation={false}
+          showsCompass={false}
+          showsMyLocationButton={false}
+          scrollEnabled={false}
+          zoomEnabled={false}
+          pitchEnabled={false}
+          rotateEnabled={false}
+        >
+          {/* User Location Marker */}
+          <Marker
+            coordinate={{ latitude: -6.1951, longitude: 106.8204 }}
+            title="Tujuan"
+            description="Grand Indonesia, East Mall"
+          >
+             <View style={styles.userMarker}>
+                <MapPin size={32} color={COLORS.error} fill={COLORS.error} />
+             </View>
+          </Marker>
+
+          {/* Therapist Location Marker */}
+          <Marker
+            coordinate={{ latitude: -6.2020, longitude: 106.8250 }}
+            title="Terapis"
+            description="Maya Putri"
+          >
+             <View style={styles.therapistMarker}>
+               <Image source={{ uri: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} style={styles.markerAvatar} />
+               <View style={styles.markerPulse} />
+             </View>
+          </Marker>
+        </MapView>
         <LinearGradient
-          colors={isDark ? ['rgba(2, 6, 23, 0.9)', 'transparent', 'transparent', 'rgba(2, 6, 23, 0.9)'] : ['rgba(255, 255, 255, 0.7)', 'transparent', 'transparent', 'rgba(255, 255, 255, 0.7)']}
-          style={StyleSheet.absoluteFill as any}
+          colors={isDark ? ['rgba(2, 6, 23, 0.9)', 'rgba(2, 6, 23, 0)'] : ['rgba(255, 255, 255, 0.7)', 'rgba(255, 255, 255, 0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
         />
         
         {/* Header Overlay */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <ArrowLeft size={24} color={theme.text} />
+        <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={24} color={theme.text} />
           </TouchableOpacity>
           <View style={[styles.orderBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Text style={[styles.orderBadgeText, { color: theme.text }]}>{id || 'ORD-9821'}</Text>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Floating Therapist Info */}
-        <View style={styles.floatingInfo}>
-           <LinearGradient
-             colors={isDark ? ['rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0.05)'] : ['rgba(15, 23, 42, 0.08)', 'rgba(15, 23, 42, 0.03)']}
-             style={styles.infoCard as any}
-           >
-              <View style={styles.therapistInfo}>
-                 <View style={styles.avatarWrapper}>
-                    <Image 
-                      source={{ uri: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
-                      style={styles.avatar}
-                    />
-                    <View style={styles.onlineDot} />
-                 </View>
-                 <View style={styles.textInfo}>
-                    <Text style={[styles.name, { color: theme.text }]}>Maya Putri</Text>
-                    <View style={styles.statusRow}>
-                       <Navigation size={10} color={COLORS.gold[500]} />
-                       <Text style={[styles.status, { color: theme.textSecondary }]}>Menuju ke lokasi Anda</Text>
-                    </View>
-                 </View>
+        <Animated.View style={[styles.floatingInfo, { transform: [{ translateY: therapistCardTranslateY }] }]}>
+          <View style={styles.infoCard}>
+            <View style={styles.therapistInfo}>
+              <View style={styles.avatarWrapper}>
+                <Image 
+                  source={{ uri: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
+                  style={styles.avatar}
+                />
+                <View style={styles.onlineDot} />
               </View>
-              <View style={styles.actionButtons}>
-                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                    <Phone size={18} color={theme.text} />
-                 </TouchableOpacity>
-                 <TouchableOpacity style={[styles.actionBtn, styles.msgBtn]}>
-                    <MessageCircle size={18} color="white" />
-                 </TouchableOpacity>
+              <View style={styles.textInfo}>
+                <Text style={styles.name}>Maya Putri</Text>
+                <View style={styles.statusRow}>
+                  <Navigation size={10} color={COLORS.gold[500]} />
+                  <Text style={styles.status}>Menuju ke lokasi Anda</Text>
+                </View>
               </View>
-           </LinearGradient>
-        </View>
+            </View>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.actionBtn}>
+                <Phone size={18} color='#6B7280' />
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionBtn, styles.msgBtn]}>
+                <MessageCircle size={18} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
       </View>
 
       {/* Bottom Status Card */}
-      <View style={[styles.statusCard, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-         <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
+      <Animated.View 
+        style={[
+          styles.statusCard, 
+          { backgroundColor: theme.surface, borderTopColor: theme.border },
+          { transform: [{ translateY: slideAnim }] }
+        ]}
+      >
+         <View 
+           style={styles.dragHandleContainer}
+           {...panResponder.panHandlers}
+         >
+           <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
+         </View>
          
-         <View style={styles.etaContainer}>
-            <View>
-               <Text style={[styles.etaLabel, { color: theme.textSecondary }]}>Perkiraan Tiba</Text>
-               <Text style={[styles.etaTime, { color: theme.text }]}>12 <Text style={styles.etaUnit}>menit</Text></Text>
+         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+            <View style={styles.etaContainer}>
+               <View>
+                  <Text style={[styles.etaLabel, { color: theme.textSecondary }]}>Perkiraan Tiba</Text>
+                  <Text style={[styles.etaTime, { color: theme.text }]}>12 <Text style={styles.etaUnit}>menit</Text></Text>
+               </View>
+               <View style={styles.etaIconWrapper}>
+                  <LinearGradient
+                    colors={['#240080', '#12004D']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.etaIcon}
+                  >
+                     <Clock size={28} color="white" />
+                  </LinearGradient>
+               </View>
             </View>
-            <View style={styles.etaIconWrapper}>
-               <LinearGradient
-                 colors={[COLORS.primary[500], COLORS.primary[700]]}
-                 style={styles.etaIcon as any}
-               >
-                  <Clock size={28} color="white" />
-               </LinearGradient>
-            </View>
-         </View>
 
-         <View style={styles.timeline}>
-            <View style={styles.timelineItem}>
-               <View style={styles.timelineDotActive} />
-               <View style={styles.timelineLine} />
-               <Text style={[styles.timelineTextActive, { color: theme.text }]}>Pesanan Dikonfirmasi</Text>
+            <View style={styles.timeline}>
+               <View style={styles.timelineItem}>
+                  <View style={styles.timelineDotActive} />
+                  <View style={styles.timelineLine} />
+                  <Text style={[styles.timelineTextActive, { color: theme.text }]}>Pesanan Dikonfirmasi</Text>
+               </View>
+               <View style={styles.timelineItem}>
+                  <View style={styles.timelineDotActive} />
+                  <View style={styles.timelineLine} />
+                  <Text style={[styles.timelineTextActive, { color: theme.text }]}>Terapis Ditugaskan</Text>
+               </View>
+               <View style={styles.timelineItem}>
+                  <View style={styles.timelineDotPulse} />
+                  <View style={styles.timelineLineInactive} />
+                  <Text style={[styles.timelineTextActive, { color: '#FDB927', fontWeight: '800' }]}>Dalam Perjalanan</Text>
+               </View>
+               <View style={styles.timelineItem}>
+                  <View style={[styles.timelineDotInactive, { backgroundColor: theme.border }]} />
+                  <Text style={[styles.timelineTextInactive, { color: theme.textSecondary }]}>Tiba & Mulai Sesi</Text>
+               </View>
             </View>
-            <View style={styles.timelineItem}>
-               <View style={styles.timelineDotActive} />
-               <View style={styles.timelineLine} />
-               <Text style={[styles.timelineTextActive, { color: theme.text }]}>Terapis Ditugaskan</Text>
-            </View>
-            <View style={styles.timelineItem}>
-               <View style={styles.timelineDotPulse} />
-               <View style={styles.timelineLineInactive} />
-               <Text style={[styles.timelineTextActive, { color: COLORS.gold[500], fontWeight: '800' }]}>Dalam Perjalanan</Text>
-            </View>
-            <View style={styles.timelineItem}>
-               <View style={[styles.timelineDotInactive, { backgroundColor: theme.border }]} />
-               <Text style={[styles.timelineTextInactive, { color: theme.textSecondary }]}>Tiba & Mulai Sesi</Text>
-            </View>
-         </View>
 
-         <View style={[styles.addressCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-            <View style={styles.addressIconWrapper}>
-               <MapPin size={20} color={COLORS.gold[500]} />
+            {/* Detail Pesanan Section */}
+            <View style={styles.detailSection}>
+              <Text style={styles.detailTitle}>Detail Pesanan</Text>
+              <View style={[styles.detailCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+                <View style={styles.detailRow}>
+                  <View style={styles.detailInfo}>
+                    <View style={styles.serviceIconWrapper}>
+                      <Clock size={16} color="#240080" />
+                    </View>
+                    <View>
+                      <Text style={styles.detailLabel}>Layanan & Durasi</Text>
+                      <Text style={styles.detailValue}>Swedish Massage • 90 Menit</Text>
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={[styles.detailDivider, { backgroundColor: theme.border }]} />
+                
+                <View style={styles.detailRow}>
+                  <View style={styles.detailInfo}>
+                    <View style={styles.serviceIconWrapper}>
+                      <MessageCircle size={16} color="#240080" />
+                    </View>
+                    <View>
+                      <Text style={styles.detailLabel}>Pembayaran</Text>
+                      <Text style={styles.detailValue}>Tunai (Cash on Delivery)</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.detailPrice}>Rp 165.000</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.addressInfo}>
-               <Text style={[styles.addressLabel, { color: theme.textSecondary }]}>Tujuan</Text>
-               <Text style={[styles.addressText, { color: theme.text }]} numberOfLines={1}>Grand Indonesia, East Mall, Fl 5</Text>
-            </View>
-         </View>
 
-         <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: isDark ? 'rgba(231, 76, 60, 0.05)' : 'rgba(231, 76, 60, 0.03)', borderColor: 'rgba(231, 76, 60, 0.1)' }]} activeOpacity={0.7}>
-            <Text style={styles.cancelText}>Batalkan Pesanan</Text>
-         </TouchableOpacity>
-      </View>
+            <View style={[styles.addressCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border, marginTop: 20 }]}>
+               <View style={styles.addressIconWrapper}>
+                  <MapPin size={20} color="#FDB927" />
+               </View>
+               <View style={styles.addressInfo}>
+                  <Text style={[styles.addressLabel, { color: theme.textSecondary }]}>Tujuan</Text>
+                  <Text style={[styles.addressText, { color: theme.text }]} numberOfLines={1}>Grand Indonesia, East Mall, Fl 5</Text>
+               </View>
+            </View>
+
+            <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: isDark ? 'rgba(231, 76, 60, 0.05)' : 'rgba(231, 76, 60, 0.03)', borderColor: 'rgba(231, 76, 60, 0.1)', marginTop: 10 }]} activeOpacity={0.7}>
+               <Text style={styles.cancelText}>Batalkan Pesanan</Text>
+            </TouchableOpacity>
+         </ScrollView>
+      </Animated.View>
     </View>
   );
 }
@@ -152,12 +294,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
   orderBadge: {
     paddingHorizontal: 16,
@@ -166,30 +308,29 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   orderBadgeText: {
-    fontWeight: '900',
     fontSize: 13,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    letterSpacing: 1,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.8,
   },
   floatingInfo: {
     position: 'absolute',
-    top: 140,
-    left: 24,
-    right: 24,
+    top: 130,
+    left: 10,
+    right: 10,
     zIndex: 10,
   },
   infoCard: {
-    borderRadius: 28,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1.5,
-    elevation: 10,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
   },
   therapistInfo: {
     flexDirection: 'row',
@@ -208,20 +349,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: COLORS.success,
-    borderWidth: 2.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   textInfo: {
     justifyContent: 'center',
   },
   name: {
-    fontWeight: '800',
-    fontSize: 17,
-    fontFamily: TYPOGRAPHY.h3.fontFamily,
+    fontSize: 15,
+    fontFamily: 'Inter-Bold',
   },
   statusRow: {
     flexDirection: 'row',
@@ -231,20 +371,20 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 12,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '600',
+    fontFamily: 'Inter-Medium',
   },
   actionButtons: {
     flexDirection: 'row',
     gap: 10,
   },
   actionBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    backgroundColor: '#F5F5F7',
+    borderWidth: 0,
   },
   msgBtn: {
     backgroundColor: COLORS.primary[600],
@@ -253,14 +393,26 @@ const styles = StyleSheet.create({
   statusCard: {
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    padding: 24,
-    paddingBottom: 48,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
     borderTopWidth: 1.5,
     elevation: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.5,
     shadowRadius: 30,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: Dimensions.get('window').height - 200,
+  },
+  dragHandleContainer: {
+    width: '100%',
+    paddingTop: 24,
+    paddingBottom: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dragHandle: {
     width: 40,
@@ -276,23 +428,20 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   etaLabel: {
-    fontSize: 14,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '700',
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     marginBottom: 6,
   },
   etaTime: {
-    fontSize: 32,
-    fontFamily: TYPOGRAPHY.h1.fontFamily,
-    fontWeight: '900',
+    fontSize: 28,
+    fontFamily: 'Inter-Bold',
   },
   etaUnit: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.gold[500],
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '800',
+    fontFamily: 'Inter-SemiBold',
   },
   etaIconWrapper: {
     shadowColor: COLORS.primary[500],
@@ -356,14 +505,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   timelineTextActive: {
-    fontSize: 15,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '700',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
   },
   timelineTextInactive: {
-    fontSize: 15,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '500',
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
   },
   addressCard: {
     flexDirection: 'row',
@@ -386,17 +533,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   addressLabel: {
-    fontSize: 11,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
+    fontSize: 10,
+    fontFamily: 'Inter-Bold',
     textTransform: 'uppercase',
-    fontWeight: '800',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   addressText: {
-    fontSize: 15,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
   },
   cancelBtn: {
     alignItems: 'center',
@@ -406,10 +551,92 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cancelText: {
-    color: COLORS.error,
-    fontWeight: '800',
+    color: '#E74C3C',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+  },
+  detailSection: {
+    marginTop: 10,
+  },
+  detailTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    color: '#1A1A2E',
+    marginBottom: 12,
+  },
+  detailCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  serviceIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(36, 0, 128, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    color: '#1A1A2E',
+  },
+  detailPrice: {
     fontSize: 15,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    letterSpacing: 0.5,
+    fontFamily: 'Inter-Bold',
+    color: '#240080',
+  },
+  detailDivider: {
+    height: 1,
+    marginVertical: 14,
+  },
+  userMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  therapistMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    padding: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  markerAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  markerPulse: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.success,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
 });

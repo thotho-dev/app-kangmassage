@@ -15,11 +15,11 @@ export default function AboutScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: '#FFFFFF' }]}>Tentang Aplikasi</Text>
+        <Text style={[styles.title, { color: t.text }]}>Tentang Aplikasi</Text>
       </View>
 
       <View style={styles.content}>

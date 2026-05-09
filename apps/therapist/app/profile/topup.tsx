@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation, Image } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors, useThemeStore } from '../../store/themeStore';
 import { useTherapistStore } from '../../store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -19,8 +19,8 @@ const PAYMENT_GROUPS = [
     title: 'E-Wallet & QRIS',
     icon: 'qr-code-outline',
     items: [
-      { id: 'gopay', name: 'GoPay / QRIS', image: 'https://img.icons8.com/color/100/000000/google-pay.png' }, // Placeholder for testing
-      { id: 'shopeepay', name: 'ShopeePay', image: 'https://img.icons8.com/color/100/000000/wallet--v1.png' },
+      { id: 'gopay', name: 'GoPay / QRIS', image: require('../../assets/Gopay.png') },
+      { id: 'shopeepay', name: 'ShopeePay', image: require('../../assets/ShopeePay.png') },
     ]
   },
   {
@@ -28,10 +28,10 @@ const PAYMENT_GROUPS = [
     title: 'Virtual Account (Transfer Bank)',
     icon: 'card-outline',
     items: [
-      { id: 'bca_va', name: 'BCA Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
-      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
-      { id: 'bni_va', name: 'BNI Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
-      { id: 'bri_va', name: 'BRI Virtual Account', image: 'https://img.icons8.com/color/100/000000/bank.png' },
+      { id: 'bca_va', name: 'BCA Virtual Account', image: require('../../assets/bca.png') },
+      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: require('../../assets/mandiri.png') },
+      { id: 'bni_va', name: 'BNI Virtual Account', image: require('../../assets/bni.png') },
+      { id: 'bri_va', name: 'BRI Virtual Account', image: require('../../assets/bri.png') },
     ]
   },
   {
@@ -39,14 +39,15 @@ const PAYMENT_GROUPS = [
     title: 'Gerai Retail',
     icon: 'storefront-outline',
     items: [
-      { id: 'alfamart', name: 'Alfamart', image: 'https://img.icons8.com/color/100/000000/shop.png' },
-      { id: 'indomaret', name: 'Indomaret', image: 'https://img.icons8.com/color/100/000000/shop.png' },
+      { id: 'alfamart', name: 'Alfamart', image: require('../../assets/Alfamart.png') },
+      { id: 'indomaret', name: 'Indomaret', image: require('../../assets/Indomaret.png') },
     ]
   }
 ];
 
 export default function TopupScreen() {
   const t = useThemeColors();
+  const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const styles = getStyles(t);
   const router = useRouter();
   const { profile } = useTherapistStore();
@@ -132,13 +133,13 @@ export default function TopupScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.container}>
         {AlertComponent}
-        <View style={[styles.header, { backgroundColor: t.headerBg }]}>
+        <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={t.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Top Up Saldo</Text>
+          <Text style={[styles.headerTitle, { color: t.text }]}>Top Up Saldo</Text>
           <TouchableOpacity onPress={() => router.push('/profile/topup-history')} style={styles.backBtn}>
-            <Ionicons name="receipt-outline" size={24} color="#FFFFFF" />
+            <Ionicons name="receipt-outline" size={24} color={t.text} />
           </TouchableOpacity>
         </View>
 
@@ -185,7 +186,7 @@ export default function TopupScreen() {
                   <View style={styles.groupContent}>
                     {group.items.map((item) => (
                       <TouchableOpacity key={item.id} style={[styles.methodItem, selectedMethod === item.id && { borderColor: t.secondary, backgroundColor: t.secondary + '05' }]} onPress={() => setSelectedMethod(item.id)}>
-                        <Image source={{ uri: item.image }} style={styles.paymentLogo} />
+                        <Image source={item.image} style={styles.paymentLogo} />
                         <Text style={styles.methodName}>{item.name}</Text>
                         <View style={[styles.radio, selectedMethod === item.id && { borderColor: t.secondary }]}>
                           {selectedMethod === item.id && <View style={[styles.radioInner, { backgroundColor: t.secondary }]} />}
@@ -214,9 +215,24 @@ export default function TopupScreen() {
 
           <View style={{ marginTop: SPACING.lg, paddingBottom: 60 }}>
             <TouchableOpacity onPress={handleTopup} disabled={loading || !isAmountValid || !selectedMethod} activeOpacity={0.85}>
-              <LinearGradient colors={loading || !isAmountValid || !selectedMethod ? [t.border, t.border] : [t.secondary, '#EA580C']} style={styles.btn}>
-                <Text style={styles.btnText}>{loading ? 'Memproses...' : 'Lanjutkan Pembayaran'}</Text>
-                {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
+              <LinearGradient 
+                colors={loading || !isAmountValid || !selectedMethod 
+                  ? (isDarkMode ? ['#1E293B', '#1E293B'] : ['#E2E8F0', '#E2E8F0']) 
+                  : [t.secondary, '#EA580C']} 
+                style={styles.btn}
+              >
+                <Text style={[styles.btnText, (loading || !isAmountValid || !selectedMethod) && { color: t.textMuted }]}>
+                  {loading ? 'Memproses...' : 'Lanjutkan Pembayaran'}
+                </Text>
+                {loading ? (
+                  <ActivityIndicator color={t.white} size="small" />
+                ) : (
+                  <Ionicons 
+                    name="arrow-forward" 
+                    size={20} 
+                    color={(loading || !isAmountValid || !selectedMethod) ? t.textMuted : t.white} 
+                  />
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -230,7 +246,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
-  headerTitle: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
+  headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg },
   infoCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: t.border, marginBottom: SPACING.xl, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   infoLabel: { ...TYPOGRAPHY.caption, color: t.textSecondary, marginBottom: 4 },

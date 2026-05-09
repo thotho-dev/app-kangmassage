@@ -96,11 +96,11 @@ export default function TopupHistoryScreen() {
   return (
     <View style={styles.container}>
       {AlertComponent}
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Riwayat Top Up</Text>
+        <Text style={[styles.headerTitle, { color: t.text }]}>Riwayat Top Up</Text>
         <View style={{ width: 32 }} />
       </View>
 
@@ -189,7 +189,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
-  headerTitle: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
+  headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg, paddingBottom: 40 },
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
   emptyIcon: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg },

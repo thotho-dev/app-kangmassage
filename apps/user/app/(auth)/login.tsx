@@ -8,18 +8,24 @@ import {
   Platform,
   ScrollView,
   Dimensions,
-  StatusBar
+  StatusBar,
+  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, ArrowRight } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
+import { supabase } from '../../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -28,12 +34,79 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Silakan masukkan email dan kata sandi');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
       router.replace('/(main)/home');
-    }, 1500);
+    } catch (error: any) {
+      Alert.alert('Login Gagal', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      // Gunakan alamat dasar Expo Go untuk redirect
+      const redirectTo = Linking.createURL('', { scheme: 'kangmassage' });
+      console.log('Redirecting to Supabase with target:', redirectTo);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (res.type === 'success') {
+        const { url } = res;
+        const { queryParams } = Linking.parse(url);
+        
+        const access_token = queryParams?.access_token as string;
+        const refresh_token = queryParams?.refresh_token as string;
+
+        if (access_token) {
+          const { error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+          if (error) throw error;
+          router.replace('/(main)/home');
+        } else {
+          // Jika token tidak ada di URL, coba ambil session langsung
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session) {
+            router.replace('/(main)/home');
+          } else {
+            console.log('Session not found after success redirect');
+          }
+        }
+      } else {
+        console.log('Auth session stopped:', res.type);
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      Alert.alert('Google Login Gagal', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -77,6 +150,7 @@ export default function LoginScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              icon={<Mail size={20} color={theme.textSecondary} />}
               containerStyle={styles.input}
             />
             <Input
@@ -85,10 +159,14 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              icon={<Lock size={20} color={theme.textSecondary} />}
               containerStyle={styles.input}
             />
 
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity 
+              style={styles.forgotPassword}
+              onPress={() => router.push('/forgot-password')}
+            >
               <Text style={styles.forgotPasswordText}>Lupa Kata Sandi?</Text>
             </TouchableOpacity>
 
@@ -102,26 +180,26 @@ export default function LoginScreen() {
 
             <View style={styles.dividerContainer}>
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
-              <Text style={[styles.dividerText, { color: theme.textSecondary }]}>ATAU LANJUTKAN DENGAN</Text>
+              <Text style={[styles.dividerText, { color: theme.textSecondary }]}>ATAU</Text>
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
             </View>
 
             <View style={styles.socialContainer}>
-              <TouchableOpacity style={[styles.socialButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <FontAwesome name="google" size={24} color={theme.text} />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.socialButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <FontAwesome name="apple" size={24} color={theme.text} />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.socialButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <FontAwesome name="facebook" size={24} color={theme.text} />
+              <TouchableOpacity 
+                style={[styles.googleButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}
+                onPress={signInWithGoogle}
+              >
+                <View style={styles.googleContent}>
+                  <FontAwesome name="google" size={24} color="#DB4437" />
+                  <Text style={[styles.googleText, { color: theme.text }]}>Lanjutkan dengan Google</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: theme.textSecondary }]}>Belum punya akun? </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/register')}>
               <Text style={styles.signUpText}>Daftar</Text>
             </TouchableOpacity>
           </View>
@@ -234,15 +312,24 @@ const styles = StyleSheet.create({
   socialContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
   },
-  socialButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+  googleButton: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  googleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  googleText: {
+    fontSize: 16,
+    fontFamily: TYPOGRAPHY.body.fontFamily,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',

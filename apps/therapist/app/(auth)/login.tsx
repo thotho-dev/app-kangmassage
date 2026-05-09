@@ -1,5 +1,5 @@
 import { useState, useEffect} from 'react';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors, useThemeStore } from '../../store/themeStore';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView
@@ -16,6 +16,7 @@ import * as Device from 'expo-device';
 
 export default function LoginScreen() {
   const t = useThemeColors();
+  const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const styles = getStyles(t);
   const { showAlert, AlertComponent } = useAlert();
 
@@ -239,11 +240,13 @@ export default function LoginScreen() {
             {/* Login Button */}
             <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
               <LinearGradient
-                colors={loading ? [t.border, t.border] : [t.secondary, '#EA580C']}
+                colors={loading 
+                  ? (isDarkMode ? ['#1E293B', '#1E293B'] : ['#E2E8F0', '#E2E8F0']) 
+                  : [t.secondary, '#EA580C']}
                 style={styles.btn}
               >
                 {loading ? (
-                  <Text style={[styles.btnText, { color: '#FFFFFF' }]}>Memuat...</Text>
+                  <Text style={[styles.btnText, { color: t.textMuted }]}>Memuat...</Text>
                 ) : (
                   <>
                     <Text style={[styles.btnText, { color: '#FFFFFF' }]}>Masuk</Text>

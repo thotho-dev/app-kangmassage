@@ -2,20 +2,30 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
-  ArrowLeft, 
+  ChevronLeft, 
   CreditCard, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
   History,
   TrendingUp,
   Plus,
   ChevronRight,
-  Wallet
+  Wallet,
+  Star,
+  RotateCcw,
+  ArrowDownLeft,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Card from '../../components/ui/Card';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
+import { COLORS } from '../../constants/Theme';
+import { supabase } from '../../lib/supabase';
+
+const PURPLE = '#240080';
+const PURPLE_DARK = '#12004D';
+const GOLD = '#FDB927';
+const SUCCESS = '#00A896';
+const TEXT_DARK = '#1A1A2E';
+const TEXT_MUTED = '#6B7280';
+const BORDER = '#F0F0F0';
+const BG = '#F8F8FB';
 
 const TRANSACTIONS = [
   { id: 1, title: 'Pembayaran Pijat', date: 'Hari ini, 10:30', amount: -165000, type: 'debit', icon: CreditCard },
@@ -24,113 +34,173 @@ const TRANSACTIONS = [
   { id: 4, title: 'Pembayaran Pijat', date: '25 Apr, 18:45', amount: -120000, type: 'debit', icon: CreditCard },
 ];
 
+import { useAuth } from '../../context/AuthContext';
+
 export default function WalletScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { profile } = useAuth();
+  const [transactions, setTransactions] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const balance = profile?.wallet_balance || 0;
+  const points = profile?.points || 0;
+  const cashback = profile?.cashback || 0;
+
+  React.useEffect(() => {
+    if (profile?.supabase_uid) {
+      fetchTransactions();
+    }
+  }, [profile?.supabase_uid]);
+
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', profile?.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (error) {
+      console.log('Error fetching transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTxDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    if (date.toDateString() === now.toDateString()) return `Hari ini, ${date.getHours()}:${date.getMinutes()}`;
+    return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <View style={[styles.container, { backgroundColor: BG }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => router.back()}
-          style={[styles.backButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}
-        >
-          <ArrowLeft size={20} color={theme.text} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Dompet Saya</Text>
-        <TouchableOpacity style={[styles.historyButton, { backgroundColor: isDark ? 'rgba(253, 185, 39, 0.05)' : 'rgba(253, 185, 39, 0.03)', borderColor: isDark ? 'rgba(253, 185, 39, 0.1)' : 'rgba(253, 185, 39, 0.05)' }]}>
-           <History size={20} color={COLORS.gold[500]} />
+        <Text style={styles.headerTitle}>Dompet Saya</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(main)/history')}>
+          <History size={20} color={GOLD} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Main Card */}
-        <View style={styles.mainCardContainer}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+        {/* Balance Card */}
+        <View style={styles.cardWrapper}>
           <LinearGradient
-            colors={[COLORS.primary[500], COLORS.primary[700]]}
+            colors={[PURPLE, PURPLE_DARK]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.mainCardGradient as any}
+            style={styles.balanceCard}
           >
-             <View style={styles.decorativeCircle1} />
-             <View style={styles.decorativeCircle2} />
+            {/* Decorative circles */}
+            <View style={styles.circle1} />
+            <View style={styles.circle2} />
 
-             <View style={styles.cardHeader}>
-                <View>
-                   <Text style={styles.balanceLabel}>Saldo Saat Ini</Text>
-                   <Text style={styles.balanceText}>Rp 1.250.000</Text>
-                </View>
-                <View style={styles.cardIconWrapper}>
-                   <Wallet size={24} color={COLORS.gold[500]} />
-                </View>
-             </View>
+            {/* Top Row */}
+            <View style={styles.cardTopRow}>
+              <View>
+                <Text style={styles.balanceLabel}>SALDO SAAT INI</Text>
+                <Text style={styles.balanceAmount}>Rp {balance.toLocaleString('id-ID')}</Text>
+              </View>
+              <View style={styles.walletIconBox}>
+                <Wallet size={22} color={GOLD} />
+              </View>
+            </View>
 
-             <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.actionButton}>
-                   <Plus size={20} color={COLORS.gold[500]} style={{ marginBottom: 6 }} />
-                   <Text style={styles.actionText}>Isi Saldo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                   <TrendingUp size={20} color={COLORS.gold[500]} style={{ marginBottom: 6 }} />
-                   <Text style={styles.actionText}>Tarik Tunai</Text>
-                </TouchableOpacity>
-             </View>
+            {/* Action Buttons */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.actionBtn}>
+                <Plus size={16} color={GOLD} />
+                <Text style={styles.actionLabel}>Isi Saldo</Text>
+              </TouchableOpacity>
+              <View style={styles.actionDivider} />
+              <TouchableOpacity style={styles.actionBtn}>
+                <TrendingUp size={16} color={GOLD} />
+                <Text style={styles.actionLabel}>Tarik Tunai</Text>
+              </TouchableOpacity>
+            </View>
           </LinearGradient>
         </View>
 
-        {/* Quick Stats */}
+        {/* Stats Row: Poin & Cash Back */}
         <View style={styles.statsRow}>
-           <Card style={[styles.statsCard, styles.incomeCard, { backgroundColor: isDark ? 'rgba(0, 168, 150, 0.05)' : 'rgba(0, 168, 150, 0.03)', borderColor: isDark ? 'rgba(0, 168, 150, 0.12)' : 'rgba(0, 168, 150, 0.08)' }]}>
-              <View style={styles.statsIconWrapperIncome}>
-                 <ArrowDownLeft size={16} color={COLORS.success} />
-              </View>
-              <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Pemasukan</Text>
-              <Text style={[styles.statsValue, { color: theme.text }]}>Rp 650rb</Text>
-           </Card>
-           <Card style={[styles.statsCard, styles.spendingCard, { backgroundColor: isDark ? 'rgba(231, 76, 60, 0.05)' : 'rgba(231, 76, 60, 0.03)', borderColor: isDark ? 'rgba(231, 76, 60, 0.12)' : 'rgba(231, 76, 60, 0.08)' }]}>
-              <View style={styles.statsIconWrapperSpending}>
-                 <ArrowUpRight size={16} color={COLORS.error} />
-              </View>
-              <Text style={[styles.statsLabel, { color: theme.textSecondary }]}>Pengeluaran</Text>
-              <Text style={[styles.statsValue, { color: theme.text }]}>Rp 285rb</Text>
-           </Card>
+          {/* Poin */}
+          <View style={[styles.statsCard, { backgroundColor: isDark ? '#1E1810' : '#FFFBF0', borderColor: '#FDE68A' }]}>
+            <View style={[styles.statsIconBox, { backgroundColor: 'rgba(253, 185, 39, 0.15)' }]}>
+              <Star size={14} color={GOLD} fill={GOLD} />
+            </View>
+            <Text style={[styles.statsLabel, { color: TEXT_MUTED }]}>Poin</Text>
+            <Text style={[styles.statsValue, { color: TEXT_DARK }]}>{points.toLocaleString('id-ID')} Pts</Text>
+          </View>
+
+          {/* Cash Back */}
+          <View style={[styles.statsCard, { backgroundColor: isDark ? '#0D1E1C' : '#F0FAFA', borderColor: '#A7E8E3' }]}>
+            <View style={[styles.statsIconBox, { backgroundColor: 'rgba(0, 168, 150, 0.15)' }]}>
+              <RotateCcw size={14} color={SUCCESS} />
+            </View>
+            <Text style={[styles.statsLabel, { color: TEXT_MUTED }]}>Cash Back</Text>
+            <Text style={[styles.statsValue, { color: TEXT_DARK }]}>Rp {cashback.toLocaleString('id-ID')}</Text>
+          </View>
         </View>
 
         {/* Transactions */}
-        <View style={styles.transactionsSection}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Aktivitas Terbaru</Text>
+            <Text style={styles.sectionTitle}>Aktivitas Terbaru</Text>
             <TouchableOpacity>
-              <Text style={styles.seeAllText}>Lihat Semua</Text>
+              <Text style={styles.seeAll}>Lihat Semua</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.transactionList}>
-            {TRANSACTIONS.map((tx) => {
-              const Icon = tx.icon;
-              return (
-                <TouchableOpacity key={tx.id} activeOpacity={0.7} style={[styles.transactionItem, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                  <View style={styles.txLeft}>
-                    <View style={[styles.txIconWrapper, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(15, 23, 42, 0.03)', borderColor: theme.border }]}>
-                      <Icon size={20} color={tx.type === 'credit' ? COLORS.success : COLORS.primary[400]} />
+          <View style={styles.txList}>
+            {transactions.length > 0 ? (
+              transactions.map((tx) => {
+                const isCredit = tx.type === 'credit' || tx.type === 'topup' || tx.type === 'refund';
+                return (
+                  <TouchableOpacity
+                    key={tx.id}
+                    activeOpacity={0.7}
+                    style={styles.txItem}
+                  >
+                    <View style={[
+                      styles.txIconBox,
+                      { backgroundColor: isCredit ? 'rgba(0,168,150,0.08)' : 'rgba(36,0,128,0.06)' }
+                    ]}>
+                      {isCredit ? <Plus size={18} color={SUCCESS} /> : <CreditCard size={18} color={PURPLE} />}
                     </View>
-                    <View>
-                      <Text style={[styles.txTitle, { color: theme.text }]}>{tx.title}</Text>
-                      <Text style={[styles.txDate, { color: theme.textSecondary }]}>{tx.date}</Text>
+                    <View style={styles.txInfo}>
+                      <Text style={styles.txTitle} numberOfLines={1}>{tx.description || (isCredit ? 'Isi Saldo' : 'Pembayaran')}</Text>
+                      <Text style={styles.txDate}>{formatTxDate(tx.created_at)}</Text>
                     </View>
-                  </View>
-                  <View style={styles.txRight}>
-                    <Text style={[styles.txAmount, tx.type === 'credit' ? styles.creditText : [styles.debitText, { color: theme.text }]]}>
-                      {tx.type === 'credit' ? '+' : '-'} Rp {Math.abs(tx.amount).toLocaleString()}
-                    </Text>
-                    <ChevronRight size={14} color={theme.textSecondary} />
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                    <View style={styles.txRight}>
+                      <Text style={[styles.txAmount, { color: isCredit ? SUCCESS : TEXT_DARK }]}>
+                        {isCredit ? '+' : '-'} Rp {Math.abs(tx.amount).toLocaleString('id-ID')}
+                      </Text>
+                      <ChevronRight size={14} color={TEXT_MUTED} style={{ marginTop: 2 }} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Text style={{ color: TEXT_MUTED, fontSize: 13 }}>Belum ada aktivitas transaksi</Text>
+              </View>
+            )}
           </View>
         </View>
+
       </ScrollView>
     </View>
   );
@@ -141,235 +211,221 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 64,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
   backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historyButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    borderWidth: 1.5,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
-    fontSize: 24,
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
   },
-  scrollView: {
-    flex: 1,
-    paddingHorizontal: 24,
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
   },
-  mainCardContainer: {
-    marginBottom: 32,
-    marginTop: 16,
+
+  // Balance Card
+  cardWrapper: {
+    marginTop: 20,
+    marginBottom: 16,
   },
-  mainCardGradient: {
-    borderRadius: 32,
-    padding: 32,
-    position: 'relative',
+  balanceCard: {
+    borderRadius: 24,
+    padding: 24,
     overflow: 'hidden',
-    elevation: 12,
-    shadowColor: COLORS.primary[500],
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
+    position: 'relative',
+    elevation: 8,
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
   },
-  decorativeCircle1: {
+  circle1: {
     position: 'absolute',
-    top: -60,
-    right: -60,
-    width: 180,
-    height: 180,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 90,
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 75,
   },
-  decorativeCircle2: {
+  circle2: {
     position: 'absolute',
-    bottom: -100,
-    left: -100,
-    width: 260,
-    height: 260,
-    backgroundColor: 'rgba(253, 185, 39, 0.05)',
-    borderRadius: 130,
+    bottom: -80,
+    left: -80,
+    width: 200,
+    height: 200,
+    backgroundColor: 'rgba(253,185,39,0.04)',
+    borderRadius: 100,
   },
-  cardHeader: {
+  cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 48,
+    marginBottom: 32,
   },
   balanceLabel: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 14,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '700',
+    fontSize: 10,
+    fontFamily: 'Inter-Bold',
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  balanceText: {
-    color: COLORS.white,
-    fontSize: 34,
-    fontFamily: TYPOGRAPHY.h1.fontFamily,
-    fontWeight: '900',
+  balanceAmount: {
+    fontSize: 28,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
-  cardIconWrapper: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 18,
+  walletIconBox: {
+    width: 46,
+    height: 46,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
   },
-  actionButton: {
+  actionBtn: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 20,
-    paddingVertical: 18,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
   },
-  actionText: {
-    color: COLORS.white,
+  actionDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  actionLabel: {
     fontSize: 13,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
   },
+
+  // Stats Cards
   statsRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 40,
+    gap: 12,
+    marginBottom: 24,
   },
   statsCard: {
     flex: 1,
-    padding: 20,
-    borderRadius: 28,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1.5,
   },
-  incomeCard: {
-  },
-  spendingCard: {
-  },
-  statsIconWrapperIncome: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 168, 150, 0.15)',
+  statsIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-  },
-  statsIconWrapperSpending: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(231, 76, 60, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   statsLabel: {
-    fontSize: 11,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
+    fontSize: 10,
+    fontFamily: 'Inter-Bold',
     textTransform: 'uppercase',
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 6,
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
   statsValue: {
-    fontWeight: '900',
-    fontSize: 18,
-    fontFamily: TYPOGRAPHY.h3.fontFamily,
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
   },
-  transactionsSection: {
-    marginBottom: 48,
+
+  // Transactions
+  section: {
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    fontFamily: TYPOGRAPHY.h3.fontFamily,
+    fontSize: 15,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
   },
-  seeAllText: {
-    color: COLORS.gold[500],
-    fontSize: 14,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '700',
+  seeAll: {
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    color: GOLD,
   },
-  transactionList: {
-    gap: 20,
+  txList: {
+    gap: 10,
   },
-  transactionItem: {
+  txItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  txLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  txIconWrapper: {
-    width: 52,
-    height: 52,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  txIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    marginRight: 12,
+  },
+  txInfo: {
+    flex: 1,
   },
   txTitle: {
-    fontWeight: '700',
-    fontSize: 16,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: TEXT_DARK,
+    marginBottom: 3,
   },
   txDate: {
     fontSize: 12,
-    marginTop: 4,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '500',
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
   },
   txRight: {
     alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 4,
   },
   txAmount: {
-    fontWeight: '900',
-    fontSize: 17,
-    fontFamily: TYPOGRAPHY.h3.fontFamily,
-    marginBottom: 4,
-  },
-  creditText: {
-    color: COLORS.success,
-  },
-  debitText: {
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
   },
 });

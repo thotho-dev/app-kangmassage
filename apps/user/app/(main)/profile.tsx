@@ -20,12 +20,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 
+import { useAuth } from '../../context/AuthContext';
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { theme, isDark, toggleTheme } = useTheme();
+  const { user, profile, signOut } = useAuth();
 
-  const handleLogout = () => {
-    router.replace('/(auth)/login');
+  const handleLogout = async () => {
+    await signOut();
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
   const MENU_ITEMS = [
@@ -45,22 +53,34 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
             <LinearGradient
-              colors={[COLORS.primary[500], COLORS.gold[500]]}
-              style={styles.avatarGradient as any}
+              colors={[COLORS.primary[500] || '#240080', COLORS.gold[500] || '#FDB927']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarGradient}
             >
-              <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400' }}
-                style={styles.avatar}
-              />
+              {profile?.avatar_url ? (
+                <Image 
+                  source={{ uri: profile.avatar_url }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: theme.surfaceVariant, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.primary[500] }}>
+                    {getInitials(profile?.full_name || user?.email || 'User')}
+                  </Text>
+                </View>
+              )}
             </LinearGradient>
             <TouchableOpacity style={[styles.editButton, { borderColor: theme.background }]}>
               <Settings size={16} color="white" />
             </TouchableOpacity>
           </View>
-          <Text style={[styles.name, { color: theme.text }]}>Alex Johnson</Text>
+          <Text style={[styles.name, { color: theme.text }]}>
+            {profile?.full_name || 'User'}
+          </Text>
           <View style={styles.membershipBadge}>
             <Award size={12} color={COLORS.gold[500]} />
-            <Text style={styles.membershipText}>Anggota Gold</Text>
+            <Text style={styles.membershipText}>Anggota {profile ? 'Gold' : 'Reguler'}</Text>
           </View>
           
           <View style={[styles.statsContainer, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
@@ -100,25 +120,18 @@ export default function ProfileScreen() {
           })}
         </View>
 
-        {/* Theme Toggle Section */}
+        {/* Rate Us Section */}
         <View style={styles.menuContainer}>
-          <View style={[styles.menuItem, { borderBottomColor: theme.border, justifyContent: 'space-between' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={[styles.iconWrapper, { backgroundColor: isDark ? 'rgba(253, 185, 39, 0.1)' : 'rgba(106, 13, 213, 0.1)', borderColor: isDark ? 'rgba(253, 185, 39, 0.2)' : 'rgba(106, 13, 213, 0.2)' }]}>
-                {isDark ? <Moon size={20} color={COLORS.gold[500]} /> : <Sun size={20} color={COLORS.primary[500]} />}
-              </View>
-              <Text style={[styles.menuTitle, { color: theme.text }]}>
-                {isDark ? 'Mode Gelap' : 'Mode Terang'}
-              </Text>
+          <TouchableOpacity 
+            style={[styles.menuItem, { borderBottomColor: theme.border }]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.iconWrapper, { backgroundColor: 'rgba(253, 185, 39, 0.1)', borderColor: 'rgba(253, 185, 39, 0.2)' }]}>
+              <Star size={20} color={COLORS.gold[500]} fill={COLORS.gold[500]} />
             </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: COLORS.light[300], true: COLORS.primary[300] }}
-              thumbColor={isDark ? COLORS.gold[500] : COLORS.white}
-              ios_backgroundColor={COLORS.light[300]}
-            />
-          </View>
+            <Text style={[styles.menuTitle, { color: theme.text }]}>Ulas Kami</Text>
+            <ChevronRight size={18} color={theme.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Logout Button */}

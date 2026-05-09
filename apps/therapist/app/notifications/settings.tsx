@@ -33,12 +33,12 @@ export default function NotificationSettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { backgroundColor: t.primary }]}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Pengaturan Notifikasi</Text>
-        <Text style={styles.subtitle}>Kelola notifikasi yang ingin Anda terima</Text>
+        <Text style={[styles.title, { color: t.text }]}>Pengaturan Notifikasi</Text>
+        <Text style={[styles.subtitle, { color: t.textSecondary }]}>Kelola notifikasi yang ingin Anda terima</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -97,8 +97,8 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl },
   backBtn: { marginBottom: SPACING.sm },
-  title: { ...TYPOGRAPHY.h2, color: '#FFFFFF', marginBottom: 4 },
-  subtitle: { ...TYPOGRAPHY.body, color: 'rgba(255,255,255,0.7)' },
+  title: { ...TYPOGRAPHY.h2, marginBottom: 4 },
+  subtitle: { ...TYPOGRAPHY.body },
   scroll: { padding: SPACING.lg, paddingBottom: 60 },
   masterCard: { borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: SPACING.lg, borderWidth: 1, borderColor: t.border },
   masterGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.lg },

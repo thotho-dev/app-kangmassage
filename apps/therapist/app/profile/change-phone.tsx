@@ -61,11 +61,11 @@ export default function ChangePhoneScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.container}>
         {AlertComponent}
-        <View style={[styles.header, { backgroundColor: t.headerBg, paddingHorizontal: SPACING.lg, paddingTop: 52, paddingBottom: SPACING.xl }]}>
+        <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
           <TouchableOpacity onPress={() => step !== 'done' ? (step === 'input' ? router.back() : setStep('input')) : router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color={t.text} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: '#FFFFFF', marginTop: SPACING.md }]}>
+          <Text style={[styles.title, { color: t.text, marginTop: SPACING.md }]}>
             {step === 'done' ? 'Berhasil' : step === 'input' ? 'Ubah Nomor Telepon' : 'Verifikasi OTP'}
           </Text>
         </View>
@@ -153,7 +153,7 @@ export default function ChangePhoneScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 52, paddingBottom: SPACING.xl },
   title: { ...TYPOGRAPHY.h2 },
   content: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: SPACING.lg, paddingTop: SPACING.xxl },
   icon: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md, shadowColor: t.secondary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 10 },

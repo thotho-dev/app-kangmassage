@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('services')
       .select('*')
+      .eq('is_deleted', false)
       .order('sort_order', { ascending: true });
 
     if (activeOnly) query = query.eq('is_active', true);

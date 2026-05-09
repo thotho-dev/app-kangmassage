@@ -23,7 +23,8 @@ export const darkColors = {
   background: '#020617', // Slate 950
   surface: '#0F172A',    // Slate 900
   surfaceLight: '#1E293B', // Slate 800
-  headerBg: '#0F172A',   // Dark header for dark mode
+  headerBg: '#0F172A',
+  brandBlue: '#1E3A8A',
   card: '#0F172A',
   border: '#1E293B',
   text: '#F8FAFC',
@@ -47,7 +48,8 @@ export const lightColors = {
   background: '#F8FAFC',
   surface: '#FFFFFF',
   surfaceLight: '#F1F5F9',
-  headerBg: '#1E3A8A',   // Blue header for light mode
+  headerBg: '#FFFFFF',
+  brandBlue: '#1E3A8A',
   card: '#FFFFFF',
   border: '#E2E8F0',
   text: '#0F172A',

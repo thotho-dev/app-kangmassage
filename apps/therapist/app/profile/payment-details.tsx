@@ -46,11 +46,11 @@ export default function PaymentDetailsScreen() {
   return (
     <View style={styles.container}>
       {AlertComponent}
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={() => router.replace('/profile/topup-history')} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Instruksi Pembayaran</Text>
+        <Text style={[styles.headerTitle, { color: t.text }]}>Instruksi Pembayaran</Text>
         <View style={{ width: 32 }} />
       </View>
 
@@ -106,7 +106,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
-  headerTitle: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
+  headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg },
   
   paymentCard: { gap: SPACING.lg },

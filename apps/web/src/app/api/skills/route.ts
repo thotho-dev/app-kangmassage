@@ -26,15 +26,18 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const { name } = await req.json();
-
+    const { name, price_type = 'duration' } = await req.json();
+    
     if (!name) {
       return NextResponse.json({ error: 'Skill name is required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from('skills')
-      .insert({ name })
+      .insert({ 
+        name, 
+        price_type 
+      })
       .select()
       .single();
 
@@ -43,6 +46,33 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ data }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PATCH /api/skills - Update an existing skill
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase = createAdminClient();
+    const { id, name, price_type } = await req.json();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Skill ID is required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('skills')
+      .update({ name, price_type })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

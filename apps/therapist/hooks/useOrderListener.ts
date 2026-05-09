@@ -16,7 +16,7 @@ export const useOrderListener = () => {
     console.log('Starting order listener for therapist:', profile.id);
 
     const subscription = supabase
-      .channel(`orders:therapist_id=eq.${profile.id}`)
+      .channel(`orders-listener-${profile.id}-${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         {

@@ -15,12 +15,12 @@ export default function PrivacyPolicyScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: '#FFFFFF' }]}>Kebijakan Privasi</Text>
-        <Text style={[styles.subtitle, { color: 'rgba(255,255,255,0.7)' }]}>Terakhir diperbarui: 24 Mei 2026</Text>
+        <Text style={[styles.title, { color: t.text }]}>Kebijakan Privasi</Text>
+        <Text style={[styles.subtitle, { color: t.textSecondary }]}>Terakhir diperbarui: 24 Mei 2026</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

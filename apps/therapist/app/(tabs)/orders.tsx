@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors, useThemeStore } from '../../store/themeStore';
 import { useTherapistStore } from '../../store/therapistStore';
 import { supabase } from '../../lib/supabase';
 
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, RefreshControl
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function OrdersScreen() {
   const t = useThemeColors();
+  const isDarkMode = useThemeStore(state => state.isDarkMode);
   const styles = getStyles(t);
   const { profile } = useTherapistStore();
   
@@ -40,23 +41,29 @@ export default function OrdersScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed'>('all');
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchOrders();
   }, [profile, activeTab]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (isRefreshing = false) => {
     if (!profile) return;
-    setLoading(true);
+    if (!isRefreshing) setLoading(true);
+    
     try {
       let query = supabase
         .from('orders')
-        .select('*, users(full_name, avatar_url)')
+        .select(`
+          *,
+          users (full_name, avatar_url, phone),
+          services (name, duration_min)
+        `)
         .eq('therapist_id', profile.id)
         .order('created_at', { ascending: false });
 
       if (activeTab === 'active') {
-        query = query.in('status', ['pending', 'accepted', 'on_the_way', 'arrived', 'in_progress']);
+        query = query.in('status', ['pending', 'accepted', 'on_the_way', 'in_progress']);
       } else if (activeTab === 'completed') {
         query = query.eq('status', 'completed');
       }
@@ -68,7 +75,13 @@ export default function OrdersScreen() {
       console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchOrders(true);
   };
 
   const handleAccept = async (orderId: string) => {
@@ -87,16 +100,16 @@ export default function OrdersScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: t.headerBg }]}>
-        <Text style={[styles.title, { color: '#FFFFFF' }]}>Pesanan</Text>
-        <View style={styles.tabs}>
+      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
+        <Text style={[styles.title, { color: t.text }]}>Pesanan</Text>
+        <View style={[styles.tabs, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)' }]}>
           {(['all', 'active', 'completed'] as const).map(tab => (
             <TouchableOpacity
               key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              style={[styles.tab, activeTab === tab && { backgroundColor: t.background }]}
               onPress={() => setActiveTab(tab)}
             >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              <Text style={[styles.tabText, { color: activeTab === tab ? t.text : (isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') }]}>
                 {tab === 'all' ? 'Semua' : tab === 'active' ? 'Aktif' : 'Selesai'}
               </Text>
             </TouchableOpacity>
@@ -104,7 +117,11 @@ export default function OrdersScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scroll} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
+      >
         {loading ? (
           <View style={{ paddingTop: 100 }}>
             <ActivityIndicator size="large" color={t.primary} />
@@ -128,7 +145,7 @@ export default function OrdersScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.customerName}>{order.users?.full_name || 'Pelanggan'}</Text>
-                  <Text style={styles.serviceText}>{order.service_name || 'Pijat Relaksasi'} · {order.duration || 60} menit</Text>
+                  <Text style={styles.serviceText}>{order.services?.name || 'Pijat Relaksasi'} · {order.services?.duration_min || 60} menit</Text>
                 </View>
                 <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[order.status] || t.textMuted) + '15' }]}>
                   <View style={[styles.badgeDot, { backgroundColor: STATUS_COLOR[order.status] || t.textMuted } ]} />
@@ -181,9 +198,8 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
     paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg,
-    borderBottomLeftRadius: RADIUS.xl, borderBottomRightRadius: RADIUS.xl,
   },
-  title: { ...TYPOGRAPHY.h2, color: '#FFFFFF', marginBottom: SPACING.md },
+  title: { ...TYPOGRAPHY.h2, marginBottom: SPACING.md },
   tabs: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: RADIUS.full, padding: 4 },
   tab: { flex: 1, paddingVertical: 8, borderRadius: RADIUS.full, alignItems: 'center' },
   tabActive: { backgroundColor: t.background },

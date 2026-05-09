@@ -162,6 +162,11 @@ const translations = {
     unlimited: 'Unlimited',
     no_cap: 'No cap',
     type: 'Type',
+    manage_service_types: 'Manage Service Types',
+    add_service_type: 'Add New Service Type',
+    list_service_types: 'Service Type List',
+    service_type_desc: 'Manage service categories and pricing models',
+    edit_service_type: 'Edit Service Type',
 
     // Settings
     general: 'General',
@@ -348,6 +353,11 @@ const translations = {
     unlimited: 'Tak Terbatas',
     no_cap: 'Tanpa Batas',
     type: 'Tipe',
+    manage_service_types: 'Kelola Tipe Service',
+    add_service_type: 'Tambah Tipe Service Baru',
+    list_service_types: 'Daftar Tipe Service',
+    service_type_desc: 'Atur daftar kategori layanan & tipe harganya',
+    edit_service_type: 'Sedang Mengedit Tipe Service',
 
     // Settings
     general: 'Umum',

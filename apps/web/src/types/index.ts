@@ -58,10 +58,13 @@ export interface Service {
   id: string;
   name: string;
   description?: string;
+  category_slug?: string[];
   duration_min: number;
   base_price: number;
+  duration_options?: { duration: number; price: number }[];
   image_url?: string;
   is_active: boolean;
+  price_type?: 'duration' | 'treatment';
   sort_order: number;
   created_at: string;
   updated_at: string;

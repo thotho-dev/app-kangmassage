@@ -6,18 +6,25 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Clock, Star, ChevronRight, Sparkles } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronLeft, Clock, Star, MapPin } from 'lucide-react-native';
 import { SERVICES } from '../../constants/Services';
 import { useServices } from '../../hooks/useServices';
 import { COLORS, TYPOGRAPHY } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
-import Card from '../../components/ui/Card';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
+
+const TEXT_DARK = '#1A1A2E';
+const TEXT_MUTED = '#6B7280';
+const PURPLE = '#240080';
+const BG = '#F5F5F7';
+const CARD_BG = '#FFFFFF';
+const BORDER = '#EFEFEF';
 
 export default function ServicesScreen() {
   const router = useRouter();
@@ -27,18 +34,19 @@ export default function ServicesScreen() {
   const displayServices = servicesData || SERVICES;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => router.back()} 
-          style={[styles.backButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}
+          style={styles.backButton}
         >
-          <ArrowLeft size={24} color={theme.text} />
+          <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Layanan Kami</Text>
+        <Text style={styles.headerTitle}>Layanan Kami</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView 
@@ -46,65 +54,55 @@ export default function ServicesScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.introSection}>
-          <Text style={[styles.introTitle, { color: theme.text }]}>Pilih Perawatan Terbaik</Text>
-          <Text style={[styles.introSubtitle, { color: theme.textSecondary }]}>
+          <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
+          <Text style={styles.introSubtitle}>
             Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
           </Text>
         </View>
 
-        <View style={styles.servicesGrid}>
-          {isLoading && (
-            <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 20 }}>
-              Memuat layanan...
-            </Text>
-          )}
+        <View style={styles.grid}>
           {displayServices.map((service) => (
             <TouchableOpacity 
               key={service.id}
               activeOpacity={0.9}
               onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id } })}
-              style={styles.serviceWrapper}
+              style={styles.serviceCard}
             >
-              <Card style={[styles.serviceCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <LinearGradient
-                  colors={[`${service.color}15`, `${service.color}05`]}
-                  style={styles.cardGradient}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: `${service.color}20` }]}>
-                    <Text style={styles.iconText}>{service.icon}</Text>
-                  </View>
-                  
-                  <View style={styles.contentContainer}>
-                    <View style={styles.titleRow}>
-                      <Text style={[styles.serviceName, { color: theme.text }]}>{service.name}</Text>
-                      {service.id === 'premium-all-in' && (
-                        <View style={styles.premiumBadge}>
-                          <Sparkles size={10} color={COLORS.gold[500]} />
-                          <Text style={styles.premiumText}>VIP</Text>
-                        </View>
-                      )}
-                    </View>
-                    
-                    <Text style={[styles.serviceDescription, { color: theme.textSecondary }]} numberOfLines={2}>
-                      {service.description}
-                    </Text>
+              {/* Image */}
+              <Image
+                source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
+                style={styles.serviceImage}
+              />
+              
+              {/* Icon Overlay */}
+              <View style={styles.iconOverlay}>
+                <Text style={styles.iconEmoji}>{service.icon}</Text>
+              </View>
 
-                    <View style={styles.footer}>
-                      <View style={styles.metaRow}>
-                        <Clock size={14} color={theme.textSecondary} />
-                        <Text style={[styles.metaText, { color: theme.textSecondary }]}>{service.duration}</Text>
-                      </View>
-                      <Text style={[styles.priceText, { color: COLORS.gold[500] }]}>
-                        Rp {service.price.toLocaleString()}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={[styles.actionButton, { backgroundColor: theme.surfaceVariant }]}>
-                    <ChevronRight size={18} color={theme.textSecondary} />
-                  </View>
-                </LinearGradient>
-              </Card>
+              {/* Info */}
+              <View style={styles.serviceInfo}>
+                <Text style={styles.serviceName} numberOfLines={1}>
+                  {service.name}
+                </Text>
+                
+                <Text style={styles.serviceDescription} numberOfLines={2}>
+                  {service.description}
+                </Text>
+
+                <View style={styles.priceContainer}>
+                  <Text style={styles.priceLabel}>Mulai</Text>
+                  <Text style={styles.priceText}>
+                    Rp {service.price.toLocaleString('id-ID')} /Jam
+                  </Text>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.selectBtn}
+                  onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id } })}
+                >
+                  <Text style={styles.selectBtnText}>Pilih</Text>
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -118,133 +116,130 @@ export default function ServicesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BG,
   },
   header: {
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    zIndex: 10,
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEFEF',
   },
   backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
   },
   headerTitle: {
-    ...TYPOGRAPHY.h2,
-    fontSize: 22,
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
   },
   scrollContent: {
     paddingBottom: 40,
   },
   introSection: {
     paddingHorizontal: 24,
-    marginBottom: 24,
-    marginTop: 10,
+    paddingVertical: 20,
   },
   introTitle: {
-    ...TYPOGRAPHY.h1,
-    fontSize: 28,
+    fontSize: 24,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
     marginBottom: 8,
   },
   introSubtitle: {
-    ...TYPOGRAPHY.body,
-    fontSize: 15,
-    lineHeight: 22,
-    opacity: 0.8,
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: TEXT_MUTED,
+    lineHeight: 20,
   },
-  servicesGrid: {
-    paddingHorizontal: 20,
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
     gap: 16,
   },
-  serviceWrapper: {
-    width: '100%',
-  },
   serviceCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    padding: 0,
-    borderWidth: 1,
-  },
-  cardGradient: {
-    flexDirection: 'row',
-    padding: 16,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
+    width: CARD_WIDTH,
+    backgroundColor: CARD_BG,
     borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: BORDER,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  serviceImage: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#F5F5F7',
+  },
+  iconOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    elevation: 2,
   },
-  iconText: {
-    fontSize: 30,
+  iconEmoji: {
+    fontSize: 16,
   },
-  contentContainer: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+  serviceInfo: {
+    padding: 12,
   },
   serviceName: {
-    ...TYPOGRAPHY.h3,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  premiumBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(253, 185, 39, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  premiumText: {
-    color: COLORS.gold[500],
-    fontSize: 10,
-    fontWeight: '900',
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
+    marginBottom: 4,
   },
   serviceDescription: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 11,
+    fontFamily: 'Inter-Regular',
+    color: TEXT_MUTED,
+    lineHeight: 15,
+    marginBottom: 10,
+    height: 30, // Keep cards uniform
+  },
+  priceContainer: {
     marginBottom: 12,
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 12,
-    fontWeight: '600',
+  priceLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+    marginBottom: 2,
   },
   priceText: {
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 15,
+    fontFamily: 'Inter-Bold',
+    color: PURPLE,
   },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  selectBtn: {
+    backgroundColor: PURPLE,
+    paddingVertical: 10,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  selectBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
   },
 });

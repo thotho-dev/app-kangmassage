@@ -79,6 +79,7 @@ export default function TabLayout() {
         tabBarShowLabel: false, // Hidden because we render it inside TabIcon
         tabBarActiveTintColor: t.secondary,
         tabBarInactiveTintColor: t.textMuted,
+       
       }}
     >
       <Tabs.Screen

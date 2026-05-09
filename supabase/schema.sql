@@ -103,10 +103,14 @@ CREATE TABLE services (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name          VARCHAR(255) NOT NULL,
   description   TEXT,
+  category_slug TEXT[] DEFAULT '{}',
   duration_min  INTEGER NOT NULL, -- Duration in minutes
   base_price    DECIMAL(12,2) NOT NULL,
+  duration_options JSONB DEFAULT '[]',
   image_url     TEXT,
   is_active     BOOLEAN NOT NULL DEFAULT true,
+  is_deleted    BOOLEAN NOT NULL DEFAULT false,
+  price_type    VARCHAR(20) DEFAULT 'duration', -- 'duration' or 'treatment'
   sort_order    INTEGER NOT NULL DEFAULT 0,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()

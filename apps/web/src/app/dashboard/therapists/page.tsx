@@ -400,9 +400,6 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
   const [uploading, setUploading] = useState(false);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(true);
-  const [newSkill, setNewSkill] = useState('');
-  const [showAddSkill, setShowAddSkill] = useState(false);
-  const [isManageMode, setIsManageMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
 
@@ -432,7 +429,6 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
   };
 
   const toggleSkill = (skill: string) => {
-    if (isManageMode) return; // Prevent selection in manage mode
     setForm(prev => ({
       ...prev,
       skills: prev.skills.includes(skill) 
@@ -441,59 +437,9 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
     }));
   };
 
-  const handleAddNewSkill = async () => {
-    if (newSkill) {
-      const skillName = newSkill.trim();
-      if (!skillsOptions.includes(skillName)) {
-        // Optimistically add to UI
-        setSkillsOptions(prev => [...prev, skillName]);
-        setForm(prev => ({ ...prev, skills: [...prev.skills, skillName] }));
-        
-        // Save to DB
-        try {
-          await fetch('/api/skills', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: skillName })
-          });
-        } catch (err) {
-          console.error('Failed to save skill to DB:', err);
-        }
-      }
-      setNewSkill('');
-      setShowAddSkill(false);
-    }
-  };
 
-  const handleDeleteSkill = (e: React.MouseEvent, skillName: string) => {
-    e.stopPropagation();
-    e.preventDefault();
-    
-    setConfirmModal({
-      open: true,
-      title: 'Hapus Keahlian?',
-      message: `Apakah Anda yakin ingin menghapus "${skillName}" dari daftar keahlian?`,
-      onConfirm: async () => {
-        try {
-          // Optimistically update UI
-          setSkillsOptions(prev => prev.filter(s => s !== skillName));
-          setForm(prev => ({ ...prev, skills: prev.skills.filter(s => s !== skillName) }));
-
-          await fetch(`/api/skills?name=${encodeURIComponent(skillName)}`, {
-            method: 'DELETE'
-          });
-          toast.success('Keahlian berhasil dihapus');
-        } catch (err) {
-          console.error('Failed to delete skill:', err);
-          toast.error('Gagal menghapus keahlian');
-        }
-        setConfirmModal(null);
-      }
-    });
-  };
 
   const handleToggleAll = () => {
-    if (isManageMode) return;
     if (form.skills.length === skillsOptions.length) {
       setForm(prev => ({ ...prev, skills: [] }));
     } else {
@@ -681,108 +627,56 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
 
             {/* Skills Section */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium text-text-secondary block">Skills / Kemampuan *</label>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-text-secondary">Keahlian Terapis *</label>
                 {!loadingSkills && skillsOptions.length > 0 && (
-                  <div className="flex items-center gap-3">
-                    <button 
-                      type="button" 
-                      onClick={() => setIsManageMode(!isManageMode)}
-                      className={clsx(
-                        "text-[10px] font-bold uppercase tracking-wider transition-colors px-2 py-1 rounded-md",
-                        isManageMode ? "bg-danger/20 text-danger" : "text-text-muted hover:text-primary"
-                      )}
-                    >
-                      {isManageMode ? 'Done Managing' : 'Manage List'}
-                    </button>
-                    {!isManageMode && (
-                      <button 
-                        type="button" 
-                        onClick={handleToggleAll}
-                        className="text-[10px] font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors"
-                      >
-                        {form.skills.length === skillsOptions.length ? 'Uncheck All' : 'Check All'}
-                      </button>
-                    )}
-                  </div>
+                  <button 
+                    type="button" 
+                    onClick={handleToggleAll}
+                    className="text-[10px] font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {form.skills.length === skillsOptions.length ? 'Uncheck All' : 'Check All'}
+                  </button>
                 )}
               </div>
               {loadingSkills ? (
-                <div className="flex items-center gap-2 text-text-muted text-xs animate-pulse">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading skills...
+                <div className="flex items-center gap-2 text-text-muted text-xs animate-pulse bg-ui-border/5 p-4 rounded-2xl border border-dashed border-ui-border">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span>Memuat daftar keahlian...</span>
+                </div>
+              ) : skillsOptions.length === 0 ? (
+                <div className="text-center py-6 bg-ui-border/5 rounded-2xl border border-dashed border-ui-border">
+                  <p className="text-xs text-text-muted">Belum ada data keahlian. Silakan tambahkan di menu Layanan.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {skillsOptions.map(skill => (
-                    <div key={skill} className="group relative h-full">
-                      <label className={clsx(
-                        "flex items-center gap-2 p-2.5 rounded-xl border transition-all duration-200 h-full",
-                        isManageMode ? "cursor-default opacity-80" : "cursor-pointer",
-                        form.skills.includes(skill) 
-                          ? "bg-primary/10 border-primary text-primary" 
-                          : "bg-muted/30 border-ui-border text-text-secondary hover:border-primary/30"
-                      )}>
-                        {!isManageMode && (
-                          <input 
-                            type="checkbox" 
-                            className="hidden" 
-                            checked={form.skills.includes(skill)}
-                            onChange={() => toggleSkill(skill)}
-                          />
-                        )}
-                        <div className={clsx(
-                          "w-4 h-4 rounded flex items-center justify-center border transition-colors flex-shrink-0",
-                          form.skills.includes(skill) ? "bg-primary border-primary" : "border-text-muted/30"
-                        )}>
-                          {form.skills.includes(skill) && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                        <span className="text-[11px] font-medium leading-tight truncate pr-2">{skill}</span>
-                      </label>
-                      
-                      {isManageMode && (
-                        <button 
-                          type="button"
-                          onClick={(e) => handleDeleteSkill(e, skill)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-danger text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-10"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {/* Add New Skill Button/Input */}
-                  {showAddSkill ? (
-                    <div className="flex items-center gap-1 col-span-2">
+                    <label key={skill} className={clsx(
+                      "flex items-center gap-2 p-2.5 rounded-xl border transition-all duration-200 cursor-pointer",
+                      form.skills.includes(skill) 
+                        ? "bg-primary/10 border-primary text-primary shadow-sm" 
+                        : "bg-muted/30 border-ui-border text-text-secondary hover:border-primary/30"
+                    )}>
                       <input 
-                        autoFocus
-                        value={newSkill}
-                        onChange={e => setNewSkill(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddNewSkill())}
-                        className="input-field py-2 text-xs" 
-                        placeholder="Type skill..." 
+                        type="checkbox" 
+                        className="hidden" 
+                        checked={form.skills.includes(skill)}
+                        onChange={() => toggleSkill(skill)}
                       />
-                      <button type="button" onClick={handleAddNewSkill} className="btn-primary p-2">
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button type="button" onClick={() => setShowAddSkill(false)} className="btn-secondary p-2">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button 
-                      type="button"
-                      onClick={() => setShowAddSkill(true)}
-                      className="flex items-center gap-2 p-2.5 rounded-xl border border-dashed border-ui-border text-text-muted hover:border-primary/50 hover:text-primary transition-all duration-200"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span className="text-xs font-medium">Tambah Baru</span>
-                    </button>
-                  )}
+                      <div className={clsx(
+                        "w-4 h-4 rounded flex items-center justify-center border transition-colors flex-shrink-0",
+                        form.skills.includes(skill) ? "bg-primary border-primary" : "border-text-muted/30"
+                      )}>
+                        {form.skills.includes(skill) && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span className="text-[11px] font-medium leading-tight truncate pr-1">{skill}</span>
+                    </label>
+                  ))}
                 </div>
               )}
             </div>
+          </div>
 
 
 
