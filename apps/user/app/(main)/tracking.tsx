@@ -1,18 +1,164 @@
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar, Animated, PanResponder, ScrollView } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar, Animated, PanResponder, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Phone, MessageCircle, MapPin, Clock, Navigation } from 'lucide-react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
+import { supabase } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
+
+const STATUS_STEPS = [
+  { key: 'accepted',    label: 'Pesanan Diterima',   icon: 'checkmark-circle' },
+  { key: 'on_the_way',  label: 'Menuju Lokasi',       icon: 'navigate'         },
+  { key: 'arrived',     label: 'Tiba di Lokasi',      icon: 'location'         },
+  { key: 'in_progress', label: 'Sedang Berlangsung',  icon: 'time'             },
+  { key: 'completed',   label: 'Selesai',             icon: 'star'             },
+];
 
 export default function TrackingScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
   const { id } = useLocalSearchParams();
+
+  const [order, setOrder] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [routeCoords, setRouteCoords] = useState<{latitude: number, longitude: number}[]>([]);
+
+  useEffect(() => {
+    fetchOrder();
+    fetchLogs();
+    
+    // Subscribe to order changes
+    const orderChannel = supabase
+      .channel(`order_tracking_${id}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'orders',
+        filter: `id=eq.${id}`
+      }, (payload) => {
+        setOrder((prev: any) => ({ ...prev, ...payload.new }));
+      })
+      .subscribe();
+
+    // Subscribe to log changes
+    const logsChannel = supabase
+      .channel(`order_logs_${id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'order_logs',
+        filter: `order_id=eq.${id}`
+      }, (payload) => {
+        setLogs((prev) => [payload.new, ...prev]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(orderChannel);
+      supabase.removeChannel(logsChannel);
+    };
+  }, [id]);
+
+  // Real-time listener khusus untuk pergerakan Lokasi Terapis
+  useEffect(() => {
+    if (!order?.therapist?.id) return;
+
+    const locationChannel = supabase
+      .channel(`therapist_loc_${order.therapist.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'therapist_locations',
+        filter: `therapist_id=eq.${order.therapist.id}`
+      }, (payload: any) => {
+        if (payload.new && payload.new.latitude && payload.new.longitude) {
+           console.log('[DEBUG Tracking User] Posisi Terapis Berubah Real-time:', payload.new.latitude, payload.new.longitude);
+           setOrder((prev: any) => {
+             if (!prev || !prev.therapist) return prev;
+             return {
+               ...prev,
+               therapist: {
+                 ...prev.therapist,
+                 latitude: payload.new.latitude,
+                 longitude: payload.new.longitude,
+               }
+             };
+           });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(locationChannel);
+    };
+  }, [order?.therapist?.id]);
+
+  // Fetch rute jalan raya (OSRM) setiap kali kordinat terapis berubah
+  useEffect(() => {
+    if (order?.latitude && order?.therapist) {
+      const fetchRoute = async () => {
+        try {
+          const lat1 = order.therapist.latitude || (order.latitude + 0.005);
+          const lon1 = order.therapist.longitude || (order.longitude + 0.005);
+          const lat2 = order.latitude;
+          const lon2 = order.longitude;
+
+          const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`);
+          const data = await response.json();
+          
+          if (data.routes && data.routes.length > 0) {
+            const coords = data.routes[0].geometry.coordinates.map((point: any) => ({
+              latitude: point[1],
+              longitude: point[0]
+            }));
+            setRouteCoords(coords);
+          }
+        } catch (error) {
+          console.error("Gagal mengambil rute dari OSRM:", error);
+        }
+      };
+      fetchRoute();
+    }
+  }, [order?.latitude, order?.therapist?.latitude, order?.therapist?.longitude]);
+
+  const fetchLogs = async () => {
+    const { data } = await supabase
+      .from('order_logs')
+      .select('*')
+      .eq('order_id', id)
+      .order('created_at', { ascending: false });
+    if (data) setLogs(data);
+  };
+
+  const formatTime = (status: string) => {
+    const log = logs.find(l => l.status === status);
+    if (!log) return null;
+    const date = new Date(log.created_at);
+    return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const fetchOrder = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, service:services(*), therapist:therapists(*)')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      setOrder(data);
+    } catch (error) {
+      console.error('Error fetching order:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Animations
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -73,6 +219,8 @@ export default function TrackingScreen() {
     extrapolate: 'clamp',
   });
 
+  const currentStepIndex = order ? STATUS_STEPS.findIndex(s => s.key === order.status) : -1;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
@@ -80,42 +228,68 @@ export default function TrackingScreen() {
       <View style={styles.mapContainer}>
         <MapView
           style={styles.map}
-          initialRegion={{
-            latitude: -6.2020,
-            longitude: 106.8250,
+          region={{
+            latitude: order?.latitude || -6.2020,
+            longitude: order?.longitude || 106.8250,
             latitudeDelta: 0.015,
             longitudeDelta: 0.015,
           }}
-          showsUserLocation={false}
-          showsCompass={false}
-          showsMyLocationButton={false}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          pitchEnabled={false}
-          rotateEnabled={false}
+          showsUserLocation={true}
         >
           {/* User Location Marker */}
-          <Marker
-            coordinate={{ latitude: -6.1951, longitude: 106.8204 }}
-            title="Tujuan"
-            description="Grand Indonesia, East Mall"
-          >
-             <View style={styles.userMarker}>
-                <MapPin size={32} color={COLORS.error} fill={COLORS.error} />
-             </View>
-          </Marker>
+          {order?.latitude && (
+            <Marker
+              coordinate={{ latitude: order.latitude, longitude: order.longitude }}
+              title="Lokasi Anda"
+              description={order.address}
+            >
+               <View style={styles.userMarker}>
+                  <MapPin size={32} color={COLORS.error} fill={COLORS.error} />
+               </View>
+            </Marker>
+          )}
 
-          {/* Therapist Location Marker */}
-          <Marker
-            coordinate={{ latitude: -6.2020, longitude: 106.8250 }}
-            title="Terapis"
-            description="Maya Putri"
-          >
-             <View style={styles.therapistMarker}>
-               <Image source={{ uri: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} style={styles.markerAvatar} />
-               <View style={styles.markerPulse} />
-             </View>
-          </Marker>
+          {/* Therapist Location Marker - Only show if assigned */}
+          {order?.therapist && (
+            <Marker
+              coordinate={{ 
+                latitude: order.therapist.latitude || (order.latitude + 0.005), 
+                longitude: order.therapist.longitude || (order.longitude + 0.005) 
+              }}
+              title="Terapis"
+              description={order.therapist.full_name}
+            >
+               <View style={styles.therapistMarker}>
+                 <Image 
+                  source={{ uri: order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
+                   style={styles.markerAvatar} 
+                 />
+                 <View style={styles.markerPulse} />
+               </View>
+            </Marker>
+          )}
+
+          {/* Rute Mengikuti Jalan (OSRM) */}
+          {routeCoords.length > 0 ? (
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor={COLORS.primary[500] || '#240080'}
+              strokeWidth={4}
+            />
+          ) : order?.latitude && order?.therapist && (
+            <Polyline
+              coordinates={[
+                { latitude: order.latitude, longitude: order.longitude },
+                { 
+                  latitude: order.therapist.latitude || (order.latitude + 0.005), 
+                  longitude: order.therapist.longitude || (order.longitude + 0.005) 
+                }
+              ]}
+              strokeColor={COLORS.primary[500] || '#240080'}
+              strokeWidth={3}
+              lineDashPattern={[6, 6]}
+            />
+          )}
         </MapView>
         <LinearGradient
           colors={isDark ? ['rgba(2, 6, 23, 0.9)', 'rgba(2, 6, 23, 0)'] : ['rgba(255, 255, 255, 0.7)', 'rgba(255, 255, 255, 0)']}
@@ -130,7 +304,7 @@ export default function TrackingScreen() {
             <ChevronLeft size={24} color={theme.text} />
           </TouchableOpacity>
           <View style={[styles.orderBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.orderBadgeText, { color: theme.text }]}>{id || 'ORD-9821'}</Text>
+            <Text style={[styles.orderBadgeText, { color: theme.text }]}>{order?.order_number || 'ORD-...'}</Text>
           </View>
         </Animated.View>
 
@@ -140,27 +314,35 @@ export default function TrackingScreen() {
             <View style={styles.therapistInfo}>
               <View style={styles.avatarWrapper}>
                 <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
+                  source={{ uri: order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
                   style={styles.avatar}
                 />
-                <View style={styles.onlineDot} />
+                <View style={[styles.onlineDot, { backgroundColor: order?.therapist ? COLORS.success : '#CBD5E1' }]} />
               </View>
               <View style={styles.textInfo}>
-                <Text style={styles.name}>Maya Putri</Text>
+                <Text style={styles.name}>{order?.therapist?.full_name || 'Mencari Terapis...'}</Text>
                 <View style={styles.statusRow}>
                   <Navigation size={10} color={COLORS.gold[500]} />
-                  <Text style={styles.status}>Menuju ke lokasi Anda</Text>
+                  <Text style={styles.status}>
+                    {order?.status === 'pending' ? 'Menunggu konfirmasi' : 
+                     order?.status === 'on_the_way' ? 'Menuju lokasi Anda' :
+                     order?.status === 'arrived' ? 'Sudah tiba di lokasi' :
+                     order?.status === 'in_progress' ? 'Sedang melakukan layanan' :
+                     order?.status === 'completed' ? 'Layanan selesai' : 'Memproses...'}
+                  </Text>
                 </View>
               </View>
             </View>
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Phone size={18} color='#6B7280' />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, styles.msgBtn]}>
-                <MessageCircle size={18} color="white" />
-              </TouchableOpacity>
-            </View>
+            {order?.therapist && (
+              <View style={styles.actionButtons}>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Phone size={18} color='#6B7280' />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionBtn, styles.msgBtn]}>
+                  <MessageCircle size={18} color="white" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </Animated.View>
       </View>
@@ -198,29 +380,38 @@ export default function TrackingScreen() {
                </View>
             </View>
 
-            <View style={styles.timeline}>
-               <View style={styles.timelineItem}>
-                  <View style={styles.timelineDotActive} />
-                  <View style={styles.timelineLine} />
-                  <Text style={[styles.timelineTextActive, { color: theme.text }]}>Pesanan Dikonfirmasi</Text>
-               </View>
-               <View style={styles.timelineItem}>
-                  <View style={styles.timelineDotActive} />
-                  <View style={styles.timelineLine} />
-                  <Text style={[styles.timelineTextActive, { color: theme.text }]}>Terapis Ditugaskan</Text>
-               </View>
-               <View style={styles.timelineItem}>
-                  <View style={styles.timelineDotPulse} />
-                  <View style={styles.timelineLineInactive} />
-                  <Text style={[styles.timelineTextActive, { color: '#FDB927', fontWeight: '800' }]}>Dalam Perjalanan</Text>
-               </View>
-               <View style={styles.timelineItem}>
-                  <View style={[styles.timelineDotInactive, { backgroundColor: theme.border }]} />
-                  <Text style={[styles.timelineTextInactive, { color: theme.textSecondary }]}>Tiba & Mulai Sesi</Text>
-               </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Status Pesanan</Text>
+              <View style={styles.stepsCard}>
+                {STATUS_STEPS.map((step, i) => {
+                  // Jika status saat ini 'pending' (belum accepted), semua steps belum jalan
+                  // Jika order belum dapet therapist (pending), index = -1
+                  const isDone = currentStepIndex >= 0 && i <= currentStepIndex;
+                  const isCurrent = currentStepIndex >= 0 && i === currentStepIndex;
+                  
+                  return (
+                    <View key={step.key} style={styles.step}>
+                      <View style={styles.stepLeft}>
+                        <View style={[styles.stepIcon, isDone ? styles.stepDone : isCurrent ? styles.stepCurrent : styles.stepPending]}>
+                          <Ionicons
+                            name={isDone && !isCurrent ? 'checkmark' : step.icon as any}
+                            size={16}
+                            color={isDone ? '#FFFFFF' : isCurrent ? COLORS.primary[600] : '#94A3B8'}
+                          />
+                        </View>
+                        {i < STATUS_STEPS.length - 1 && (
+                          <View style={[styles.stepLine, isDone && !isCurrent && styles.stepLineDone]} />
+                        )}
+                      </View>
+                      <Text style={[styles.stepLabel, isDone && styles.stepLabelDone, isCurrent && styles.stepLabelCurrent]}>
+                        {step.label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
 
-            {/* Detail Pesanan Section */}
             <View style={styles.detailSection}>
               <Text style={styles.detailTitle}>Detail Pesanan</Text>
               <View style={[styles.detailCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
@@ -230,8 +421,10 @@ export default function TrackingScreen() {
                       <Clock size={16} color="#240080" />
                     </View>
                     <View>
-                      <Text style={styles.detailLabel}>Layanan & Durasi</Text>
-                      <Text style={styles.detailValue}>Swedish Massage • 90 Menit</Text>
+                      <Text style={styles.detailLabel}>Layanan & Unit</Text>
+                      <Text style={styles.detailValue}>
+                        {order?.service?.name} • {order?.service?.price_type === 'treatment' ? '1 Treatment' : `${order?.duration} Menit`}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -244,11 +437,11 @@ export default function TrackingScreen() {
                       <MessageCircle size={16} color="#240080" />
                     </View>
                     <View>
-                      <Text style={styles.detailLabel}>Pembayaran</Text>
-                      <Text style={styles.detailValue}>Tunai (Cash on Delivery)</Text>
+                      <Text style={styles.detailLabel}>Pembayaran ({order?.payment_method?.toUpperCase()})</Text>
+                      <Text style={styles.detailValue}>{order?.payment_status === 'paid' ? 'Lunas (Dibayar)' : 'Menunggu Pembayaran'}</Text>
                     </View>
                   </View>
-                  <Text style={styles.detailPrice}>Rp 165.000</Text>
+                  <Text style={styles.detailPrice}>Rp {(order?.total_price || 0).toLocaleString('id-ID')}</Text>
                 </View>
               </View>
             </View>
@@ -259,7 +452,7 @@ export default function TrackingScreen() {
                </View>
                <View style={styles.addressInfo}>
                   <Text style={[styles.addressLabel, { color: theme.textSecondary }]}>Tujuan</Text>
-                  <Text style={[styles.addressText, { color: theme.text }]} numberOfLines={1}>Grand Indonesia, East Mall, Fl 5</Text>
+                  <Text style={[styles.addressText, { color: theme.text }]}>{order?.address || 'Alamat tidak ditemukan'}</Text>
                </View>
             </View>
 
@@ -456,62 +649,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  timeline: {
-    marginBottom: 36,
-    paddingLeft: 4,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 44,
-    gap: 18,
-  },
-  timelineDotActive: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.primary[500],
-    zIndex: 1,
-  },
-  timelineDotPulse: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.gold[500],
-    zIndex: 1,
-    borderWidth: 3,
-    borderColor: 'rgba(253, 185, 39, 0.3)',
-  },
-  timelineDotInactive: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    zIndex: 1,
-  },
-  timelineLine: {
-    position: 'absolute',
-    left: 5.5,
-    top: 22,
-    width: 1.5,
-    height: 34,
-    backgroundColor: COLORS.primary[500],
-  },
-  timelineLineInactive: {
-    position: 'absolute',
-    left: 5.5,
-    top: 22,
-    width: 1.5,
-    height: 34,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  timelineTextActive: {
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-  },
-  timelineTextInactive: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-  },
+  section: { paddingHorizontal: 4, marginTop: 10, marginBottom: 20 },
+  sectionTitle: { fontSize: 14, fontFamily: 'Inter-Bold', color: '#1A1A2E', marginBottom: 12 },
+  stepsCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#F0F0F0' },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 4 },
+  stepLeft: { alignItems: 'center', width: 32 },
+  stepIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  stepDone: { backgroundColor: '#10B981' },
+  stepCurrent: { backgroundColor: 'rgba(36, 0, 128, 0.1)', borderWidth: 2, borderColor: COLORS.primary[600] },
+  stepPending: { backgroundColor: '#F0F0F0' },
+  stepLine: { width: 2, height: 24, backgroundColor: '#F0F0F0', marginVertical: 2 },
+  stepLineDone: { backgroundColor: '#10B981' },
+  stepLabel: { fontSize: 13, fontFamily: 'Inter-Medium', color: '#94A3B8', paddingTop: 6 },
+  stepLabelDone: { color: '#10B981' },
+  stepLabelCurrent: { fontSize: 13, fontFamily: 'Inter-SemiBold', color: COLORS.primary[600] },
   addressCard: {
     flexDirection: 'row',
     borderRadius: 24,

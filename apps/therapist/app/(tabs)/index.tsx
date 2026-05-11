@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, RefreshControl
+  ActivityIndicator, RefreshControl, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Droplet, Layers } from 'lucide-react-native';
@@ -23,6 +23,12 @@ export default function DashboardScreen() {
   const [currentAddress, setCurrentAddress] = useState('Mencari lokasi...');
   const [isLocating, setIsLocating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState({
+    todayEarnings: 0,
+    todayOrders: 0,
+    rating: 5.0,
+    totalHours: 0
+  });
   const { fetchProfile } = useTherapistStore();
   
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -100,7 +106,22 @@ export default function DashboardScreen() {
   const fetchDashboardData = async () => {
     if (!profile) return;
     try {
-      // Fetch Recent Orders (Limited to 3)
+      // 1. Hitung Statistik Hari Ini
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const { data: todayData, error: todayError } = await supabase
+        .from('orders')
+        .select('total_price, status')
+        .eq('therapist_id', profile.id)
+        .gte('created_at', startOfDay.toISOString());
+
+      if (todayError) throw todayError;
+
+      const completedToday = todayData ? todayData.filter(o => o.status === 'completed') : [];
+      const earnings = completedToday.reduce((sum, o) => sum + (o.total_price || 0), 0);
+
+      // 2. Ambil Pesanan Terbaru (Limit 3)
       const { data: recentOrders, error: oError } = await supabase
         .from('orders')
         .select('*, users(full_name, avatar_url)')
@@ -108,17 +129,15 @@ export default function DashboardScreen() {
         .order('created_at', { ascending: false })
         .limit(3);
 
-      if (oError) {
-        console.error('Error fetching orders:', oError);
-        // Use Mock Data if DB is empty/error during dev
-        setOrders([
-          { id: 'e7b1a1a0-1234-4321-bcde-f1234567890a', status: 'pending', total_price: 150000, distance: '1.2 km', users: { full_name: 'Siti Rahayu' } }
-        ]);
-      } else {
-        setOrders(recentOrders && recentOrders.length > 0 ? recentOrders : [
-          { id: 'e7b1a1a0-1234-4321-bcde-f1234567890a', status: 'pending', total_price: 150000, distance: '1.2 km', users: { full_name: 'Siti Rahayu' } }
-        ]);
-      }
+      if (oError) throw oError;
+
+      setOrders(recentOrders || []);
+      setDashboardStats({
+        todayEarnings: earnings,
+        todayOrders: completedToday.length,
+        rating: Number(profile.rating) || 5.0,
+        totalHours: profile.total_hours || 0
+      });
     } catch (error) {
       console.error('Dashboard Fetch Error:', error);
     } finally {
@@ -139,10 +158,10 @@ export default function DashboardScreen() {
   const styles = getStyles(t);
 
   const stats = [
-    { label: 'Pendapatan', value: `Rp ${(profile?.today_earnings || 0).toLocaleString('id-ID')}`, icon: 'cash-outline', color: '#10B981' },
-    { label: 'Pesanan', value: profile?.today_orders || '0', icon: 'bag-outline', color: t.secondary },
-    { label: 'Rating', value: (profile?.rating || 5.0).toFixed(1), icon: 'star-outline', color: '#F59E0B' },
-    { label: 'Total Jam', value: `${profile?.total_hours || 0} jam`, icon: 'time-outline', color: '#06B6D4' },
+    { label: 'Pendapatan', value: `Rp ${dashboardStats.todayEarnings.toLocaleString('id-ID')}`, icon: 'cash-outline', color: '#10B981' },
+    { label: 'Pesanan', value: dashboardStats.todayOrders.toString(), icon: 'bag-outline', color: t.secondary },
+    { label: 'Rating', value: dashboardStats.rating.toFixed(1), icon: 'star-outline', color: '#F59E0B' },
+    { label: 'Total Jam', value: `${dashboardStats.totalHours} jam`, icon: 'time-outline', color: '#06B6D4' },
   ];
 
   if (loading && profileLoading) {
@@ -166,8 +185,8 @@ export default function DashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="leaf" size={28} color={t.secondary} />
-          <Text style={styles.companyName}>Pijat On-Demand</Text>
+          <Image source={require('../../assets/logo-kang-massage.png')} style={styles.logo} />
+          <Text style={styles.companyName}>Kang Massage</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={toggleTheme} style={styles.iconBtn}>
@@ -291,7 +310,7 @@ export default function DashboardScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.orderName}>{order.users?.full_name || 'Pelanggan'}</Text>
-                  <Text style={styles.orderService}>ID: #{order.id.slice(0, 8).toUpperCase()}</Text>
+                  <Text style={styles.orderService}>ID: #{order.order_number || order.id.slice(0, 8).toUpperCase()}</Text>
                 </View>
                 <View style={[styles.orderBadge, { backgroundColor: order.status === 'pending' ? t.secondary + '25' : t.success + '25' }]}>
                   <Text style={[styles.orderBadgeText, { color: order.status === 'pending' ? t.secondary : t.success }]}>
@@ -328,7 +347,8 @@ const getStyles = (t: any) => StyleSheet.create({
     backgroundColor: t.background
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  companyName: { ...TYPOGRAPHY.h3, color: t.text, fontFamily: 'Inter_700Bold' },
+  logo: { width: 32, height: 32, resizeMode: 'contain' },
+  companyName: { ...TYPOGRAPHY.h1, color: t.text, fontFamily: 'Inter_700Bold' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   iconBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.border },
   notifDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, borderWidth: 2, borderColor: t.surface },

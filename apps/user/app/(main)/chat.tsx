@@ -1,42 +1,57 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, MessageSquare } from 'lucide-react-native';
+import { supabase } from '../../lib/supabase';
 
 const PURPLE = '#240080';
 const BG = '#F5F5F7';
 const TEXT_DARK = '#1A1A2E';
 const TEXT_MUTED = '#6B7280';
 
-const CHATS = [
-  {
-    id: '1',
-    name: 'Maya Putri (Terapis)',
-    lastMessage: 'Halo Kak, saya sudah di depan ya.',
-    time: '10:30',
-    unread: 2,
-    avatar: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
-  },
-  {
-    id: '2',
-    name: 'Admin Kang Massage',
-    lastMessage: 'Voucher diskon 50% berhasil diklaim.',
-    time: 'Kemarin',
-    unread: 0,
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400',
-  },
-  {
-    id: '3',
-    name: 'Andi Terapis',
-    lastMessage: 'Terima kasih atas rating bintang 5 nya!',
-    time: '28 Apr',
-    unread: 0,
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
-  },
-];
-
 export default function ChatScreen() {
   const router = useRouter();
+  const [chats, setChats] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchConversations();
+    const channel = supabase.channel('user_conversations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
+        fetchConversations();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchConversations = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*, therapist:therapists(full_name, avatar_url)')
+        .eq('user_id', user.id)
+        .order('last_message_at', { ascending: false, nullsFirst: false });
+
+      if (error) throw error;
+      setChats(data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (isoString: string) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <View style={styles.container}>
@@ -51,36 +66,46 @@ export default function ChatScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {CHATS.map((chat) => (
-          <TouchableOpacity key={chat.id} style={styles.chatItem} activeOpacity={0.7}>
-            <Image source={{ uri: chat.avatar }} style={styles.avatar} />
-            
-            <View style={styles.chatContent}>
-              <View style={styles.chatHeader}>
-                <Text style={styles.chatName}>{chat.name}</Text>
-                <Text style={styles.chatTime}>{chat.time}</Text>
-              </View>
-              
-              <View style={styles.chatFooter}>
-                <Text style={styles.lastMessage} numberOfLines={1}>
-                  {chat.lastMessage}
-                </Text>
-                {chat.unread > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{chat.unread}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-
-        {CHATS.length === 0 && (
+        {loading ? (
+          <ActivityIndicator size="large" color={PURPLE} style={{ marginTop: 50 }} />
+        ) : chats.length === 0 ? (
           <View style={styles.emptyState}>
             <MessageSquare size={64} color={TEXT_MUTED} />
             <Text style={styles.emptyTitle}>Belum Ada Chat</Text>
             <Text style={styles.emptySubtitle}>Pesan Anda dengan terapis akan muncul di sini.</Text>
           </View>
+        ) : (
+          chats.map((chat) => (
+            <TouchableOpacity 
+              key={chat.id} 
+              style={styles.chatItem} 
+              activeOpacity={0.7}
+              onPress={() => router.push(`/chats/${chat.id}`)}
+            >
+              <Image 
+                source={{ uri: chat.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
+                style={styles.avatar} 
+              />
+              
+              <View style={styles.chatContent}>
+                <View style={styles.chatHeader}>
+                  <Text style={styles.chatName}>{chat.therapist?.full_name || 'Terapis'}</Text>
+                  <Text style={styles.chatTime}>{formatTime(chat.last_message_at)}</Text>
+                </View>
+                
+                <View style={styles.chatFooter}>
+                  <Text style={styles.lastMessage} numberOfLines={1}>
+                    {chat.last_message || 'Mulai percakapan'}
+                  </Text>
+                  {chat.user_unread_count > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{chat.user_unread_count}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
         )}
       </ScrollView>
     </View>

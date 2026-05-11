@@ -1,5 +1,28 @@
 # Progress Development - App Kang Massage
 
+## [2026-05-11] - Therapist Tracking Optimization & UI Enhancement
+
+### 📱 Optimasi Tracking (Therapist App)
+- **Map Stabilization & External Integration**:
+    - Menghapus internal `MapView` (`react-native-maps`) untuk mencegah crash pada modul native di beberapa perangkat.
+    - Implementasi tombol **"Buka di Aplikasi Maps"** yang menghubungkan terapis langsung ke Google Maps atau Apple Maps untuk navigasi yang lebih akurat.
+- **Redesain Detail Pesanan (Single Column)**:
+    - Re-layout informasi pesanan dari format grid 2-kolom menjadi **1-kolom vertikal** yang lebih bersih dan konsisten dengan desain alamat.
+    - Penambahan informasi **Gender Pelanggan** (Laki-laki/Perempuan) untuk persiapan terapis sebelum layanan.
+    - Penambahan **Waktu Pemesanan** (Tanggal & Jam) yang lebih detail.
+    - Implementasi ikon premium (Sparkles, Clock, Calendar, Person) untuk setiap poin informasi.
+    - **Stylized Note Box**: Kotak catatan pelanggan yang lebih menonjol dengan gaya tulisan miring (*italic*).
+    - **Payment Summary Card**: Ringkasan pembayaran yang lebih jelas dengan label metode (E-Wallet/Tunai) dan total tagihan yang kontras.
+- **SwipeButton Logic Fix**:
+    - Perbaikan bug di mana tombol geser (*swipe button*) menjadi statis setelah penggunaan pertama.
+    - Implementasi `key` prop dinamis untuk memastikan tombol otomatis reset (kembali ke posisi awal) di setiap perubahan status pesanan.
+
+### 🛠️ UI/UX & Bug Fixes
+- **Typography & Spacing**: Penyesuaian ukuran font, label (contoh: "Alamat Customer"), dan margin untuk meningkatkan legibilitas pada ringkasan pembayaran.
+- **TypeScript Stability**: Perbaikan error `Property does not exist` setelah proses refactoring gaya (*styling*).
+
+---
+
 ## [2026-05-10] - Skill Centralization & Smart Service Logic
  
  ### 🚀 Fitur Baru (Dashboard - Web)
@@ -17,6 +40,33 @@
      - Menampilkan **semua opsi durasi/paket** beserta harganya secara transparan di kartu layanan.
      - Label status (**AKTIF/NONAKTIF**) diperbarui dengan warna solid dan kontras tinggi untuk visibilitas maksimal.
      - Indikator khusus (ikon Refresh oranye) untuk layanan combo.
+ 
+ ### 📱 Refinement Pembayaran & Tracking (User App)
+ - **Midtrans Core API Integration**: 
+     - Migrasi penuh dari WebView ke **In-App Payment Instructions**.
+     - Tampilan dinamis untuk Virtual Account (BCA, Mandiri, Permata, dll) dan QRIS (Gopay) langsung di dalam aplikasi.
+     - Perbaikan bug harga (NaN) dan penanganan data pembayaran yang lebih stabil.
+ - **Searching Therapist State**: 
+     - Implementasi halaman **"Mencari Terapis"** baru dengan animasi pulsing premium.
+     - Sistem otomatis mengalihkan user ke Tracking begitu terapis ditemukan via Supabase Realtime.
+     - Penambahan fitur "Batalkan Pesanan" saat proses pencarian.
+ - **Real-time Tracking Evolution**: 
+     - Timeline status kini tersinkronisasi dengan tabel **`order_logs`**, bukan sekadar status statis.
+     - Penambahan **Timestamp (Waktu)** pada setiap perubahan status di timeline.
+     - Indikator unit layanan dinamis: Menampilkan "1 Treatment" atau "X Menit" sesuai tipe layanan.
+ - **Smart History Navigation**: 
+     - Kartu riwayat kini cerdas: Klik kartu akan mengarahkan user ke halaman yang tepat (Instruksi Bayar / Cari Terapis / Tracking) berdasarkan kondisi terkini pesanan.
+     - Implementasi **Pull-to-Refresh** di halaman Riwayat untuk update data manual.
+ - **UI/UX Polishing**: 
+     - Penambahan icon pada pilihan Waktu Booking, Jenis Kelamin, dan Preferensi Terapis.
+     - Implementasi indikator loading (ActivityIndicator) pada proses pembuatan pesanan.
+ 
+ ### 📱 Bug Fixes & Stabilization (Therapist App)
+ - **Tracking Module Restoration**:
+     - Perbaikan navigasi `app/orders/[id].tsx` yang sebelumnya mengalami "Unmatched Route".
+     - Resolusi error `Invariant Violation` pada modul peta dengan menstandarisasi konfigurasi `react-native-maps`.
+     - Pembersihan TypeScript errors dan warning tipe `any` pada logika tracking.
+     - Perbaikan tampilan Logo dan aset gambar yang sebelumnya tidak muncul.
  
  ### 🛠️ Arsitektur & i18n
  - **Localization Integration (i18n)**: Seluruh label manajemen tipe service telah diintegrasikan ke `LanguageContext` (Bahasa Indonesia & Inggris).

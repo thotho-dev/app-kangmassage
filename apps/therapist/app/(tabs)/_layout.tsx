@@ -1,4 +1,4 @@
-import notifee, { EventType } from '../../lib/notifee';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, Platform } from 'react-native';
@@ -35,33 +35,23 @@ export default function TabLayout() {
     fetchProfile();
     
     // Listen for notification interactions (Foreground)
-    let unsubscribe = () => {};
-    try {
-      unsubscribe = notifee.onForegroundEvent(({ type, detail }: any) => {
-        const { notification, pressAction } = detail;
-
-        if (type === EventType.ACTION_PRESS) {
-          if (pressAction?.id === 'ACCEPT') {
-            if (notification?.data?.orderData) {
-              const orderData = JSON.parse(notification.data.orderData as string);
-              setIncomingOrder(orderData);
-            }
-          } else if (pressAction?.id === 'REJECT') {
-            setIncomingOrder(null);
-          }
-        } else if (type === EventType.PRESS) {
-          // User tapped the notification body
-          if (notification?.data?.orderData) {
-            const orderData = JSON.parse(notification.data.orderData as string);
-            setIncomingOrder(orderData);
-          }
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const notification = response.notification;
+      if (notification?.request?.content?.data?.orderData) {
+        try {
+          const orderData = typeof notification.request.content.data.orderData === 'string'
+            ? JSON.parse(notification.request.content.data.orderData)
+            : notification.request.content.data.orderData;
+          setIncomingOrder(orderData);
+        } catch (e) {
+          console.warn('Failed to parse orderData from notification', e);
         }
-      });
-    } catch (e) {
-      console.warn('Notifee foreground listener could not be registered');
-    }
+      }
+    });
 
-    return () => unsubscribe();
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   // Initialize global location tracking
@@ -75,10 +65,11 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [styles.tabBar, { backgroundColor: t.surface, borderTopColor: t.border }],
+        tabBarStyle: [styles.tabBar, { backgroundColor: t.surface, borderTopColor: t.border, marginBottom: 10 }],
         tabBarShowLabel: false, // Hidden because we render it inside TabIcon
         tabBarActiveTintColor: t.secondary,
         tabBarInactiveTintColor: t.textMuted,
+        
        
       }}
     >

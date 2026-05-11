@@ -1,89 +1,74 @@
+import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Helper to safely get notifee only on native platforms with the module installed
-const getNotifee = () => {
-  try {
-    return require('@notifee/react-native').default;
-  } catch (e) {
-    console.warn('Notifee native module not found. Notifications will not work.');
-    return null;
-  }
-};
-
-const getNotifeeConstants = () => {
-  try {
-    return require('@notifee/react-native');
-  } catch (e) {
-    return {
-      AndroidImportance: { HIGH: 4 },
-      AndroidVisibility: { PUBLIC: 1 },
-      EventType: { ACTION_PRESS: 1, PRESS: 1 },
-      AndroidCategory: { CALL: 'call' },
-    };
-  }
-};
-
-const notifee = getNotifee();
-const { AndroidImportance, AndroidVisibility, EventType, AndroidCategory } = getNotifeeConstants();
-
-export { EventType };
+// Konfigurasi handler notifikasi agar selalu muncul di foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 export const NOTIFICATION_CHANNELS = {
   ORDERS: 'orders_high_priority',
 };
 
 export const initializeNotifee = async () => {
-  if (!notifee) return;
   try {
-    await notifee.requestPermission();
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.warn('Gagal mendapatkan izin notifikasi!');
+      return;
+    }
+
     if (Platform.OS === 'android') {
-      await notifee.createChannel({
-        id: NOTIFICATION_CHANNELS.ORDERS,
+      await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.ORDERS, {
         name: 'Pesanan Baru',
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        sound: 'default',
-        vibration: true,
-        vibrationPattern: [300, 500, 300, 500, 300, 500],
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
       });
     }
   } catch (e) {
-    console.error('Notifee Init Error:', e);
+    console.error('Expo Notifications Init Error:', e);
   }
 };
 
 export const displayOrderNotification = async (order: any) => {
-  if (!notifee) return;
   const userName = order.users?.full_name || 'Pelanggan';
   
+  console.log(`[DEBUG Notif] Mencoba menampilkan notif untuk pesanan ${order.id} dari ${userName}`);
   try {
-    await notifee.displayNotification({
-      title: '🔔 Pesanan Baru Masuk!',
-      body: `Pelanggan ${userName} sedang mencari therapist. Ketuk untuk detail.`,
-      data: {
-        orderId: order.id,
-        orderData: JSON.stringify(order),
+    const notifId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🔔 Pesanan Baru Masuk!',
+        body: `Pelanggan ${userName} sedang mencari therapist. Ketuk untuk detail.`,
+        data: {
+          orderId: order.id,
+          orderData: JSON.stringify(order),
+        },
+        sound: true,
       },
-      android: {
-        channelId: NOTIFICATION_CHANNELS.ORDERS,
-        importance: AndroidImportance.HIGH,
-        visibility: AndroidVisibility.PUBLIC,
-        category: AndroidCategory.CALL,
-        fullScreenAction: { id: 'default' },
-        pressAction: { id: 'default' },
-        actions: [
-          { title: '✅ Terima', pressAction: { id: 'ACCEPT', launchActivity: 'default' } },
-          { title: '❌ Tolak', pressAction: { id: 'REJECT' } },
-        ],
-      },
-      ios: {
-        critical: true,
-        foregroundPresentationOptions: { alert: true, badge: true, sound: true },
-      },
+      trigger: null, // Munculkan secara langsung (immediate local notification)
     });
+    console.log(`[DEBUG Notif] Berhasil! ID Notifikasi: ${notifId}`);
   } catch (e) {
-    console.error('Display Notif Error:', e);
+    console.error('[DEBUG Notif] Gagal menampilkan notifikasi:', e);
   }
 };
 
-export default notifee;
+// Dummy exports untuk menghindari error di file yang mengimpor Notifee EventType
+export const EventType = { ACTION_PRESS: 1, PRESS: 1 };
+export default {
+  onForegroundEvent: (callback?: any) => { return () => {}; },
+  onBackgroundEvent: (callback?: any) => {},
+  cancelNotification: async (id: string) => {}
+};

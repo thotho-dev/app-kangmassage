@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, RefreshControl, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
   Clock, 
   Star, 
   FileText,
   Heart,
-  MessageSquare
+  MessageSquare,
+  Search
 } from 'lucide-react-native';
 import { COLORS } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -78,9 +79,15 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = React.useState<'riwayat' | 'favorit'>('riwayat');
-  const [orders, setOrders] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = useState<'riwayat' | 'favorit'>('riwayat');
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchOrders().then(() => setRefreshing(false));
+  }, [profile?.id]);
 
   useEffect(() => {
     if (profile?.id) {
@@ -141,6 +148,87 @@ export default function HistoryScreen() {
     }
   };
 
+  const handleOrderPress = (item: any) => {
+    // 1. Jika Pesanan Masih Aktif (Bukan Selesai/Batal)
+    if (item.status !== 'completed' && item.status !== 'cancelled') {
+      if (item.status === 'pending') {
+        if (item.payment_status === 'paid' || item.payment_method === 'tunai') {
+          // Sudah bayar/tunai tapi belum dapat terapis
+          router.push({ pathname: '/(main)/searching-therapist', params: { id: item.id } });
+        } else if (item.payment_data) {
+          // Belum bayar (VA/QRIS), arahkan ke instruksi pembayaran
+          router.push({ 
+            pathname: '/(main)/payment-details', 
+            params: { data: JSON.stringify(item.payment_data), order_id: item.id } 
+          });
+        }
+      } else {
+        // Status lainnya (accepted, on_the_way, arrived, working) -> Tracking
+        router.push({ pathname: '/(main)/tracking', params: { id: item.id } });
+      }
+    }
+  };
+
+  const handleCariLagi = async (orderId: string, status: string) => {
+    try {
+      if (status === 'cancelled') {
+        // Reset status orderan ke pending dan hapus therapist agar bisa di-match ulang
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: 'pending', therapist_id: null })
+          .eq('id', orderId);
+          
+        if (error) {
+          Alert.alert('Gagal', 'Tidak dapat melakukan pencarian ulang.');
+          return;
+        }
+      }
+      // Arahkan ke halaman pencarian untuk matching ulang
+      router.push({ pathname: '/(main)/searching-therapist', params: { id: orderId } });
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Terjadi kesalahan sistem.');
+    }
+  };
+
+  const handleChatPress = async (therapistId: string) => {
+    if (!therapistId || !profile?.id) {
+      Alert.alert('Informasi', 'Terapis belum ditugaskan untuk pesanan ini.');
+      return;
+    }
+    
+    try {
+      // Cari apakah sudah ada percakapan antara user dan terapis ini
+      const { data: existing } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', profile.id)
+        .eq('therapist_id', therapistId)
+        .maybeSingle();
+
+      if (existing) {
+        router.push(`/chats/${existing.id}`);
+      } else {
+        // Buat baru jika belum ada
+        const { data: newConv, error } = await supabase
+          .from('conversations')
+          .insert({
+            user_id: profile.id,
+            therapist_id: therapistId,
+            last_message: 'Halo, saya ingin bertanya tentang pesanan saya.'
+          })
+          .select()
+          .single();
+          
+        if (error) throw error;
+        if (newConv) router.push(`/chats/${newConv.id}`);
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Gagal membuka percakapan.');
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: BG }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -168,13 +256,24 @@ export default function HistoryScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[PURPLE]} />
+        }
+      >
         {activeTab === 'riwayat' ? (
           orders.length > 0 ? (
             orders.map((item) => {
               const statusColor = getStatusColor(item.status);
               return (
-                <TouchableOpacity key={item.id} activeOpacity={0.85} style={styles.card}>
+                <TouchableOpacity 
+                  key={item.id} 
+                  activeOpacity={0.85} 
+                  style={styles.card}
+                  onPress={() => handleOrderPress(item)}
+                >
                   {/* Card Header */}
                   <View style={styles.cardHeader}>
                     <View style={styles.orderIdRow}>
@@ -214,10 +313,17 @@ export default function HistoryScreen() {
                       <Text style={styles.footerBtnText}>Detail</Text>
                     </TouchableOpacity>
                     <View style={styles.footerDivider} />
-                    <TouchableOpacity style={styles.footerBtn} onPress={() => router.push({ pathname: '/(main)/chat', params: { orderId: item.id } })}>
-                      <MessageSquare size={14} color={PURPLE} />
-                      <Text style={styles.footerBtnText}>Chat</Text>
-                    </TouchableOpacity>
+                    {(item.status === 'cancelled' || item.status === 'pending') ? (
+                      <TouchableOpacity style={styles.footerBtn} onPress={() => handleCariLagi(item.id, item.status)}>
+                        <Search size={14} color={PURPLE} />
+                        <Text style={styles.footerBtnText}>Cari Lagi</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity style={styles.footerBtn} onPress={() => handleChatPress(item.therapist_id)}>
+                        <MessageSquare size={14} color={PURPLE} />
+                        <Text style={styles.footerBtnText}>Chat</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </TouchableOpacity>
               );

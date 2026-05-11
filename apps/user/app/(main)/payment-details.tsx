@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -67,6 +68,38 @@ export default function PaymentDetailsScreen() {
   // 2. Format Amount (Fix NaN)
   const displayAmount = gross_amount ? parseInt(gross_amount.toString().split('.')[0]) : 0;
 
+  const checkStatus = async () => {
+    if (!orderId) {
+      router.replace('/(main)/history');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('payment_status, status')
+        .eq('id', orderId)
+        .single();
+
+      if (error) throw error;
+
+      if (data.payment_status === 'paid' || data.status !== 'pending') {
+        if (data.status === 'accepted' || data.status === 'on_the_way' || data.status === 'arrived' || data.status === 'working') {
+          // Jika sudah ada terapis & jalan, ke tracking
+          router.replace({ pathname: '/(main)/tracking', params: { id: orderId } });
+        } else {
+          // Jika sudah bayar tapi masih menunggu terapis (pending)
+          router.replace({ pathname: '/(main)/searching-therapist', params: { id: orderId } });
+        }
+      } else {
+        Alert.alert('Belum Terdeteksi', 'Pembayaran Anda belum kami terima. Silakan tunggu sebentar atau selesaikan pembayaran Anda.');
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+      router.replace('/(main)/history');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -112,16 +145,10 @@ export default function PaymentDetailsScreen() {
 
           <TouchableOpacity 
             style={styles.doneBtn} 
-            onPress={() => router.replace('/(main)/history')}
+            onPress={checkStatus}
           >
             <Text style={styles.doneBtnText}>Sudah Bayar? Cek Status</Text>
           </TouchableOpacity>
-
-          {/* DEBUG VIEW - Hapus nanti jika sudah ok */}
-          <View style={{ marginTop: 20, padding: 10, backgroundColor: '#eee', borderRadius: 10 }}>
-            <Text style={{ fontSize: 10, fontWeight: 'bold' }}>Debug Data:</Text>
-            <Text style={{ fontSize: 10 }}>{JSON.stringify(paymentData, null, 2)}</Text>
-          </View>
         </View>
       </ScrollView>
     </View>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert, ActivityIndicator } from 'react-native';
 import CustomDateTimePicker from '../../components/ui/CustomDateTimePicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { 
@@ -206,7 +206,8 @@ export default function OrderScreen() {
 
         router.push({ pathname: '/(main)/tracking', params: { id: order.id } });
       } else if (paymentMethod === 'tunai') {
-        router.push({ pathname: '/(main)/tracking', params: { id: order.id } });
+        // Redirect ke halaman mencari terapis
+        router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
       } else {
         // MIDTRANS CORE API CALL
         const response = await fetch('https://app-kangmassage-web.vercel.app/api/payments/create', {
@@ -222,10 +223,13 @@ export default function OrderScreen() {
         if (result.error) throw new Error(result.error);
 
         // Redirect to payment details
-        router.push({ 
-          pathname: '/(main)/payment-details', 
-          params: { data: JSON.stringify(result.data), order_id: order.id } 
-        });
+        // Gunakan timeout kecil untuk memastikan state update selesai & router siap
+        setTimeout(() => {
+          router.push({ 
+            pathname: '/(main)/payment-details', 
+            params: { data: JSON.stringify(result.data), order_id: order.id } 
+          });
+        }, 100);
       }
 
     } catch (error: any) {
@@ -359,12 +363,14 @@ export default function OrderScreen() {
               style={[styles.tab, bookingType === 'now' && styles.activeTab]}
               onPress={() => setBookingType('now')}
             >
+              <Clock size={16} color={bookingType === 'now' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
               <Text style={[styles.tabText, bookingType === 'now' && styles.activeTabText]}>Sekarang</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.tab, bookingType === 'schedule' && styles.activeTab]}
               onPress={() => setBookingType('schedule')}
             >
+              <Calendar size={16} color={bookingType === 'schedule' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
               <Text style={[styles.tabText, bookingType === 'schedule' && styles.activeTabText]}>Terjadwal</Text>
             </TouchableOpacity>
           </View>
@@ -405,12 +411,14 @@ export default function OrderScreen() {
               style={[styles.genderBtn, userGender === 'male' && styles.genderBtnActive]}
               onPress={() => setUserGender('male')}
             >
+              <User size={16} color={userGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
               <Text style={[styles.genderBtnText, userGender === 'male' && styles.genderBtnTextActive]}>Laki-laki</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.genderBtn, userGender === 'female' && styles.genderBtnActive]}
               onPress={() => setUserGender('female')}
             >
+              <User size={16} color={userGender === 'female' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
               <Text style={[styles.genderBtnText, userGender === 'female' && styles.genderBtnTextActive]}>Perempuan</Text>
             </TouchableOpacity>
           </View>
@@ -433,12 +441,14 @@ export default function OrderScreen() {
               style={[styles.genderBtn, therapistGender === 'male' && styles.genderBtnActive]}
               onPress={() => setTherapistGender('male')}
             >
+              <User size={16} color={therapistGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
               <Text style={[styles.genderBtnText, therapistGender === 'male' && styles.genderBtnTextActive]}>Pria</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.genderBtn, therapistGender === 'female' && styles.genderBtnActive]}
               onPress={() => setTherapistGender('female')}
             >
+              <User size={16} color={therapistGender === 'female' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
               <Text style={[styles.genderBtnText, therapistGender === 'female' && styles.genderBtnTextActive]}>Wanita</Text>
             </TouchableOpacity>
           </View>
@@ -501,8 +511,19 @@ export default function OrderScreen() {
           <Text style={styles.totalLabel}>Total Pembayaran</Text>
           <Text style={styles.totalPrice}>Rp {totalPrice.toLocaleString('id-ID')}</Text>
         </View>
-        <TouchableOpacity style={styles.orderButton} onPress={handleOrder}>
-          <Text style={styles.orderButtonText}>Pesan Sekarang</Text>
+        <TouchableOpacity 
+          style={[styles.orderButton, loading && { opacity: 0.8 }]} 
+          onPress={handleOrder}
+          disabled={loading}
+        >
+          {loading ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator color="white" />
+              <Text style={styles.orderButtonText}>Memproses...</Text>
+            </View>
+          ) : (
+            <Text style={styles.orderButtonText}>Pesan Sekarang</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -772,8 +793,10 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    flexDirection: 'row',
     paddingVertical: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 12,
   },
   activeTab: {
@@ -820,12 +843,14 @@ const styles = StyleSheet.create({
   },
   genderBtn: {
     flex: 1,
+    flexDirection: 'row',
     paddingVertical: 12,
     borderRadius: 15,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: BORDER,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   genderBtnActive: {
     borderColor: PURPLE,

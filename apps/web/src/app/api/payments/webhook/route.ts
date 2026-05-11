@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (fetchError || !topup) {
-        console.error('Webhook Error: Topup record not found for ID', order_id);
-        return NextResponse.json({ error: 'Topup record not found' }, { status: 404 });
+        console.warn(`[Webhook Warning] Topup record not found for ID: ${order_id}. Returning 200 to acknowledge receipt.`);
+        return NextResponse.json({ status: 'ignored', message: 'Topup record not found' }, { status: 200 });
       }
 
       // Update Topup Status
@@ -103,11 +103,12 @@ export async function POST(req: NextRequest) {
     const { data: order } = await supabase
       .from('orders')
       .select('*')
-      .or(`order_number.eq.${order_id}`)
+      .eq('order_number', order_id)
       .single();
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      console.warn(`[Webhook Warning] Order record not found for ID: ${order_id}. Returning 200 to acknowledge receipt.`);
+      return NextResponse.json({ status: 'ignored', message: 'Order not found' }, { status: 200 });
     }
 
     const updateData: any = { payment_status: paymentStatus };
