@@ -38,10 +38,17 @@ export const useOrderListener = () => {
           if (!newOrder || newOrder.status !== 'pending') return;
 
           // 1. GLOBAL BALANCE CHECK (Minimum 15.000)
-          // Applied to BOTH Targeted and Broadcast orders
           const currentBalance = Number(profile.wallet_balance) || 0;
           if (currentBalance < 15000) {
             console.log(`[DEBUG OrderListener] BLOKIR: Saldo (${currentBalance}) di bawah 15rb.`);
+            return;
+          }
+
+          // 2. GLOBAL RATING CHECK (Minimum 4.5)
+          // Terapis baru (tanpa rating) dianggap 5.0 agar bisa mulai bekerja
+          const currentRating = Number(profile.rating) || 5.0;
+          if (currentRating < 4.5) {
+            console.log(`[DEBUG OrderListener] BLOKIR: Rating (${currentRating}) di bawah 4.5.`);
             return;
           }
 
