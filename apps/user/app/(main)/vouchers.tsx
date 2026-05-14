@@ -216,19 +216,21 @@ export default function VouchersScreen() {
                     <Text style={styles.voucherDescription} numberOfLines={1}>{item.description || 'Diskon Spesial untuk Anda'}</Text>
                     <View style={styles.discountRow}>
                       <Text style={styles.voucherDiscount}>{formatDiscount(item)}</Text>
-                      {!valid && (
-                        <View style={styles.invalidBadge}>
-                          <Info size={10} color="#EF4444" style={{ marginRight: 4 }} />
-                          <Text style={styles.invalidText}>{reason}</Text>
-                        </View>
-                      )}
                     </View>
                   </View>
                   
                   <View style={styles.footerInfo}>
-                    <View style={styles.expiryRow}>
-                      <Timer size={10} color={TEXT_MUTED} style={{ marginRight: 4 }} />
-                      <Text style={styles.voucherExpiry}>{formatExpiry(item.valid_until)}</Text>
+                    <View>
+                      {!valid && (
+                        <View style={[styles.invalidBadge, { alignSelf: 'flex-start', marginBottom: 4 }]}>
+                          <Info size={10} color="#EF4444" style={{ marginRight: 4 }} />
+                          <Text style={styles.invalidText}>{reason}</Text>
+                        </View>
+                      )}
+                      <View style={styles.expiryRow}>
+                        <Timer size={10} color={TEXT_MUTED} style={{ marginRight: 4 }} />
+                        <Text style={styles.voucherExpiry}>{formatExpiry(item.valid_until)}</Text>
+                      </View>
                     </View>
                     <TouchableOpacity 
                       style={[styles.useButton, !valid && { backgroundColor: '#E5E7EB' }]}
