@@ -224,14 +224,23 @@ export default function OrderScreen() {
       }
 
       // Validasi Usage Limit Per User
-      const limitPerUser = data.user_limit || 1;
-      const { count: userUsageCount, error: countErr } = await supabase
+      const limitPerUser = Number(data.user_limit) || 1;
+      console.log('[DEBUG Voucher] Checking manual usage for User:', profile?.id, 'Voucher ID:', data.id);
+      
+      const { data: usageData, error: usageError } = await supabase
         .from('voucher_usages')
-        .select('*', { count: 'exact', head: true })
+        .select('id')
         .eq('user_id', profile?.id)
         .eq('voucher_id', data.id);
 
-      if (!countErr && userUsageCount !== null && userUsageCount >= limitPerUser) {
+      if (usageError) {
+        console.error('[DEBUG Voucher] Manual Usage Query Error:', usageError.message);
+      }
+
+      const userUsageCount = usageData?.length || 0;
+      console.log('[DEBUG Voucher] Manual usage count detected:', userUsageCount, 'Limit:', limitPerUser);
+
+      if (userUsageCount >= limitPerUser) {
         if (!silent) Alert.alert('Batas Penggunaan', `Voucher ini hanya dapat digunakan maksimal ${limitPerUser} kali per pengguna.`);
         return;
       }
@@ -395,14 +404,24 @@ export default function OrderScreen() {
         }
 
         // Check User Usage Limit for Auto-Apply
-        const limitPerUser = v.user_limit || 1;
-        const { count: userUsageCount } = await supabase
+        console.log('[DEBUG Voucher] Auto-checking usage for User:', profile?.id, 'Voucher:', v.code);
+        const { data: usageData, error: usageError } = await supabase
           .from('voucher_usages')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', profile?.id)
-          .eq('voucher_id', v.id);
+          .select('id')
+          .eq('voucher_id', v.id)
+          .eq('user_id', profile?.id);
         
-        if (userUsageCount !== null && userUsageCount >= limitPerUser) continue;
+        if (usageError) {
+          console.error('[DEBUG Voucher] Auto-Apply Usage Query Error:', usageError.message);
+        }
+        
+        const userUsageCount = usageData?.length || 0;
+        const limitPerUser = Number(v.user_limit) || 1;
+        
+        if (userUsageCount >= limitPerUser) {
+          console.log('[DEBUG Voucher] User reached limit for:', v.code);
+          continue;
+        }
 
         if (discount > maxDiscount) {
           maxDiscount = discount;
