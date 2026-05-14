@@ -35,8 +35,13 @@ export const useOrderListener = () => {
 
           const newOrder = payload.new;
           
-          // 1. Basic Status Check
-          if (!newOrder || newOrder.status !== 'pending') {
+          if (!newOrder || newOrder.status !== 'pending') return;
+
+          // 1. GLOBAL BALANCE CHECK (Minimum 15.000)
+          // Applied to BOTH Targeted and Broadcast orders
+          const currentBalance = Number(profile.wallet_balance) || 0;
+          if (currentBalance < 15000) {
+            console.log(`[DEBUG OrderListener] BLOKIR: Saldo (${currentBalance}) di bawah 15rb.`);
             return;
           }
 
@@ -65,11 +70,7 @@ export const useOrderListener = () => {
                return;
              }
 
-             // B. Check Balance (Min 15.000)
-             if ((profile.wallet_balance || 0) < 15000) {
-               console.log('[DEBUG OrderListener] GAGAL: Saldo kurang dari 15.000');
-               return;
-             }
+             // Check Gender Preference
 
              // Check Gender Preference
              if (newOrder.therapist_preference && newOrder.therapist_preference !== 'any') {
@@ -132,5 +133,5 @@ export const useOrderListener = () => {
       console.log('Stopping order listener');
       supabase.removeChannel(subscription);
     };
-  }, [profile?.id, isOnline]);
+  }, [profile?.id, profile?.wallet_balance, isOnline]);
 };

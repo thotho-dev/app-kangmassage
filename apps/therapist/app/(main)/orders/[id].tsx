@@ -334,11 +334,14 @@ export default function OrderDetailScreen() {
     if (!order || !NEXT[order.status]) return;
     const nextStatus = NEXT[order.status].status;
     
-    // Add log entry first
-    await supabase.from('order_logs').insert({
-      order_id: order.id,
-      status: nextStatus,
-    });
+    setLoading(true);
+    try {
+      // 1. Add log entry
+      const { error: logErr } = await supabase.from('order_logs').insert({
+        order_id: order.id,
+        status: nextStatus,
+      });
+      if (logErr) console.warn('[DEBUG OrderDetail] Log entry failed:', logErr.message);
 
     // Handle Cashback and Points if completed
     if (nextStatus === 'completed') {
@@ -475,22 +478,31 @@ export default function OrderDetailScreen() {
         } else {
           console.warn('[DEBUG Earnings] No therapist_id found for this order');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[DEBUG Earnings] Catch Exception:', err);
+        throw err;
       }
     }
 
     const orderUpdate: any = { status: nextStatus };
     if (nextStatus === 'completed') {
-      orderUpdate.payment_status = 'settlement';
+      orderUpdate.payment_status = 'paid';
     }
     
-    await supabase.from('orders').update(orderUpdate).eq('id', order.id);
-    
-    // Refresh both order and global therapist profile (to see new balance/hours immediately)
+    const { error: finalErr } = await supabase.from('orders').update(orderUpdate).eq('id', order.id);
+    if (finalErr) throw finalErr;
+
+    // Refresh both order and global therapist profile
     await fetchOrder(); 
     if (nextStatus === 'completed') {
       await useTherapistStore.getState().fetchProfile();
+      showAlert('success', 'Berhasil', 'Pesanan telah diselesaikan.');
+    }
+    } catch (err: any) {
+      console.error('[DEBUG OrderDetail] Error in advanceStatus:', err);
+      showAlert('error', 'Gagal', err.message || 'Terjadi kesalahan saat memproses status.');
+    } finally {
+      setLoading(false);
     }
   };
 
