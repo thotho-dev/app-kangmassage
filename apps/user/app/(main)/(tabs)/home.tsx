@@ -11,6 +11,7 @@ import {
   Dimensions,
   Animated,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import {
@@ -24,6 +25,7 @@ import {
 } from 'lucide-react-native';
 import { useServices } from '@/hooks/useServices';
 import { useLocation } from '@/context/LocationContext';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -214,11 +216,12 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={[1]}
       >
         {/* ── Header brand ── */}
         <View style={styles.brandRow}>
@@ -240,35 +243,37 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── User card ── */}
-        <View style={styles.userRow}>
-          <View style={styles.userCard}>
-            <View style={[styles.avatar, !isAuthenticated && { backgroundColor: TEXT_MUTED }]}>
-              <Text style={styles.avatarText}>
-                {isAuthenticated ? getInitials(profile?.full_name || user?.email || 'User') : 'G'}
-              </Text>
+        {/* ── Sticky User Header ── */}
+        <View style={styles.stickyHeader}>
+          <View style={styles.userRow}>
+            <View style={styles.userCard}>
+              <View style={[styles.avatar, !isAuthenticated && { backgroundColor: TEXT_MUTED }]}>
+                <Text style={styles.avatarText}>
+                  {isAuthenticated ? getInitials(profile?.full_name || user?.email || 'User') : 'G'}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.greetingSmall}>{getGreeting()} 👋</Text>
+                <Text style={styles.greetingName}>
+                  {isAuthenticated ? (profile?.full_name || 'User') : 'Tamu'}
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greetingSmall}>{getGreeting()} 👋</Text>
-              <Text style={styles.greetingName}>
-                {isAuthenticated ? (profile?.full_name || 'User') : 'Tamu'}
-              </Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.circleAction} 
+              activeOpacity={0.85}
+              onPress={() => handleProtectedAction('/(main)/vouchers')}
+            >
+              <Ticket size={25} color={PURPLE} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.circleAction} 
+              activeOpacity={0.85}
+              onPress={() => handleProtectedAction('/(main)/wallet')}
+            >
+              <Wallet size={25} color={PURPLE} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity 
-            style={styles.circleAction} 
-            activeOpacity={0.85}
-            onPress={() => handleProtectedAction('/(main)/vouchers')}
-          >
-            <Ticket size={25} color={PURPLE} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.circleAction} 
-            activeOpacity={0.85}
-            onPress={() => handleProtectedAction('/(main)/wallet')}
-          >
-            <Wallet size={25} color={PURPLE} />
-          </TouchableOpacity>
         </View>
 
         {/* ── Location ── */}
@@ -308,7 +313,15 @@ export default function HomeScreen() {
         <View style={styles.grid}>
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <View key={i} style={[styles.serviceCard, { height: 220, opacity: 0.5, backgroundColor: '#E5E7EB' }]} />
+              <View key={i} style={styles.serviceCard}>
+                <Skeleton width="100%" height={120} borderRadius={0} />
+                <View style={styles.serviceInfo}>
+                  <Skeleton width="80%" height={16} borderRadius={4} style={{ marginBottom: 8 }} />
+                  <Skeleton width="40%" height={12} borderRadius={4} style={{ marginBottom: 8 }} />
+                  <Skeleton width="100%" height={24} borderRadius={4} style={{ marginBottom: 12 }} />
+                  <Skeleton width="100%" height={36} borderRadius={10} />
+                </View>
+              </View>
             ))
           ) : (
             services?.slice(0, 4).map((service) => (
@@ -354,7 +367,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -460,7 +473,7 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
   },
   scrollContent: {
-    paddingTop: 52,
+    paddingTop: 5,
     paddingHorizontal: 16,
   },
 
@@ -504,12 +517,18 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
-  // User card
+  // Sticky Header Wrapper
+  stickyHeader: {
+    backgroundColor: BG,
+    paddingVertical: 10,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 12,
   },
   userCard: {
     flex: 1,
@@ -527,7 +546,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
-
   },
   avatar: {
     width: 42,

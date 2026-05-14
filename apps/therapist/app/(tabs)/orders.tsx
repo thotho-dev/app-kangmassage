@@ -142,6 +142,7 @@ export default function OrdersScreen() {
 
   const handleAccept = async (orderId: string) => {
     try {
+      // 1. Process Acceptance (Remove balance check as requested, allow negative balance)
       const { data, error } = await supabase
         .from('orders')
         .update({ status: 'accepted', therapist_id: profile?.id })
@@ -261,6 +262,31 @@ export default function OrdersScreen() {
                 </View>
               </View>
   
+              {order.status === 'completed' && (order.rating || order.review) && (
+                <View style={[styles.ratingSection, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
+                  <View style={styles.ratingHeader}>
+                    <View style={styles.stars}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Ionicons 
+                          key={s} 
+                          name={s <= (order.rating || 0) ? "star" : "star-outline"} 
+                          size={14} 
+                          color={s <= (order.rating || 0) ? "#F59E0B" : t.textMuted} 
+                        />
+                      ))}
+                    </View>
+                    <Text style={[styles.ratingText, { color: t.textMuted }]}>
+                      {order.rating ? `${order.rating}.0` : 'No rating'}
+                    </Text>
+                  </View>
+                  {order.review && (
+                    <Text style={[styles.reviewText, { color: t.textSecondary }]} numberOfLines={2}>
+                      "{order.review}"
+                    </Text>
+                  )}
+                </View>
+              )}
+  
               {order.status === 'pending' && (
                 <View style={styles.cardActions}>
                   <TouchableOpacity style={styles.declineBtn} onPress={() => handleDecline(order.id, order.therapist_id)}>
@@ -316,6 +342,12 @@ const getStyles = (t: any) => StyleSheet.create({
   declineText: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, fontFamily: 'Inter_600SemiBold' },
   acceptBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: RADIUS.lg },
   acceptText: { ...TYPOGRAPHY.bodySmall, fontFamily: 'Inter_700Bold' },
+  // Rating Section
+  ratingSection: { marginTop: SPACING.sm, padding: SPACING.sm, borderRadius: RADIUS.lg, gap: 4 },
+  ratingHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  stars: { flexDirection: 'row', gap: 2 },
+  ratingText: { fontSize: 11, fontFamily: 'Inter_700Bold' },
+  reviewText: { fontSize: 12, fontFamily: 'Inter_400Regular', fontStyle: 'italic' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: t.surface, borderTopLeftRadius: RADIUS.xxl, borderTopRightRadius: RADIUS.xxl, padding: SPACING.xl, overflow: 'hidden' },

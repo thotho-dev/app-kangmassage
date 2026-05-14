@@ -149,14 +149,23 @@ export default function DashboardScreen() {
 
       const { data: todayData, error: todayError } = await supabase
         .from('orders')
-        .select('total_price, status, created_at')
+        .select('total_price, status, created_at, duration')
         .eq('therapist_id', profile.id)
         .gte('created_at', startOfDay.toISOString());
 
       if (todayError) throw todayError;
 
       const completedToday = todayData ? todayData.filter(o => o.status === 'completed') : [];
-      const earnings = completedToday.reduce((sum, o) => sum + (o.total_price || 0), 0);
+      
+      // Calculate NET earnings (80% share for therapist by default)
+      const earnings = completedToday.reduce((sum, o) => {
+        const rate = profile.commission_rate || 80;
+        const share = ((o.total_price || 0) * rate) / 100;
+        return sum + share;
+      }, 0);
+
+      // Calculate Total Hours Today from duration column
+      const totalHoursToday = completedToday.reduce((sum, o) => sum + (Number(o.duration) || 0), 0) / 60;
 
       // 2. Ambil Pesanan Terbaru Hari Ini (Limit 3)
       const { data: recentOrders, error: oError } = await supabase
@@ -172,9 +181,9 @@ export default function DashboardScreen() {
       setOrders(recentOrders || []);
       setDashboardStats({
         todayEarnings: earnings,
-        todayOrders: (todayData || []).length, // Count all orders today
+        todayOrders: completedToday.length, // Only count completed orders for the stat
         rating: Number(profile.rating) || 5.0,
-        totalHours: profile.total_hours || 0
+        totalHours: totalHoursToday // Display hours from today's completed orders
       });
     } catch (error) {
       console.error('Dashboard Fetch Error:', error);
@@ -348,7 +357,7 @@ export default function DashboardScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.orderName}>{order.users?.full_name || 'Pelanggan'}</Text>
-                  <Text style={styles.orderService}>{order.services?.name || 'Pijat Relaksasi'} · {order.services?.duration_min || 60} menit</Text>
+                  <Text style={styles.orderService}>{order.services?.name || 'Pijat Relaksasi'} · {order.duration || 60} menit</Text>
                 </View>
                 <View style={[styles.orderBadge, { backgroundColor: (STATUS_COLOR[order.status] || t.textMuted) + '15' }]}>
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: STATUS_COLOR[order.status] || t.textMuted, marginRight: 5 }} />

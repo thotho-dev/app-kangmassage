@@ -174,32 +174,73 @@ export default function OrderDetailScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const fetchOrder = useCallback(async () => {
-    const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (typeof id !== 'string' || !uuidRx.test(id)) {
-      setOrder(MOCK_ORDER); setLoading(false); return;
+    if (!id || typeof id !== 'string') {
+      console.error('[DEBUG OrderDetail] Invalid ID:', id);
+      setOrder(MOCK_ORDER); 
+      setLoading(false); 
+      return;
     }
+
     try {
-      // Fetch Order
-      const { data, error } = await supabase.from('orders').select('*, users(*), services(*)').eq('id', id).single();
-      if (error) throw error;
-      setOrder(data);
+      // Fetch Order with aliases to match UI expectations
+      const fetchRes = await supabase
+        .from('orders')
+        .select(`
+          *,
+          users:users(*),
+          services:services(*)
+        `)
+        .eq('id', id)
+        .limit(1);
+      
+      const orderData = fetchRes.data ? fetchRes.data[0] : null;
+      const orderError = fetchRes.error;
+      
+      if (orderError) {
+        console.error('[DEBUG OrderDetail] Supabase Fetch Error:', orderError);
+        throw orderError;
+      }
+      
+      if (!orderData) {
+        console.error('[DEBUG OrderDetail] No data found for ID:', id);
+        setOrder(MOCK_ORDER);
+      } else {
+        // Fetch Voucher separately if exists to avoid relationship error
+        if (orderData.voucher_id) {
+          const { data: voucherData } = await supabase
+            .from('vouchers')
+            .select('*')
+            .eq('id', orderData.voucher_id)
+            .single();
+          
+          if (voucherData) {
+            orderData.vouchers = voucherData;
+          }
+        }
+
+        setOrder(orderData);
+        if (!fixedCustomerLoc) {
+          setFixedCustomerLoc({ latitude: orderData.latitude, longitude: orderData.longitude });
+        }
+      }
 
       // Fetch Logs
-      const { data: logsData } = await supabase.from('order_logs').select('*').eq('order_id', id).order('created_at', { ascending: true });
+      const { data: logsData } = await supabase
+        .from('order_logs')
+        .select('*')
+        .eq('order_id', id)
+        .order('created_at', { ascending: true });
+      
       setLogs(logsData || []);
 
-      if (data && !fixedCustomerLoc) {
-        setFixedCustomerLoc({ latitude: data.latitude, longitude: data.longitude });
-      }
-    } catch {
-      setOrder(MOCK_ORDER);
-      if (!fixedCustomerLoc) {
-        setFixedCustomerLoc({ latitude: MOCK_ORDER.latitude, longitude: MOCK_ORDER.longitude });
-      }
+    } catch (err) {
+      console.error('[DEBUG OrderDetail] Catch Exception:', err);
+      // Fallback to mock only if truly failed
+      if (!order) setOrder(MOCK_ORDER);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, fixedCustomerLoc]);
 
   useEffect(() => { 
     fetchOrder();
@@ -299,12 +340,166 @@ export default function OrderDetailScreen() {
       status: nextStatus,
     });
 
-    await supabase.from('orders').update({ status: nextStatus }).eq('id', order.id);
-    await fetchOrder(); // This will refresh both order status and logs
+    // Handle Cashback and Points if completed
+    if (nextStatus === 'completed') {
+      try {
+        console.log('[DEBUG Earnings] Starting rewards & earnings process for Order:', order.id);
+
+        // 0. Fetch FRESH order data (Using limit(1) to avoid single() error)
+        const { data: freshData, error: freshErr } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', order.id)
+          .limit(1);
+        
+        const freshOrder = freshData ? freshData[0] : null;
+        
+        if (freshErr || !freshOrder) {
+          console.error('[DEBUG Earnings] Failed to fetch fresh order data:', freshErr);
+          throw new Error('Fresh order data not found');
+        }
+
+        console.log('[DEBUG Earnings] Fresh Order Data:', {
+          id: freshOrder.id,
+          therapist_id: freshOrder.therapist_id,
+          payment: freshOrder.payment_method,
+          total: freshOrder.total_price
+        });
+
+        // --- 1. USER REWARDS (Points & Cashback) ---
+        const { data: userData } = await supabase.from('users').select('wallet_balance, cashback, points, total_orders').eq('id', freshOrder.user_id).single();
+        if (userData) {
+          const currentBalance = userData.wallet_balance || 0;
+          const currentCashback = userData.cashback || 0;
+          const currentPoints = userData.points || 0;
+          const currentTotalOrders = userData.total_orders || 0;
+
+          let userUpdateData: any = { 
+            total_orders: currentTotalOrders + 1,
+            points: currentPoints + 1000 
+          };
+
+          if (freshOrder.vouchers?.is_cashback && freshOrder.discount_amount > 0) {
+            const cashbackAmount = freshOrder.discount_amount;
+            userUpdateData.wallet_balance = currentBalance + cashbackAmount;
+            userUpdateData.cashback = currentCashback + cashbackAmount;
+
+            await supabase.from('transactions').insert({
+              user_id: freshOrder.user_id,
+              order_id: freshOrder.id,
+              type: 'cashback',
+              amount: cashbackAmount,
+              balance_before: currentBalance,
+              balance_after: currentBalance + cashbackAmount,
+              description: `Cashback dari voucher ${freshOrder.vouchers.code}`
+            });
+          }
+          await supabase.from('users').update(userUpdateData).eq('id', freshOrder.user_id);
+        }
+
+        // --- 2. THERAPIST EARNINGS (Commission Logic) ---
+        const targetTherapistId = freshOrder.therapist_id || profile?.id;
+        
+        if (targetTherapistId) {
+          console.log('[DEBUG Earnings] Processing therapist:', targetTherapistId);
+          const { data: therapistData, error: tFetchErr } = await supabase
+            .from('therapists')
+            .select('wallet_balance, commission_rate, total_orders')
+            .eq('id', targetTherapistId)
+            .single();
+          
+          if (tFetchErr) {
+            console.error('[DEBUG Earnings] Failed to fetch therapist profile:', tFetchErr);
+          }
+
+          if (therapistData) {
+            const totalAmount = Number(freshOrder.total_price) || 0;
+            const rate = Number(therapistData.commission_rate) || 80; 
+            const therapistShare = (totalAmount * rate) / 100;
+            const platformShare = totalAmount - therapistShare;
+            
+            let balanceUpdate = 0;
+            let txType: 'credit' | 'debit' = 'credit';
+            let txDesc = '';
+
+            const pMethod = String(freshOrder.payment_method || '').toLowerCase();
+            const isCash = pMethod === 'tunai' || pMethod === 'cash';
+
+            if (isCash) {
+              balanceUpdate = -platformShare;
+              txType = 'debit';
+              txDesc = `Bagi hasil (Tunai) - ${freshOrder.order_number}`;
+            } else {
+              balanceUpdate = therapistShare;
+              txType = 'credit';
+              txDesc = `Pendapatan layanan - ${freshOrder.order_number}`;
+            }
+
+            const currentBalance = Number(therapistData.wallet_balance) || 0;
+            const durationHours = (Number(freshOrder.duration) || 60) / 60;
+            
+            console.log('[DEBUG Earnings] Calculated Update:', {
+              isCash,
+              currentBalance,
+              balanceUpdate,
+              newBalance: currentBalance + balanceUpdate
+            });
+
+            const { error: tUpdateErr } = await supabase.from('therapists').update({
+              wallet_balance: currentBalance + balanceUpdate,
+              total_orders: (Number(therapistData.total_orders) || 0) + 1
+            }).eq('id', targetTherapistId);
+
+            if (tUpdateErr) {
+              console.error('[DEBUG Earnings] Update Failed:', tUpdateErr.message, tUpdateErr.details);
+            } else {
+              console.log('[DEBUG Earnings] Therapist table updated successfully');
+            }
+
+            const { error: txErr } = await supabase.from('transactions').insert({
+              therapist_id: targetTherapistId,
+              order_id: freshOrder.id,
+              type: txType,
+              amount: balanceUpdate,
+              balance_before: currentBalance,
+              balance_after: currentBalance + balanceUpdate,
+              description: txDesc
+            });
+            
+            if (txErr) {
+              console.error('[DEBUG Earnings] Transaction record failed:', txErr.message);
+            } else {
+              console.log('[DEBUG Earnings] Transaction recorded successfully');
+            }
+          }
+        } else {
+          console.warn('[DEBUG Earnings] No therapist_id found for this order');
+        }
+      } catch (err) {
+        console.error('[DEBUG Earnings] Catch Exception:', err);
+      }
+    }
+
+    const orderUpdate: any = { status: nextStatus };
+    if (nextStatus === 'completed') {
+      orderUpdate.payment_status = 'settlement';
+    }
+    
+    await supabase.from('orders').update(orderUpdate).eq('id', order.id);
+    
+    // Refresh both order and global therapist profile (to see new balance/hours immediately)
+    await fetchOrder(); 
+    if (nextStatus === 'completed') {
+      await useTherapistStore.getState().fetchProfile();
+    }
   };
 
   const handleChat = async () => {
     if (!order || !profile) return;
+    if (order.status === 'completed' || order.status === 'cancelled') {
+      showAlert('info', 'Selesai', 'Fitur chat dinonaktifkan untuk pesanan yang sudah selesai atau dibatalkan.');
+      return;
+    }
     const { data: existing } = await supabase.from('conversations').select('id').eq('user_id', order.user_id).eq('therapist_id', profile.id).maybeSingle();
     if (existing) {
       router.push(`/chats/${existing.id}`);
@@ -519,8 +714,26 @@ export default function OrderDetailScreen() {
             <View style={styles.customerCard}>
               <View style={styles.avatar}><Text style={styles.avatarText}>{custName[0]}</Text></View>
               <View style={{ flex: 1 }}><Text style={styles.customerName}>{custName}</Text><Text style={styles.serviceLabel}>{order.services?.name || 'Layanan'}</Text></View>
-              <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${order.users?.phone}`)}><Ionicons name="call" size={20} color={t.success} /></TouchableOpacity>
-              <TouchableOpacity style={styles.chatBtn} onPress={handleChat}><Ionicons name="chatbubble" size={20} color={t.secondary} /></TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.callBtn, (order.status === 'completed' || order.status === 'cancelled') && { opacity: 0.3 }]} 
+                onPress={() => {
+                  if (order.status === 'completed' || order.status === 'cancelled') {
+                    showAlert('info', 'Selesai', 'Anda tidak dapat menghubungi pelanggan untuk pesanan yang sudah selesai atau dibatalkan.');
+                  } else {
+                    Linking.openURL(`tel:${order.users?.phone}`);
+                  }
+                }}
+                disabled={order.status === 'completed' || order.status === 'cancelled'}
+              >
+                <Ionicons name="call" size={20} color={t.success} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.chatBtn, (order.status === 'completed' || order.status === 'cancelled') && { opacity: 0.3 }]} 
+                onPress={handleChat}
+                disabled={order.status === 'completed' || order.status === 'cancelled'}
+              >
+                <Ionicons name="chatbubble" size={20} color={t.secondary} />
+              </TouchableOpacity>
             </View>
 
             <Accordion title="Detail Pesanan" icon="information-circle-outline" color={t.primary} t={t}>

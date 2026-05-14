@@ -1,5 +1,42 @@
 # Progress Development - App Kang Massage
 
+## [2026-05-14] - Branding Refinement, Realtime Stabilization & Financial Logic Sync
+
+### 🎨 Branding & UI Refinement
+- **Logo Aesthetics Standardization**: 
+    - Penghapusan kotak background, bayangan (*shadow*), dan elevasi pada logo Kang Massage di seluruh aplikasi (User & Therapist).
+    - Logo kini tampil bersih (*clean*) dan terintegrasi langsung dengan latar belakang halaman, memberikan kesan desain yang lebih modern dan premium.
+- **Header & Layout Optimization**:
+    - Penyesuaian gap pada header di seluruh layar user untuk estetika yang lebih proporsional.
+    - Implementasi `SafeAreaView` yang konsisten di semua halaman utama untuk mencegah konten terpotong oleh notch atau navigasi sistem.
+
+### 🛠️ Stability & Bug Fixes
+- **Supabase Realtime Stabilization**: 
+    - Resolusi error `cannot add postgres_changes callbacks after subscribe()` pada halaman chat.
+    - Implementasi **Unique Dynamic Channel Names** menggunakan random identifier untuk memastikan setiap langganan realtime memiliki jalur yang unik dan tidak konflik saat komponen melakukan re-render.
+
+### 💰 Voucher & Cashback System (Sync)
+- **Cashback vs Discount Differentiation**: 
+    - Perbaikan logika perhitungan harga: Voucher tipe **Cashback** kini tidak lagi mengurangi harga "Total Pembayaran" di awal (User tetap membayar penuh).
+    - **Post-Completion Fulfillment**: Saldo cashback otomatis ditambahkan ke wallet user **setelah** pesanan dinyatakan Selesai oleh terapis.
+- **UI Transparency**:
+    - Penyesuaian label dari "Hemat" menjadi **"Cashback"** pada rincian pembayaran jika voucher cashback digunakan.
+    - Halaman **Detail Voucher** kini secara otomatis menampilkan keterangan khusus cashback dan instruksi pengisian saldo wallet setelah order selesai.
+
+### 🌟 Loyalty Points & Rewards
+- **Order Reward System**: 
+    - Implementasi penambahan **1000 Poin** secara otomatis ke akun user setiap kali satu pesanan berhasil diselesaikan.
+    - Poin dan total riwayat cashback kini ditampilkan secara real-time di halaman **Dompet Saya**.
+- **Dynamic Growth Ready**: Struktur database (`points`, `cashback`) telah disiapkan untuk mendukung pengaturan nilai poin dinamis dari dashboard di masa mendatang.
+
+### 💵 Therapist Financial Logic (Bagi Hasil)
+- **Smart Payment Handling**:
+    - **Tunai (Cash)**: Jika pembayaran tunai, sistem tidak memasukkan uang ke saldo terapis (karena uang sudah diterima fisik). Sebaliknya, sistem secara otomatis **memotong saldo wallet/deposit terapis** untuk biaya bagi hasil platform.
+    - **Non-Tunai (Wallet/Online)**: Sistem memegang dana dan secara otomatis mengkreditkan bagian neto (Pendapatan - Komisi) ke saldo terapis.
+- **Automated Transaction Logging**: Setiap pemotongan bagi hasil atau pendapatan layanan dicatat dengan deskripsi yang transparan di riwayat transaksi terapis.
+
+---
+
 ## [2026-05-13] - Broadcast Matchmaking & Precision Tracking Refinement
 
 ### 🚀 Sistem Matchmaking "Rebutan" (Broadcast Mode)
@@ -48,9 +85,13 @@
     - Fitur untuk memperluas peta hingga **90% tinggi layar** dengan menyembunyikan komponen detail lainnya secara otomatis.
     - Tombol **Swipe Status** tetap dipertahankan di bagian bawah saat mode Full View untuk memudahkan perubahan status pesanan sambil navigasi.
     - Tombol kontrol (Expand/Close) yang responsif di pojok kanan atas peta.
-- **Precision Tracking**:
-    - Implementasi `Location.watchPositionAsync` untuk pelacakan posisi terapis secara live dan otomatis.
-    - Kalkulasi jarak akurat berdasarkan rute jalan raya (driving distance) dari API OSRM yang diupdate secara real-time.
+- **Precision### [2026-05-15] Optimasi Keuangan Terapis & Integritas Voucher
+- [x] **Saldo Minus Terapis:** Menghapus constraint `therapists_wallet_balance_check` di database untuk mendukung saldo negatif (hutang bagi hasil) bagi terapis.
+- [x] **Riwayat Transaksi Transparan:** Mengubah halaman Pendapatan terapis untuk membaca dari tabel `transactions`, menampilkan detil uang masuk (pendapatan) dan uang keluar (bagi hasil) secara kronologis.
+- [x] **Otomatisasi Pembayaran:** Implementasi perubahan otomatis `payment_status` menjadi `settlement` saat pesanan tunai diselesaikan.
+- [x] **Akurasi Statistik:** Memperbarui penghitungan "Total Jam" terapis menggunakan kolom `duration` asli dari tabel pesanan.
+- [x] **Validasi Voucher:** Memperbaiki sistem pencatatan `voucher_usages` untuk mencegah penggunaan voucher berulang yang melampaui batas per pengguna.
+- [x] **Sinkronisasi Data Real-time:** Menambahkan pemicu penyegaran profil (`fetchProfile`) otomatis setelah penyelesaian pesanan agar saldo langsung terupdate di UI.raya (driving distance) dari API OSRM yang diupdate secara real-time.
 - **UI/UX Polishing**:
     - **Parallax Scroll Effect**: Peta kini memiliki efek paralaks saat discroll, memberikan kesan kedalaman (*depth*) yang premium.
     - **Refined Swipe Button**: Tombol swipe dibuat lebih presisi dengan **shadow khusus** hanya pada bagian bulatan (*thumb*) agar terlihat menonjol dan taktil.

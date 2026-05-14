@@ -180,6 +180,7 @@ CREATE TABLE orders (
   user_id           UUID NOT NULL REFERENCES users(id),
   therapist_id      UUID REFERENCES therapists(id),
   service_id        UUID NOT NULL REFERENCES services(id),
+  duration          INTEGER,                -- Durasi dalam menit
   voucher_id        UUID REFERENCES vouchers(id),
 
   -- Location

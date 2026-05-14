@@ -8,6 +8,7 @@ import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { id as idID } from 'date-fns/locale';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const PURPLE = '#240080';
 const BG = '#F5F5F7';
@@ -94,8 +95,9 @@ export default function VouchersScreen() {
   };
 
   const formatDiscount = (item: any) => {
-    if (item.type === 'percentage') return `${item.value}%`;
-    return `Rp ${item.value.toLocaleString('id-ID')}`;
+    const prefix = item.is_cashback ? 'Cashback ' : '';
+    if (item.type === 'percentage') return `${prefix}${item.value}%`;
+    return `${prefix}Rp ${item.value.toLocaleString('id-ID')}`;
   };
 
   const checkVoucherValidity = (item: any) => {
@@ -171,10 +173,27 @@ export default function VouchersScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PURPLE} />
         }
       >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={PURPLE} />
-            <Text style={styles.loadingText}>Memuat voucher...</Text>
+        {loading && !refreshing ? (
+          <View>
+            {[1, 2, 3, 4].map(i => (
+              <View key={i} style={styles.voucherCard}>
+                <View style={[styles.voucherLeft, { opacity: 0.3 }]} />
+                <View style={styles.voucherRight}>
+                  <View style={styles.mainInfo}>
+                    <Skeleton width="60%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                    <Skeleton width="90%" height={10} borderRadius={4} style={{ marginBottom: 12 }} />
+                    <Skeleton width="40%" height={22} borderRadius={4} />
+                  </View>
+                  <View style={styles.footerInfo}>
+                    <Skeleton width="50%" height={12} borderRadius={4} />
+                    <Skeleton width={60} height={28} borderRadius={15} />
+                  </View>
+                </View>
+                <View style={styles.cutoutTop} />
+                <View style={styles.cutoutBottom} />
+                <View style={styles.divider} />
+              </View>
+            ))}
           </View>
         ) : vouchers.length === 0 ? (
           <View style={styles.emptyContainer}>

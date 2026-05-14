@@ -23,6 +23,7 @@ export default function ChatDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [hasActiveOrder, setHasActiveOrder] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -33,10 +34,34 @@ export default function ChatDetailScreen() {
         fetchConversation();
         fetchMessages();
         markAsRead();
+        checkActiveOrder(user.id);
       }
     };
     init();
   }, [conversationId]);
+
+  const checkActiveOrder = async (uid: string) => {
+    try {
+      // Dapatkan internal user ID
+      const { data: u } = await supabase.from('users').select('id').eq('supabase_uid', uid).single();
+      if (!u) return;
+
+      // Dapatkan therapist_id dari conversation
+      const { data: conv } = await supabase.from('conversations').select('therapist_id').eq('id', conversationId).single();
+      if (!conv) return;
+
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', u.id)
+        .eq('therapist_id', conv.therapist_id)
+        .not('status', 'in', '("completed","cancelled")');
+      
+      setHasActiveOrder((count || 0) > 0);
+    } catch (e) {
+      console.error('Error checking active order:', e);
+    }
+  };
 
   useEffect(() => {
     if (conversationId) {
@@ -204,7 +229,14 @@ export default function ChatDetailScreen() {
                 <Text style={[styles.headerStatus, { color: COLORS.success }]}>Online</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.headerAction}>
+            <TouchableOpacity 
+              style={[styles.headerAction, !hasActiveOrder && { opacity: 0.3 }]}
+              onPress={() => {
+                if (!hasActiveOrder) return;
+                if (conversation?.therapist?.phone) Linking.openURL(`tel:${conversation.therapist.phone}`);
+              }}
+              disabled={!hasActiveOrder}
+            >
               <Ionicons name="call-outline" size={22} color={theme.text} />
             </TouchableOpacity>
           </View>
@@ -227,12 +259,13 @@ export default function ChatDetailScreen() {
               <Ionicons name="add-circle-outline" size={28} color={theme.textSecondary} />
             </TouchableOpacity>
             <TextInput
-              style={[styles.input, { color: theme.text, backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-              placeholder="Tulis pesan..."
+              style={[styles.input, { color: theme.text, backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }, !hasActiveOrder && { opacity: 0.5 }]}
+              placeholder={hasActiveOrder ? "Tulis pesan..." : "Chat dinonaktifkan"}
               placeholderTextColor={theme.textSecondary}
               value={inputText}
               onChangeText={setInputText}
               multiline
+              editable={hasActiveOrder}
             />
             <TouchableOpacity 
               style={[styles.sendBtn, { backgroundColor: inputText.trim() ? COLORS.primary[500] : theme.border }]} 

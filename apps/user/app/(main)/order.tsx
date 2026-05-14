@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert, ActivityIndicator, BackHandler } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import CustomDateTimePicker from '@/components/ui/CustomDateTimePicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -103,7 +104,11 @@ export default function OrderScreen() {
     }
     // Fallback if no options in DB
     return [
-      { label: initialService.duration, value: 0, price: initialService.price }
+      { 
+        label: initialService.price_type === 'treatment' ? '1 Treatment' : `${initialService.duration_min || parseInt(initialService.duration) || 0} Menit`, 
+        value: initialService.duration_min || parseInt(initialService.duration) || 0, 
+        price: initialService.base_price || initialService.price || 0 
+      }
     ];
   }, [initialService]);
 
@@ -154,7 +159,8 @@ export default function OrderScreen() {
   const [voucherCode, setVoucherCode] = useState((initialVoucherCode as string) || '');
   const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
-  const finalPrice = Math.max(0, totalPrice - discountAmount);
+  const isCashback = appliedVoucher?.is_cashback === true;
+  const finalPrice = isCashback ? totalPrice : Math.max(0, totalPrice - discountAmount);
 
   // Auto-select payment method based on balance
   React.useEffect(() => {
@@ -214,6 +220,19 @@ export default function OrderScreen() {
       // Validasi Usage Limit
       if (data.usage_limit && data.usage_count >= data.usage_limit) {
         if (!silent) Alert.alert('Voucher Habis', 'Kuota penggunaan voucher ini telah habis.');
+        return;
+      }
+
+      // Validasi Usage Limit Per User
+      const limitPerUser = data.user_limit || 1;
+      const { count: userUsageCount, error: countErr } = await supabase
+        .from('voucher_usages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', profile?.id)
+        .eq('voucher_id', data.id);
+
+      if (!countErr && userUsageCount !== null && userUsageCount >= limitPerUser) {
+        if (!silent) Alert.alert('Batas Penggunaan', `Voucher ini hanya dapat digunakan maksimal ${limitPerUser} kali per pengguna.`);
         return;
       }
 
@@ -375,6 +394,16 @@ export default function OrderScreen() {
           discount = v.value;
         }
 
+        // Check User Usage Limit for Auto-Apply
+        const limitPerUser = v.user_limit || 1;
+        const { count: userUsageCount } = await supabase
+          .from('voucher_usages')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', profile?.id)
+          .eq('voucher_id', v.id);
+        
+        if (userUsageCount !== null && userUsageCount >= limitPerUser) continue;
+
         if (discount > maxDiscount) {
           maxDiscount = discount;
           bestVoucher = v;
@@ -489,6 +518,7 @@ export default function OrderScreen() {
       const orderData = {
         user_id: profile?.id,
         service_id: initialService.id,
+        duration: selectedDuration.value,
         status: 'pending',
         service_price: selectedDuration.price,
         total_price: finalPrice,
@@ -514,6 +544,32 @@ export default function OrderScreen() {
         .single();
 
       if (orderError) throw orderError;
+      
+      // 1.5. Record Voucher Usage
+      if (appliedVoucher && profile?.id) {
+        console.log('[DEBUG Voucher] Recording usage for:', appliedVoucher.code, 'User:', profile.id);
+        const { error: vUseErr } = await supabase.from('voucher_usages').insert({
+          user_id: profile.id,
+          voucher_id: appliedVoucher.id,
+          order_id: order.id
+        });
+        
+        if (vUseErr) {
+          console.error('[DEBUG Voucher] CRITICAL: Failed to record usage in voucher_usages:', vUseErr.message, vUseErr.details);
+        } else {
+          console.log('[DEBUG Voucher] SUCCESS: Usage recorded in voucher_usages');
+        }
+        
+        // Update global usage count
+        const { error: vUpdateErr } = await supabase
+          .from('vouchers')
+          .update({ usage_count: (Number(appliedVoucher.usage_count) || 0) + 1 })
+          .eq('id', appliedVoucher.id);
+          
+        if (vUpdateErr) {
+          console.error('[DEBUG Voucher] Failed to increment usage_count in vouchers:', vUpdateErr.message);
+        }
+      }
 
       // 2. Handle Payment Based on Method
       if (paymentMethod === 'saldo') {
@@ -575,7 +631,7 @@ export default function OrderScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       {/* Header */}
@@ -837,7 +893,9 @@ export default function OrderScreen() {
                 {appliedVoucher ? (
                   <>
                     <Text style={styles.voucherAppliedTitle}>{appliedVoucher.code}</Text>
-                    <Text style={styles.voucherAppliedSub}>Berhasil digunakan (Hemat Rp {discountAmount.toLocaleString('id-ID')})</Text>
+                    <Text style={styles.voucherAppliedSub}>
+                      Berhasil digunakan ({isCashback ? 'Cashback' : 'Potongan'} Rp {discountAmount.toLocaleString('id-ID')})
+                    </Text>
                   </>
                 ) : (
                   <>
@@ -889,25 +947,44 @@ export default function OrderScreen() {
                 {PAYMENT_GROUPS.map((group) => (
                   <View key={group.id} style={styles.paymentGroup}>
                     <Text style={styles.groupTitle}>{group.title}</Text>
-                    {group.items.map((method) => (
-                      <TouchableOpacity 
-                        key={method.id} 
-                        style={styles.paymentItem} 
-                        onPress={() => {
-                          setPaymentMethod(method.id as any);
-                          setShowPaymentDropdown(false);
-                        }}
-                      >
-                        <method.icon size={20} color={paymentMethod === method.id ? PURPLE : TEXT_MUTED} />
-                        <Text style={[
-                          styles.paymentItemLabel, 
-                          { color: paymentMethod === method.id ? PURPLE : TEXT_DARK }
-                        ]}>
-                          {method.label}
-                        </Text>
-                        {paymentMethod === method.id && <View style={styles.selectedDot} />}
-                      </TouchableOpacity>
-                    ))}
+                    {group.items.map((method) => {
+                      const isSaldo = method.id === 'saldo';
+                      const isInsufficient = isSaldo && (profile?.wallet_balance || 0) < finalPrice;
+                      
+                      return (
+                        <TouchableOpacity 
+                          key={method.id} 
+                          style={[styles.paymentItem, isInsufficient && { opacity: 0.5 }]} 
+                          onPress={() => {
+                            if (isInsufficient) {
+                              Alert.alert('Saldo Kurang', 'Saldo Anda tidak mencukupi. Silakan top up atau pilih metode lain.');
+                              return;
+                            }
+                            setPaymentMethod(method.id as any);
+                            setShowPaymentDropdown(false);
+                          }}
+                        >
+                          <View style={styles.paymentMethodLeft}>
+                            <method.icon size={20} color={paymentMethod === method.id ? PURPLE : TEXT_MUTED} />
+                            <View style={{ marginLeft: 12 }}>
+                              <Text style={[
+                                styles.paymentItemLabel, 
+                                { color: paymentMethod === method.id ? PURPLE : TEXT_DARK }
+                              ]}>
+                                {method.label}
+                              </Text>
+                              {isSaldo && (
+                                <Text style={[styles.balanceSub, { color: isInsufficient ? '#EF4444' : '#10B981' }]}>
+                                  Saldo: Rp {(profile?.wallet_balance || 0).toLocaleString('id-ID')}
+                                  {isInsufficient && ' (Kurang)'}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                          {paymentMethod === method.id && <View style={styles.selectedDot} />}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 ))}
               </View>
@@ -924,7 +1001,7 @@ export default function OrderScreen() {
           <Text style={styles.totalLabel}>Total Pembayaran</Text>
           <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
           {discountAmount > 0 && (
-            <Text style={styles.discountLabel}>Hemat Rp {discountAmount.toLocaleString('id-ID')}</Text>
+            <Text style={styles.discountLabel}>{isCashback ? 'Cashback' : 'Hemat'} Rp {discountAmount.toLocaleString('id-ID')}</Text>
           )}
         </View>
         <TouchableOpacity 
@@ -942,7 +1019,7 @@ export default function OrderScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -955,7 +1032,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 15,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
@@ -1436,5 +1513,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  paymentMethodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  balanceSub: {
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    marginTop: 2,
   },
 });

@@ -298,14 +298,11 @@ const getStyles = (t: any) => StyleSheet.create({
   },
   logoContainer: { alignItems: 'center', marginBottom: 24 },
   logoMark: {
-    width: 80, height: 80, borderRadius: 24,
+    width: 100, height: 100,
     alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-    backgroundColor: '#FFFFFF',
-    shadowColor: t.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 10,
-    overflow: 'hidden'
   },
   logoImage: {
-    width: 60, height: 60, resizeMode: 'contain'
+    width: 90, height: 90, resizeMode: 'contain'
   },
   title: { ...TYPOGRAPHY.h2, color: t.text, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.body, color: t.textSecondary, textAlign: 'center' },

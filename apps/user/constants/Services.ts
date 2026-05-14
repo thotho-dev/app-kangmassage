@@ -11,6 +11,8 @@ export interface Service {
   duration_options?: Array<{ duration: number; price: number }>;
   category_slug?: string[];
   image_url?: string;
+  duration_min?: number;
+  base_price?: number;
 }
 
 export const SERVICES: Service[] = [

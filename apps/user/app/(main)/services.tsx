@@ -15,6 +15,7 @@ import { SERVICES } from '@/constants/Services';
 import { useServices } from '@/hooks/useServices';
 import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
@@ -62,50 +63,64 @@ export default function ServicesScreen() {
         </View>
 
         <View style={styles.grid}>
-          {displayServices.map((service) => (
-            <TouchableOpacity 
-              key={service.id}
-              activeOpacity={0.9}
-              onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
-              style={styles.serviceCard}
-            >
-              {/* Image */}
-              <Image
-                source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
-                style={styles.serviceImage}
-              />
-              
-              {/* Icon Overlay */}
-              <View style={styles.iconOverlay}>
-                <Text style={styles.iconEmoji}>{service.icon}</Text>
-              </View>
-
-              {/* Info */}
-              <View style={styles.serviceInfo}>
-                <Text style={styles.serviceName} numberOfLines={1}>
-                  {service.name}
-                </Text>
-                
-                <Text style={styles.serviceDescription} numberOfLines={2}>
-                  {service.description}
-                </Text>
-
-                <View style={styles.priceContainer}>
-                  <Text style={styles.priceLabel}>Mulai</Text>
-                  <Text style={styles.priceText}>
-                    Rp {service.price.toLocaleString('id-ID')} /Jam
-                  </Text>
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <View key={i} style={styles.serviceCard}>
+                <Skeleton width="100%" height={120} borderRadius={0} />
+                <View style={styles.serviceInfo}>
+                  <Skeleton width="80%" height={16} borderRadius={4} style={{ marginBottom: 8 }} />
+                  <Skeleton width="100%" height={32} borderRadius={4} style={{ marginBottom: 12 }} />
+                  <Skeleton width="40%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
+                  <Skeleton width="90%" height={16} borderRadius={4} />
                 </View>
-
-                <TouchableOpacity 
-                  style={styles.selectBtn}
-                  onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
-                >
-                  <Text style={styles.selectBtnText}>Pilih</Text>
-                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          ))}
+            ))
+          ) : (
+            displayServices.map((service: any) => (
+              <TouchableOpacity 
+                key={service.id}
+                activeOpacity={0.9}
+                onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
+                style={styles.serviceCard}
+              >
+                {/* Image */}
+                <Image
+                  source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
+                  style={styles.serviceImage}
+                />
+                
+                {/* Icon Overlay */}
+                <View style={styles.iconOverlay}>
+                  <Text style={styles.iconEmoji}>{service.icon}</Text>
+                </View>
+  
+                {/* Info */}
+                <View style={styles.serviceInfo}>
+                  <Text style={styles.serviceName} numberOfLines={1}>
+                    {service.name}
+                  </Text>
+                  
+                  <Text style={styles.serviceDescription} numberOfLines={2}>
+                    {service.description}
+                  </Text>
+  
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.priceLabel}>Mulai</Text>
+                    <Text style={styles.priceText}>
+                      Rp {service.price.toLocaleString('id-ID')} /Jam
+                    </Text>
+                  </View>
+  
+                  <TouchableOpacity 
+                    style={styles.selectBtn}
+                    onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
+                  >
+                    <Text style={styles.selectBtnText}>Pilih</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         <View style={{ height: 40 }} />

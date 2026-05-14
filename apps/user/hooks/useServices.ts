@@ -28,6 +28,8 @@ export function useServices() {
         duration_options: item.duration_options,
         category_slug: item.category_slug,
         image_url: item.image_url,
+        duration_min: item.duration_min,
+        base_price: item.base_price,
       })) as Service[];
     },
   });

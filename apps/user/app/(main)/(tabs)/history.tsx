@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, RefreshControl, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { 
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react-native';
 import { COLORS } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const PURPLE = '#240080';
 const GOLD = '#FDB927';
@@ -302,7 +304,7 @@ export default function HistoryScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: BG }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: BG }]} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       {/* Header */}
@@ -340,7 +342,32 @@ export default function HistoryScreen() {
         }
       >
         {activeTab === 'riwayat' ? (
-          orders.length > 0 ? (
+          loading && !refreshing ? (
+            <View style={{ gap: 12 }}>
+              {[1, 2, 3].map(i => (
+                <View key={i} style={styles.card}>
+                   <View style={styles.cardHeader}>
+                     <Skeleton width={100} height={16} borderRadius={4} />
+                     <Skeleton width={80} height={24} borderRadius={12} />
+                   </View>
+                   <View style={styles.cardBody}>
+                     <Skeleton width={60} height={60} borderRadius={16} />
+                     <View style={[styles.infoBox, { gap: 4 }]}>
+                       <Skeleton width="60%" height={14} borderRadius={4} />
+                       <Skeleton width="40%" height={12} borderRadius={4} />
+                       <Skeleton width="50%" height={10} borderRadius={2} />
+                     </View>
+                     <Skeleton width={80} height={16} borderRadius={4} />
+                   </View>
+                   <View style={[styles.cardFooter, { borderTopWidth: 0 }]}>
+                     <Skeleton width="30%" height={14} borderRadius={4} />
+                     <View style={styles.footerDivider} />
+                     <Skeleton width="30%" height={14} borderRadius={4} />
+                   </View>
+                </View>
+              ))}
+            </View>
+          ) : orders.length > 0 ? (
             orders.map((item) => {
               const statusColor = getStatusColor(item.status);
               return (
@@ -418,7 +445,30 @@ export default function HistoryScreen() {
             </View>
           )
         ) : (
-          favorites.length > 0 ? (
+          loading && !refreshing ? (
+            <View style={{ gap: 12 }}>
+              {[1, 2, 3].map(i => (
+                <View key={i} style={styles.favCard}>
+                  <View style={styles.favCardTop}>
+                    <View style={styles.favHeaderLeft}>
+                      <Skeleton width={64} height={64} borderRadius={20} />
+                      <View style={[styles.favMainInfo, { gap: 6 }]}>
+                        <Skeleton width="60%" height={16} borderRadius={4} />
+                        <Skeleton width="80%" height={12} borderRadius={4} />
+                        <Skeleton width="40%" height={10} borderRadius={4} />
+                      </View>
+                    </View>
+                    <Skeleton width={36} height={36} borderRadius={18} />
+                  </View>
+                  <View style={styles.favDivider} />
+                  <View style={styles.favCardBottom}>
+                    <Skeleton width="35%" height={40} borderRadius={14} />
+                    <Skeleton width="60%" height={40} borderRadius={14} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : favorites.length > 0 ? (
             favorites.map((fav) => {
               const item = fav.therapists;
               if (!item) return null;
@@ -438,9 +488,9 @@ export default function HistoryScreen() {
                         <View style={styles.favMeta}>
                           <View style={styles.favRatingBadge}>
                             <Star size={10} color={GOLD} fill={GOLD} />
-                            <Text style={styles.favRatingValue}>{item.rating || '4.8'}</Text>
+                            <Text style={styles.favRatingValue}>{(item.rating || 5.0).toFixed(1)}</Text>
                           </View>
-                          <Text style={styles.favOrdersCount}>• 100+ Pesanan</Text>
+                          <Text style={styles.favOrdersCount}>• {item.total_orders || 0} Pesanan</Text>
                         </View>
                       </View>
                     </View>
@@ -479,7 +529,7 @@ export default function HistoryScreen() {
           )
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -494,7 +544,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 15,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',

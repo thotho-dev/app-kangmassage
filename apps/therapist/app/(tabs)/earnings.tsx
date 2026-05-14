@@ -33,22 +33,27 @@ export default function EarningsScreen() {
     if (!isRefreshing) setLoading(true);
 
     try {
-      // 1. Fetch History
-      const { data: orders, error } = await supabase
-        .from('orders')
+      // 1. Fetch Transactions with Order, Service, and User details
+      const { data: trans, error } = await supabase
+        .from('transactions')
         .select(`
           *,
-          users (full_name),
-          services (name)
+          orders (
+            order_number,
+            total_price,
+            services (name),
+            users (full_name)
+          )
         `)
         .eq('therapist_id', profile.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setHistory(orders || []);
+      console.log('[DEBUG Summary] Data item example:', trans?.[0]);
+      setHistory(trans || []);
 
       // 2. Calculate Summary
-      calculateSummary(orders || [], period);
+      calculateSummary(trans || [], period);
 
     } catch (error) {
       console.error('Error fetching earnings data:', error);
@@ -58,7 +63,7 @@ export default function EarningsScreen() {
     }
   };
 
-  const calculateSummary = (orders: any[], periodIdx: number) => {
+  const calculateSummary = (trans: any[], periodIdx: number) => {
     const now = new Date();
     let startDate: Date;
 
@@ -66,23 +71,39 @@ export default function EarningsScreen() {
       case 0: startDate = startOfDay(now); break;
       case 1: startDate = startOfWeek(now, { weekStartsOn: 1 }); break;
       case 2: startDate = startOfMonth(now); break;
-      default: startDate = new Date(0); // All time
+      default: startDate = new Date(0);
     }
 
-    const filtered = orders.filter(o => {
-      if (o.status !== 'completed') return false;
-      const date = new Date(o.created_at);
+    const filtered = trans.filter(t => {
+      const date = new Date(t.created_at);
       return date >= startDate;
     });
 
-    const gross = filtered.reduce((acc, o) => acc + (Number(o.total_price) || 0), 0);
-    const commission = gross * 0.2; // 20%
+    let gross = 0;
+    const orderIds = new Set();
+
+    filtered.forEach(t => {
+      if (t.order_id && !orderIds.has(t.order_id)) {
+        orderIds.add(t.order_id);
+        
+        // Cek apakah orders adalah objek atau array (Supabase join bisa mengembalikan keduanya)
+        const orderInfo = Array.isArray(t.orders) ? t.orders[0] : t.orders;
+        
+        if (orderInfo) {
+          const price = Number(orderInfo.total_price) || 0;
+          gross += price;
+        }
+      }
+    });
+
+    // Komisi adalah 20% dari total bruto
+    const commission = gross * 0.2;
     const net = gross - commission;
 
     setSummary({
       gross,
       net,
-      orders: filtered.length,
+      orders: orderIds.size,
       commission
     });
   };
@@ -117,21 +138,6 @@ export default function EarningsScreen() {
           ))}
         </View>
 
-        {/* Month Picker (Only show when period is 3) */}
-        {period === 3 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.monthScroll}>
-            {VISIBLE_MONTHS.map((m, i) => (
-              <TouchableOpacity 
-                key={m} 
-                style={[styles.monthItem, selectedMonth === i && { backgroundColor: t.primary, borderColor: t.primary }]} 
-                onPress={() => setSelectedMonth(i)}
-              >
-                <Text style={[styles.monthText, { color: selectedMonth === i ? '#FFFFFF' : (isDarkMode ? 'rgba(255,255,255,0.6)' : t.textSecondary) }]}>{m}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-
         {/* Big Earnings Card */}
         <LinearGradient colors={[t.secondary, '#EA580C']} style={styles.earningsCard}>
           <Text style={styles.cardSubLabel}>{period === 3 ? `Total Seluruh Pendapatan` : 'Total Pendapatan Bersih'}</Text>
@@ -143,7 +149,7 @@ export default function EarningsScreen() {
             </View>
             <View style={styles.separator} />
             <View style={styles.earningsMetaItem}>
-              <Text style={styles.earningsMetaLabel}>Komisi (20%)</Text>
+              <Text style={styles.earningsMetaLabel}>Komisi</Text>
               <Text style={[styles.earningsMetaValue, { color: 'rgba(255,255,255,0.7)' }]}>-Rp {summary.commission.toLocaleString('id-ID')}</Text>
             </View>
             <View style={styles.separator} />
@@ -179,36 +185,40 @@ export default function EarningsScreen() {
         ) : history.length === 0 ? (
           <Text style={{ textAlign: 'center', color: t.textMuted, marginTop: 20 }}>Belum ada riwayat</Text>
         ) : (
-          history.map(item => (
-            <View key={item.id} style={styles.historyCard}>
-              <View style={styles.historyLeft}>
-                <View style={[styles.historyIcon, { backgroundColor: item.status === 'cancelled' ? t.danger + '15' : t.primary + '10' }]}>
-                  <Ionicons
-                    name={item.status === 'cancelled' ? 'close-circle' : 'checkmark-circle'}
-                    size={24}
-                    color={item.status === 'cancelled' ? t.danger : t.primary}
-                  />
-                </View>
-                <View style={styles.historyInfo}>
-                  <Text style={styles.historyName}>{item.users?.full_name || 'Pelanggan'}</Text>
-                  <Text style={styles.historyService}>{item.services?.name || 'Pijat Relaksasi'}</Text>
-                  <Text style={styles.historyDate}>{new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
-                </View>
-              </View>
-              <View style={styles.historyRight}>
-                <Text style={[styles.historyAmount, { color: item.status === 'cancelled' ? t.textMuted : t.primary }]}>
-                  {item.status === 'cancelled' ? '—' : `+Rp ${(Number(item.total_price) || 0).toLocaleString('id-ID')}`}
-                </Text>
-                {item.rating > 0 && (
-                  <View style={styles.ratingRow}>
-                    {Array.from({ length: item.rating }).map((_, i) => (
-                      <Ionicons key={i} name="star" size={10} color={t.warning} />
-                    ))}
+          history.map(item => {
+            const isDebit = item.type === 'debit' || (item.amount < 0);
+            const customerName = item.orders?.users?.full_name || 'Pelanggan';
+            const serviceName = item.orders?.services?.name || 'Layanan Pijat';
+            
+            return (
+              <View key={item.id} style={styles.historyCard}>
+                <View style={styles.historyLeft}>
+                  <View style={[styles.historyIcon, { backgroundColor: isDebit ? t.danger + '15' : t.primary + '10' }]}>
+                    <Ionicons
+                      name={isDebit ? 'remove-circle' : 'add-circle'}
+                      size={24}
+                      color={isDebit ? t.danger : t.primary}
+                    />
                   </View>
-                )}
+                  <View style={styles.historyInfo}>
+                    {/* Like before: Show Customer Name for Credits, or Description for Debits */}
+                    <Text style={styles.historyName}>
+                      {isDebit ? (item.description || 'Potongan Komisi') : customerName}
+                    </Text>
+                    <Text style={styles.historyService}>
+                      {isDebit ? `Pesanan #${item.orders?.order_number?.slice(-6) || '---'}` : serviceName}
+                    </Text>
+                    <Text style={styles.historyDate}>{new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+                  </View>
+                </View>
+                <View style={styles.historyRight}>
+                  <Text style={[styles.historyAmount, { color: isDebit ? t.danger : t.primary }]}>
+                    {isDebit ? '-' : '+'}Rp {Math.abs(Number(item.amount) || 0).toLocaleString('id-ID')}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </View>

@@ -121,9 +121,13 @@ export default function SearchingTherapistScreen() {
           return false;
         }
         
-        // Kita kembalikan rule "Saldo harus >= 15.000"
-        if (t.wallet_balance < 15000) {
-          console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Saldo ${t.wallet_balance} (Aturan: Saldo harus >= 15.000)`);
+        // Cek Saldo: Harus cukup untuk bagi hasil (platform fee)
+        // Estimasi fee adalah 20% dari total harga
+        const estimatedFee = (orderData.total_price || 0) * 0.2;
+        const minBalance = Math.max(15000, estimatedFee); // Minimal 15rb ATAU sebesar fee
+
+        if (t.wallet_balance < minBalance) {
+          console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Saldo ${t.wallet_balance} kurang untuk fee Rp ${estimatedFee}`);
           return false;
         }
 
@@ -327,15 +331,8 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 100,
     height: 100,
-    borderRadius: 30,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 10,
-    shadowColor: PURPLE,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
     overflow: 'hidden',
   },
   logoImage: {

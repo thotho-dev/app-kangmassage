@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Image
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +26,7 @@ export default function ChatDetailScreen() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [hasActiveOrder, setHasActiveOrder] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -33,9 +34,29 @@ export default function ChatDetailScreen() {
       fetchConversation();
       fetchMessages();
       markAsRead();
+      checkActiveOrder();
       return subscribeToMessages();
     }
   }, [conversationId, profile]);
+
+  const checkActiveOrder = async () => {
+    if (!profile) return;
+    try {
+      const { data: conv } = await supabase.from('conversations').select('user_id').eq('id', conversationId).single();
+      if (!conv) return;
+
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', conv.user_id)
+        .eq('therapist_id', profile.id)
+        .not('status', 'in', '("completed","cancelled")');
+      
+      setHasActiveOrder((count || 0) > 0);
+    } catch (e) {
+      console.error('Error checking active order:', e);
+    }
+  };
 
   const fetchConversation = async () => {
     try {
@@ -214,12 +235,13 @@ export default function ChatDetailScreen() {
               <Ionicons name="add" size={24} color={t.textMuted} />
             </TouchableOpacity>
             <TextInput
-              style={[styles.input, { color: t.text, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
-              placeholder="Tulis pesan..."
+              style={[styles.input, { color: t.text, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }, !hasActiveOrder && { opacity: 0.5 }]}
+              placeholder={hasActiveOrder ? "Tulis pesan..." : "Chat dinonaktifkan"}
               placeholderTextColor={t.textMuted}
               value={inputText}
               onChangeText={setInputText}
               multiline
+              editable={hasActiveOrder}
             />
             <TouchableOpacity 
               style={[styles.sendBtn, { backgroundColor: inputText.trim() ? t.secondary : t.border }]} 
