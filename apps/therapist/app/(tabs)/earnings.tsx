@@ -39,10 +39,11 @@ export default function EarningsScreen() {
         .select(`
           *,
           orders (
+            id,
             order_number,
             total_price,
-            services (name),
-            users (full_name)
+            users (full_name),
+            services (name)
           )
         `)
         .eq('therapist_id', profile.id)
@@ -187,9 +188,12 @@ export default function EarningsScreen() {
         ) : (
           history.map(item => {
             const isDebit = item.type === 'debit' || (item.amount < 0);
-            const customerName = item.orders?.users?.full_name || 'Pelanggan';
-            const serviceName = item.orders?.services?.name || 'Layanan Pijat';
-            
+            // Support both array and object response from Supabase joins
+            const orderData = Array.isArray(item.orders) ? item.orders[0] : item.orders;
+            const customerName = orderData?.users?.full_name || 'Pelanggan';
+            const serviceName = orderData?.services?.name || 'Layanan Pijat';
+            const orderNum = orderData?.order_number?.slice(-6) || '---';
+
             return (
               <View key={item.id} style={styles.historyCard}>
                 <View style={styles.historyLeft}>
@@ -201,12 +205,11 @@ export default function EarningsScreen() {
                     />
                   </View>
                   <View style={styles.historyInfo}>
-                    {/* Like before: Show Customer Name for Credits, or Description for Debits */}
                     <Text style={styles.historyName}>
                       {isDebit ? (item.description || 'Potongan Komisi') : customerName}
                     </Text>
                     <Text style={styles.historyService}>
-                      {isDebit ? `Pesanan #${item.orders?.order_number?.slice(-6) || '---'}` : serviceName}
+                      {isDebit ? `Pesanan #${orderNum}` : serviceName}
                     </Text>
                     <Text style={styles.historyDate}>{new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
                   </View>

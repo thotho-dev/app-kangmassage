@@ -85,13 +85,15 @@
     - Fitur untuk memperluas peta hingga **90% tinggi layar** dengan menyembunyikan komponen detail lainnya secara otomatis.
     - Tombol **Swipe Status** tetap dipertahankan di bagian bawah saat mode Full View untuk memudahkan perubahan status pesanan sambil navigasi.
     - Tombol kontrol (Expand/Close) yang responsif di pojok kanan atas peta.
-- **Precision### [2026-05-15] Optimasi Keuangan Terapis & Integritas Voucher
+- **Precision### [2026-05-15] Optimasi Keuangan, Kualitas & Stabilitas Pesanan
 - [x] **Saldo Minus Terapis:** Menghapus constraint `therapists_wallet_balance_check` di database untuk mendukung saldo negatif (hutang bagi hasil) bagi terapis.
-- [x] **Riwayat Transaksi Transparan:** Mengubah halaman Pendapatan terapis untuk membaca dari tabel `transactions`, menampilkan detil uang masuk (pendapatan) dan uang keluar (bagi hasil) secara kronologis.
-- [x] **Otomatisasi Pembayaran:** Implementasi perubahan otomatis `payment_status` menjadi `settlement` saat pesanan tunai diselesaikan.
+- [x] **Riwayat Transaksi Transparan:** Mengubah halaman Pendapatan terapis untuk membaca dari tabel `transactions`, menampilkan detil uang masuk (pendapatan) dan uang keluar (bagi hasil).
+- [x] **Filter Kualitas (Rating 4.5):** Implementasi penyaringan otomatis di mana hanya terapis dengan rating >= 4.5 yang mendapatkan notifikasi pesanan baru.
+- [x] **Resolusi ENUM Pembayaran:** Memperbaiki error `22P02` pada penyelesaian pesanan dengan mengubah status `payment_status` menjadi `'paid'` sesuai standar database.
+- [x] **Otomatisasi Pembayaran:** Implementasi perubahan otomatis `payment_status` saat pesanan tunai diselesaikan.
 - [x] **Akurasi Statistik:** Memperbarui penghitungan "Total Jam" terapis menggunakan kolom `duration` asli dari tabel pesanan.
-- [x] **Validasi Voucher:** Memperbaiki sistem pencatatan `voucher_usages` untuk mencegah penggunaan voucher berulang yang melampaui batas per pengguna.
-- [x] **Sinkronisasi Data Real-time:** Menambahkan pemicu penyegaran profil (`fetchProfile`) otomatis setelah penyelesaian pesanan agar saldo langsung terupdate di UI.raya (driving distance) dari API OSRM yang diupdate secara real-time.
+- [x] **Validasi Voucher:** Memperbaiki sistem pencatatan `voucher_usages` untuk mencegah penggunaan voucher berulang melampaui batas.
+- [x] **Sinkronisasi Data Real-time:** Menambahkan pemicu penyegaran profil (`fetchProfile`) otomatis setelah penyelesaian pesanan.raya (driving distance) dari API OSRM yang diupdate secara real-time.
 - **UI/UX Polishing**:
     - **Parallax Scroll Effect**: Peta kini memiliki efek paralaks saat discroll, memberikan kesan kedalaman (*depth*) yang premium.
     - **Refined Swipe Button**: Tombol swipe dibuat lebih presisi dengan **shadow khusus** hanya pada bagian bulatan (*thumb*) agar terlihat menonjol dan taktil.
