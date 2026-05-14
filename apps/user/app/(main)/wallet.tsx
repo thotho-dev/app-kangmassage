@@ -14,9 +14,9 @@ import {
   ArrowDownLeft,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../context/ThemeContext';
-import { COLORS } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
+import { useTheme } from '@/context/ThemeContext';
+import { COLORS } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
 const PURPLE_DARK = '#12004D';
@@ -34,7 +34,7 @@ const TRANSACTIONS = [
   { id: 4, title: 'Pembayaran Pijat', date: '25 Apr, 18:45', amount: -120000, type: 'debit', icon: CreditCard },
 ];
 
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function WalletScreen() {
   const router = useRouter();

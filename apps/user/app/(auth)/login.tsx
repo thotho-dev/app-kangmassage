@@ -9,7 +9,8 @@ import {
   ScrollView,
   Dimensions,
   StatusBar,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, ArrowRight } from 'lucide-react-native';
@@ -17,11 +18,11 @@ import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { useTheme } from '../../context/ThemeContext';
-import { supabase } from '../../lib/supabase';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
+import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -131,15 +132,15 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <LinearGradient
-                colors={[COLORS.gold[400], COLORS.gold[600]]}
-                style={styles.logoGradient as any}
-              >
-                <FontAwesome name="leaf" size={32} color={COLORS.primary[700]} />
-              </LinearGradient>
+              <View style={styles.logoMark}>
+                <Image
+                  source={require('../../assets/logo-kang-massage.png')}
+                  style={styles.logoImage}
+                />
+              </View>
             </View>
-            <Text style={[styles.title, { color: theme.text }]}>Selamat Datang</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Masuk untuk melanjutkan perjalanan relaksasi Anda</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Kang Massage</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Layanan pijat profesional langsung ke rumah Anda</Text>
           </View>
 
           <View style={styles.form}>
@@ -250,6 +251,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
+  },
+  logoMark: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  logoImage: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
   },
   logoGradient: {
     flex: 1,

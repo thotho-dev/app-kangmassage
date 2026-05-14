@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 interface Option {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface CustomSelectProps {
@@ -72,23 +73,30 @@ export function CustomSelect({
       {isOpen && (
         <div className="absolute z-[100] w-full mt-2 py-2 bg-card border border-ui-border rounded-2xl shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in duration-200 origin-top">
           {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange(option.value);
-                setIsOpen(false);
-              }}
-              className={clsx(
-                'w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors text-left',
-                value === option.value 
-                  ? 'text-primary bg-primary/10 font-medium' 
-                  : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary'
+            <React.Fragment key={option.value}>
+              {option.disabled ? (
+                <div className="px-4 py-1.5 text-[10px] font-bold text-primary/60 uppercase tracking-widest bg-primary/5 mt-2 mb-1 first:mt-0">
+                  {option.label}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  className={clsx(
+                    'w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors text-left pl-6',
+                    value === option.value 
+                      ? 'text-primary bg-primary/10 font-medium' 
+                      : 'text-text-secondary hover:bg-primary/5 hover:text-text-primary'
+                  )}
+                >
+                  <span>{option.label}</span>
+                  {value === option.value && <Check className="w-4 h-4 text-primary" />}
+                </button>
               )}
-            >
-              <span>{option.label}</span>
-              {value === option.value && <Check className="w-4 h-4 text-primary" />}
-            </button>
+            </React.Fragment>
           ))}
         </div>
       )}

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Platform, BackHandler, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { ChevronLeft, MapPin, Search, Navigation } from 'lucide-react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -20,8 +21,28 @@ const BORDER = '#EFEFEF';
 
 export default function MapsScreen() {
   const router = useRouter();
-  const { serviceId } = useLocalSearchParams();
+  const { serviceId, from, sourceFrom } = useLocalSearchParams();
   const mapRef = useRef<MapView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const backAction = () => {
+        if (from === 'order') {
+          router.replace({ pathname: '/(main)/order', params: { serviceId, from: sourceFrom as string } });
+          return true;
+        }
+        router.replace({ pathname: '/(main)/home' });
+        return true;
+      };
+
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        backAction
+      );
+
+      return () => backHandler.remove();
+    }, [from, sourceFrom, serviceId])
+  );
   const { address, setAddress, coords, setCoords } = useLocation();
   const [localAddress, setLocalAddress] = useState(address);
   const [loading, setLoading] = useState(false);
@@ -124,7 +145,14 @@ export default function MapsScreen() {
     });
     if (reverse.length > 0) {
       const item = reverse[0];
-      setLocalAddress(`${item.street || ''} ${item.name || ''}, ${item.city || ''}`);
+      const addressParts = [
+        item.street,
+        item.name,
+        item.subregion,
+        item.city,
+        item.region
+      ].filter(Boolean);
+      setLocalAddress(addressParts.join(', '));
     }
   };
 
@@ -174,8 +202,16 @@ export default function MapsScreen() {
               });
               if (reverse.length > 0) {
                 const item = reverse[0];
-                const newAddr = `${item.street || ''} ${item.name || ''}, ${item.city || ''}`.trim();
-                if (newAddr && newAddr !== ', ') {
+                const addressParts = [
+                  item.street,
+                  item.name,
+                  item.subregion,
+                  item.city,
+                  item.region
+                ].filter(Boolean);
+                
+                const newAddr = addressParts.join(', ');
+                if (newAddr) {
                   setLocalAddress(newAddr);
                 }
               }
@@ -264,7 +300,11 @@ export default function MapsScreen() {
             setAddress(localAddress);
             setCoords({ latitude: region.latitude, longitude: region.longitude });
             // Navigate back specifically to Order screen with serviceId
-            router.push({ pathname: '/(main)/order', params: { serviceId } });
+            if (from === 'order') {
+              router.push({ pathname: '/(main)/order', params: { serviceId, from: sourceFrom as string } });
+            } else {
+              router.push({ pathname: '/(main)/home' });
+            }
           }}
         >
           <Text style={styles.confirmBtnText}>Gunakan Lokasi Ini</Text>

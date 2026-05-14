@@ -9,8 +9,8 @@ import { LanguageProvider } from '@/context/LanguageContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Pijat Admin Dashboard',
-  description: 'Admin dashboard for Pijat On-Demand massage service platform',
+  title: 'Kang Massage Admin Dashboard',
+  description: 'Admin dashboard for Kang Massage on-demand service platform',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

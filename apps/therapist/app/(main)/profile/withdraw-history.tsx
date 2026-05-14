@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { useThemeColors } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
 
 interface Withdrawal {
   id: string;
@@ -162,7 +162,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1 },
   header: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
-    paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg 
+    paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.lg 
   },
   backBtn: { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' },
   headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
@@ -188,3 +188,4 @@ const getStyles = (t: any) => StyleSheet.create({
   emptyTitle: { ...TYPOGRAPHY.h3, fontFamily: 'Inter_700Bold', marginBottom: 8 },
   emptyDesc: { ...TYPOGRAPHY.bodySmall, textAlign: 'center', lineHeight: 20 },
 });
+

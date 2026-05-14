@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Pijat Therapist",
-    "slug": "pijat-therapist",
+    "name": "Kang Massage Therapist",
+    "slug": "kang-massage-therapist",
     "version": "1.0.0",
-    "scheme": "pijat-therapist",
+    "scheme": "kang-massage-therapist",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.rmhbgr.pijattherapist",
+      "package": "com.rmhbgr.kangmassagetherapist",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F172A"
@@ -34,7 +34,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysPermission": "Allow Pijat Therapist to use your location even when the app is in background to receive nearby orders."
+          "locationAlwaysPermission": "Allow Kang Massage Therapist to use your location even when the app is in background to receive nearby orders."
         }
       ]
     ],

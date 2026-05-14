@@ -1,15 +1,15 @@
 import { useState, useEffect} from 'react';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform, ScrollView
+  KeyboardAvoidingView, Platform, ScrollView, Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
-import { useAlert } from '../../components/CustomAlert';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/components/CustomAlert';
 
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
@@ -172,12 +172,14 @@ export default function LoginScreen() {
 
           {/* Main Card */}
           <View style={styles.card}>
-            {/* Logo inside card */}
             <View style={styles.logoContainer}>
-              <View style={[styles.logoBox, { backgroundColor: t.primary }]}>
-                <Ionicons name="hand-left" size={40} color="#FFFFFF" />
+              <View style={styles.logoMark}>
+                <Image
+                  source={require('../../assets/logo-kang-massage.png')}
+                  style={styles.logoImage}
+                />
               </View>
-              <Text style={styles.title}>Selamat Datang</Text>
+              <Text style={styles.title}>Kang Massage</Text>
               <Text style={styles.subtitle}>Masuk ke akun Mitra Terapis Anda</Text>
             </View>
 
@@ -295,10 +297,15 @@ const getStyles = (t: any) => StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10,
   },
   logoContainer: { alignItems: 'center', marginBottom: 24 },
-  logoBox: {
-    width: 70, height: 70, borderRadius: 20,
+  logoMark: {
+    width: 80, height: 80, borderRadius: 24,
     alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-    shadowColor: t.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 10,
+    backgroundColor: '#FFFFFF',
+    shadowColor: t.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 10,
+    overflow: 'hidden'
+  },
+  logoImage: {
+    width: 60, height: 60, resizeMode: 'contain'
   },
   title: { ...TYPOGRAPHY.h2, color: t.text, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.body, color: t.textSecondary, textAlign: 'center' },

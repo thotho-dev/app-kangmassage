@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, TYPOGRAPHY } from '@/constants/Theme';
 
 export default function TermsOfServiceScreen() {
   const t = useThemeColors();
@@ -26,7 +26,7 @@ export default function TermsOfServiceScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.content}>
           <Text style={styles.bold}>1. Pendahuluan</Text>{'\n'}
-          Selamat datang di PijatPro. Dengan mendaftar sebagai mitra terapis, Anda menyetujui syarat dan ketentuan yang ditetapkan di bawah ini. Harap baca dengan saksama.
+          Selamat datang di Kang Massage. Dengan mendaftar sebagai mitra terapis, Anda menyetujui syarat dan ketentuan yang ditetapkan di bawah ini. Harap baca dengan saksama.
           {'\n\n'}
           <Text style={styles.bold}>2. Kualifikasi Mitra Terapis</Text>{'\n'}
           Anda harus berusia minimal 18 tahun, memiliki identitas resmi (KTP), dan memiliki sertifikasi atau pengalaman yang memadai dalam bidang pijat atau relaksasi yang ditawarkan.
@@ -38,10 +38,10 @@ export default function TermsOfServiceScreen() {
           - Tidak melakukan tindakan yang melanggar hukum, etika, atau norma kesopanan.
           {'\n\n'}
           <Text style={styles.bold}>4. Komisi dan Pembayaran</Text>{'\n'}
-          PijatPro berhak memotong komisi sebesar 20% dari total nilai pesanan yang berhasil diselesaikan. Pembayaran bersih (80%) akan masuk ke dompet aplikasi dan dapat ditarik ke rekening bank yang terdaftar.
+          Kang Massage berhak memotong komisi sebesar 20% dari total nilai pesanan yang berhasil diselesaikan. Pembayaran bersih (80%) akan masuk ke dompet aplikasi dan dapat ditarik ke rekening bank yang terdaftar.
           {'\n\n'}
           <Text style={styles.bold}>5. Penangguhan Akun</Text>{'\n'}
-          PijatPro berhak menangguhkan atau menghapus akun Anda secara sepihak jika ditemukan pelanggaran terhadap syarat dan ketentuan ini, atau jika Anda menerima komplain serius dari pelanggan.
+          Kang Massage berhak menangguhkan atau menghapus akun Anda secara sepihak jika ditemukan pelanggaran terhadap syarat dan ketentuan ini, atau jika Anda menerima komplain serius dari pelanggan.
         </Text>
       </ScrollView>
     </View>
@@ -50,7 +50,7 @@ export default function TermsOfServiceScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 35, paddingBottom: SPACING.xl },
   backBtn: { marginBottom: SPACING.md },
   title: { ...TYPOGRAPHY.h2, color: t.text, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.caption, color: t.textSecondary },
@@ -58,3 +58,4 @@ const getStyles = (t: any) => StyleSheet.create({
   content: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, lineHeight: 24 },
   bold: { color: t.text, fontFamily: 'Inter_700Bold' },
 });
+

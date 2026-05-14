@@ -37,8 +37,8 @@ export default function SettingsPage() {
               />
             </div>
             {[
-              { label: t('platform_name'), value: 'Pijat On-Demand', type: 'text' },
-              { label: t('support_email'), value: 'support@pijat.app', type: 'email' },
+              { label: t('platform_name'), value: 'Kang Massage', type: 'text' },
+              { label: t('support_email'), value: 'support@kangmassage.app', type: 'email' },
               { label: t('commission_rate'), value: '20', type: 'number' },
             ].map(({ label, value, type }) => (
               <div key={label}>

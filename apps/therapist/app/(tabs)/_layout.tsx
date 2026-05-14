@@ -3,13 +3,14 @@ import { useRouter } from 'expo-router';
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { RADIUS } from '../../constants/Theme';
-import { useThemeColors } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
-import { useLocationTracker } from '../../hooks/useLocationTracker';
-import { useOrderListener } from '../../hooks/useOrderListener';
-import IncomingOrderModal from '../../components/IncomingOrderModal';
+import { RADIUS } from '@/constants/Theme';
+import { useThemeColors } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
+import { useLocationTracker } from '@/hooks/useLocationTracker';
+import { useOrderListener } from '@/hooks/useOrderListener';
+import IncomingOrderModal from '@/components/IncomingOrderModal';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function TabIcon({ name, label, focused, color, activeBg }: { name: string; label?: string; focused: boolean, color: string, activeBg: string }) {
   return (
@@ -29,6 +30,7 @@ function TabIcon({ name, label, focused, color, activeBg }: { name: string; labe
 export default function TabLayout() {
   const t = useThemeColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile, isOnline, fetchProfile, setIncomingOrder } = useTherapistStore();
 
   useEffect(() => {
@@ -65,12 +67,18 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: [styles.tabBar, { backgroundColor: t.surface, borderTopColor: t.border, marginBottom: 10 }],
+        tabBarStyle: [
+          styles.tabBar, 
+          { 
+            backgroundColor: t.surface, 
+            borderTopColor: t.border,
+            height: 50 + insets.bottom,
+            paddingBottom: insets.bottom + 5
+          }
+        ],
         tabBarShowLabel: false, // Hidden because we render it inside TabIcon
         tabBarActiveTintColor: t.secondary,
         tabBarInactiveTintColor: t.textMuted,
-        
-       
       }}
     >
       <Tabs.Screen
@@ -122,8 +130,6 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 96 : 76,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     paddingTop: 8,
     elevation: 20,
     shadowColor: '#000',

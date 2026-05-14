@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { useThemeColors } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { useThemeColors } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
 
 export default function ProfileDetailScreen() {
   const router = useRouter();
@@ -138,7 +138,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
-    paddingHorizontal: SPACING.md, paddingTop: 56, paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.md, paddingTop: 30, paddingBottom: SPACING.md,
     backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.border
   },
   backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
@@ -197,3 +197,4 @@ const getStyles = (t: any) => StyleSheet.create({
   submitBtnText: { ...TYPOGRAPHY.body, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   footerNote: { ...TYPOGRAPHY.caption, color: t.textMuted, textAlign: 'center', marginTop: SPACING.md, paddingHorizontal: SPACING.xl },
 });
+

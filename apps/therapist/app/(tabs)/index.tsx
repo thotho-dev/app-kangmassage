@@ -1,17 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Droplet, Layers } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Network from 'expo-network';
 import * as Location from 'expo-location';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
-import { useThemeStore, useThemeColors } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
+import { useThemeStore, useThemeColors } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { calculateDistance } from '@/lib/utils';
+
+const STATUS_COLOR: Record<string, string> = {
+  pending: '#F97316',
+  accepted: '#10B981',
+  on_the_way: '#3B82F6',
+  arrived: '#8B5CF6',
+  in_progress: '#06B6D4',
+  completed: '#10B981',
+  cancelled: '#EF4444',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'Menunggu',
+  accepted: 'Diterima',
+  on_the_way: 'Menuju Lokasi',
+  arrived: 'Tiba',
+  in_progress: 'Proses',
+  completed: 'Selesai',
+  cancelled: 'Batal',
+};
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -21,6 +45,7 @@ export default function DashboardScreen() {
   const [showBalance, setShowBalance] = useState(true);
   const [networkType, setNetworkType] = useState<string>('Unknown');
   const [currentAddress, setCurrentAddress] = useState('Mencari lokasi...');
+  const [therapistLoc, setTherapistLoc] = useState<{latitude: number, longitude: number} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardStats, setDashboardStats] = useState({
@@ -34,6 +59,13 @@ export default function DashboardScreen() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const t = useThemeColors();
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+      fetchDashboardData();
+    }, [])
+  );
 
   useEffect(() => {
     fetchDashboardData();
@@ -58,6 +90,11 @@ export default function DashboardScreen() {
 
       const location = await Location.getCurrentPositionAsync({ 
         accuracy: Location.Accuracy.Balanced 
+      });
+      
+      setTherapistLoc({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
       });
       
       const reverse = await Location.reverseGeocodeAsync({
@@ -112,7 +149,7 @@ export default function DashboardScreen() {
 
       const { data: todayData, error: todayError } = await supabase
         .from('orders')
-        .select('total_price, status')
+        .select('total_price, status, created_at')
         .eq('therapist_id', profile.id)
         .gte('created_at', startOfDay.toISOString());
 
@@ -121,11 +158,12 @@ export default function DashboardScreen() {
       const completedToday = todayData ? todayData.filter(o => o.status === 'completed') : [];
       const earnings = completedToday.reduce((sum, o) => sum + (o.total_price || 0), 0);
 
-      // 2. Ambil Pesanan Terbaru (Limit 3)
+      // 2. Ambil Pesanan Terbaru Hari Ini (Limit 3)
       const { data: recentOrders, error: oError } = await supabase
         .from('orders')
-        .select('*, users(full_name, avatar_url)')
+        .select('*, users(full_name, avatar_url), services(name, duration_min)')
         .eq('therapist_id', profile.id)
+        .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -134,7 +172,7 @@ export default function DashboardScreen() {
       setOrders(recentOrders || []);
       setDashboardStats({
         todayEarnings: earnings,
-        todayOrders: completedToday.length,
+        todayOrders: (todayData || []).length, // Count all orders today
         rating: Number(profile.rating) || 5.0,
         totalHours: profile.total_hours || 0
       });
@@ -174,14 +212,14 @@ export default function DashboardScreen() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Selamat Pagi';
-    if (hour < 15) return 'Selamat Siang';
-    if (hour < 18) return 'Selamat Sore';
+    if (hour >= 5 && hour < 11) return 'Selamat Pagi';
+    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+    if (hour >= 15 && hour < 18) return 'Selamat Sore';
     return 'Selamat Malam';
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -294,7 +332,7 @@ export default function DashboardScreen() {
         {orders.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="calendar-outline" size={40} color={t.textMuted} />
-            <Text style={styles.emptyText}>Belum ada pesanan terbaru</Text>
+            <Text style={styles.emptyText}>Belum ada pesanan hari ini</Text>
           </View>
         ) : (
           orders.map((order) => (
@@ -305,37 +343,50 @@ export default function DashboardScreen() {
               activeOpacity={0.85}
             >
               <View style={styles.orderTop}>
-                <View style={[styles.orderAvatar, { backgroundColor: t.info + '25' }]}>
-                  <Text style={[styles.orderAvatarText, { color: t.info }]}>{(order.users?.full_name || '?')[0]}</Text>
+                <View style={[styles.orderAvatar, { backgroundColor: t.primary + '10' }]}>
+                  <Text style={[styles.orderAvatarText, { color: t.primary }]}>{(order.users?.full_name || '?')[0]}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.orderName}>{order.users?.full_name || 'Pelanggan'}</Text>
-                  <Text style={styles.orderService}>ID: #{order.order_number || order.id.slice(0, 8).toUpperCase()}</Text>
+                  <Text style={styles.orderService}>{order.services?.name || 'Pijat Relaksasi'} · {order.services?.duration_min || 60} menit</Text>
                 </View>
-                <View style={[styles.orderBadge, { backgroundColor: order.status === 'pending' ? t.secondary + '25' : t.success + '25' }]}>
-                  <Text style={[styles.orderBadgeText, { color: order.status === 'pending' ? t.secondary : t.success }]}>
-                    {order.status === 'pending' ? 'Baru' : order.status}
+                <View style={[styles.orderBadge, { backgroundColor: (STATUS_COLOR[order.status] || t.textMuted) + '15' }]}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: STATUS_COLOR[order.status] || t.textMuted, marginRight: 5 }} />
+                  <Text style={[styles.orderBadgeText, { color: STATUS_COLOR[order.status] || t.textMuted }]}>
+                    {STATUS_LABEL[order.status] || order.status}
                   </Text>
                 </View>
               </View>
+
+
               <View style={styles.orderMeta}>
                 <View style={styles.orderMetaItem}>
-                  <Ionicons name="location-outline" size={14} color={t.textSecondary} />
-                  <Text style={styles.orderMetaText}>{order.distance || '1.2 km'}</Text>
+                  <Ionicons name="location-outline" size={14} color={t.textMuted} />
+                  <Text style={styles.orderMetaText} numberOfLines={1}>{order.address || 'Alamat tidak tersedia'}</Text>
                 </View>
-                <View style={styles.orderMetaItem}>
-                  <Ionicons name="time-outline" size={14} color={t.textSecondary} />
-                  <Text style={styles.orderMetaText}>Baru saja</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
+                  <View style={styles.orderMetaItem}>
+                    <Ionicons name="navigate-outline" size={14} color={t.textMuted} />
+                    <Text style={styles.orderMetaText}>
+                      {therapistLoc 
+                        ? `${calculateDistance(therapistLoc.latitude, therapistLoc.longitude, order.latitude, order.longitude)} km`
+                        : (order.distance || '1.2 km')}
+                    </Text>
+                  </View>
+                  <View style={styles.orderMetaItem}>
+                    <Ionicons name="time-outline" size={14} color={t.textMuted} />
+                    <Text style={styles.orderMetaText}>{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</Text>
+                  </View>
+                  <Text style={[styles.orderPrice, { color: t.text }]}>
+                    Rp {(order.total_price || 0).toLocaleString('id-ID')}
+                  </Text>
                 </View>
-                <Text style={[styles.orderPrice, { color: t.primary }]}>
-                  Rp {(order.total_price || 0).toLocaleString('id-ID')}
-                </Text>
               </View>
             </TouchableOpacity>
           ))
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -343,7 +394,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
-    paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg, paddingTop: 15, paddingBottom: SPACING.md,
     backgroundColor: t.background
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
@@ -412,11 +463,12 @@ const getStyles = (t: any) => StyleSheet.create({
   orderAvatarText: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   orderName: { ...TYPOGRAPHY.bodySmall, color: t.text, fontFamily: 'Inter_700Bold' },
   orderService: { ...TYPOGRAPHY.caption, color: t.textSecondary }, // More visible
-  orderBadge: { borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  orderBadge: { flexDirection: 'row', alignItems: 'center', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
   orderBadgeText: { ...TYPOGRAPHY.caption, fontFamily: 'Inter_700Bold' },
-  orderMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: t.border },
-  orderMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  orderMetaText: { ...TYPOGRAPHY.caption, color: t.textSecondary }, // More visible
+ 
+  orderMeta: { gap: 6, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: t.border },
+  orderMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  orderMetaText: { ...TYPOGRAPHY.caption, color: t.textSecondary, flex: 1 },
   orderPrice: { ...TYPOGRAPHY.bodySmall, fontFamily: 'Inter_700Bold', marginLeft: 'auto' },
   
   emptyCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.xl, alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, borderWidth: 1, borderColor: t.border, borderStyle: 'dashed' },

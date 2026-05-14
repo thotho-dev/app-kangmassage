@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView,
@@ -7,9 +7,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
-import { useAlert } from '../../components/CustomAlert';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/components/CustomAlert';
 
 export default function ChangePasswordScreen() {
   const t = useThemeColors();
@@ -160,7 +160,7 @@ export default function ChangePasswordScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 52, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.xl },
   title: { ...TYPOGRAPHY.h2 },
   subtitle: { ...TYPOGRAPHY.body },
   scroll: { alignItems: 'center', padding: SPACING.lg, paddingTop: SPACING.xl, paddingBottom: 40 },
@@ -183,3 +183,4 @@ const getStyles = (t: any) => StyleSheet.create({
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tipText: { ...TYPOGRAPHY.caption, color: t.textSecondary },
 });
+

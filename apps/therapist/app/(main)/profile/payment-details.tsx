@@ -1,10 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Clipboard } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { useThemeColors } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { useAlert } from '../../components/CustomAlert';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { useAlert } from '@/components/CustomAlert';
 
 export default function PaymentDetailsScreen() {
   const t = useThemeColors();
@@ -104,7 +104,7 @@ export default function PaymentDetailsScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
   headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg },
@@ -130,3 +130,4 @@ const getStyles = (t: any) => StyleSheet.create({
   doneBtn: { paddingVertical: 18, borderRadius: RADIUS.full, alignItems: 'center', marginTop: SPACING.xl, shadowColor: t.secondary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   doneBtnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
 });
+

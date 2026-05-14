@@ -1,14 +1,14 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useThemeColors, useThemeStore } from '../store/themeStore';
-import notifee, { EventType } from '../lib/notifee';
-import { supabase } from '../lib/supabase';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import notifee, { EventType } from '@/lib/notifee';
+import { supabase } from '@/lib/supabase';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
-import { useTopupListener } from '../hooks/useTopupListener';
+import { useTopupListener } from '@/hooks/useTopupListener';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -68,6 +68,8 @@ try {
 
 SplashScreen.preventAutoHideAsync();
 
+import CustomAlert from '@/components/CustomAlert';
+
 export default function RootLayout() {
   const t = useThemeColors();
   const isDarkMode = useThemeStore(state => state.isDarkMode);
@@ -124,6 +126,7 @@ export default function RootLayout() {
         <Stack.Screen name="support/terms" />
         <Stack.Screen name="support/about" />
       </Stack>
+      <CustomAlert />
     </GestureHandlerRootView>
   );
 }

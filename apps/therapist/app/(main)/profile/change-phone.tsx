@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
-import { useTherapistStore } from '../../store/therapistStore';
-import { useAlert } from '../../components/CustomAlert';
+import { useTherapistStore } from '@/store/therapistStore';
+import { useAlert } from '@/components/CustomAlert';
 
 type Step = 'input' | 'verify' | 'done';
 
@@ -153,7 +153,7 @@ export default function ChangePhoneScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 52, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.xl },
   title: { ...TYPOGRAPHY.h2 },
   content: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: SPACING.lg, paddingTop: SPACING.xxl },
   icon: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.md, shadowColor: t.secondary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 10 },
@@ -178,3 +178,4 @@ const getStyles = (t: any) => StyleSheet.create({
   doneBtn: { paddingVertical: 16, paddingHorizontal: 40, borderRadius: RADIUS.full },
   doneBtnText: { ...TYPOGRAPHY.h4 },
 });
+

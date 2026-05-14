@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 
 
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 const FAQS = [
   { q: 'Bagaimana cara menarik saldo (withdraw)?', a: 'Pencairan saldo dapat dilakukan melalui menu Pendapatan. Pastikan Anda telah menambahkan rekening bank yang valid. Proses penarikan biasanya memakan waktu 1x24 jam kerja.' },
@@ -67,7 +67,7 @@ export default function FAQScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 35, paddingBottom: SPACING.xl },
   backBtn: { marginBottom: SPACING.md },
   title: { ...TYPOGRAPHY.h2, color: t.text, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
@@ -80,3 +80,4 @@ const getStyles = (t: any) => StyleSheet.create({
   divider: { height: 1, backgroundColor: t.surface, marginBottom: SPACING.md },
   answer: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, lineHeight: 22 },
 });
+

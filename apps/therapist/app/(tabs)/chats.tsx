@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 52,
+    paddingTop: 40,
     paddingHorizontal: SPACING.lg,
     paddingBottom: 24,
   },

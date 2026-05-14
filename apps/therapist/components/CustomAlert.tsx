@@ -1,211 +1,178 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import {
-  Modal, View, Text, TouchableOpacity, StyleSheet, Animated,
-} from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAlertStore } from '../store/alertStore';
 import { useThemeColors } from '../store/themeStore';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../constants/Theme';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type AlertType = 'success' | 'error' | 'warning' | 'info';
-
-export interface AlertButton {
-  text: string;
-  onPress?: () => void;
-  style?: 'default' | 'cancel' | 'destructive';
-}
-
-interface CustomAlertProps {
-  visible: boolean;
-  type?: AlertType;
-  title: string;
-  message?: string;
-  buttons?: AlertButton[];
-  onDismiss?: () => void;
-}
-
-const TYPE_CONFIG: Record<AlertType, { icon: string; color: string }> = {
-  success: { icon: 'checkmark-circle', color: '#10B981' },
-  error:   { icon: 'close-circle',     color: '#EF4444' },
-  warning: { icon: 'warning',          color: '#F59E0B' },
-  info:    { icon: 'information-circle', color: '#3B82F6' },
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export default function CustomAlert({
-  visible, type = 'info', title, message, buttons, onDismiss,
-}: CustomAlertProps) {
+export default function CustomAlert() {
+  const { visible, options, hideAlert } = useAlertStore();
   const t = useThemeColors();
-  const styles = getStyles(t);
-  const scale = useRef(new Animated.Value(0.85)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [fadeAnim] = React.useState(new Animated.Value(0));
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 14, stiffness: 180 }),
-        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-      ]).start();
+      Animated.spring(fadeAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 8,
+      }).start();
     } else {
-      scale.setValue(0.85);
-      opacity.setValue(0);
+      fadeAnim.setValue(0);
     }
   }, [visible]);
 
-  const cfg = TYPE_CONFIG[type];
-  const resolvedButtons: AlertButton[] = buttons || [{ text: 'OK', onPress: onDismiss }];
+  if (!visible || !options) return null;
+
+  const { title, message, type = 'info', buttons } = options;
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success': return { name: 'checkmark-circle', color: '#10B981' };
+      case 'error': return { name: 'alert-circle', color: '#EF4444' };
+      case 'warning': return { name: 'warning', color: '#F59E0B' };
+      default: return { name: 'information-circle', color: '#3B82F6' };
+    }
+  };
+
+  const icon = getIcon();
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
-      <Animated.View style={[styles.overlay, { opacity }]}>
-        <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
+    <Modal transparent visible={visible} animationType="none">
+      <View style={styles.overlay}>
+        <Animated.View style={[
+          styles.modal,
+          {
+            backgroundColor: t.surface,
+            opacity: fadeAnim,
+            transform: [{
+              scale: fadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.9, 1]
+              })
+            }]
+          }
+        ]}>
+          <View style={styles.content}>
+            <View style={[styles.iconContainer, { backgroundColor: icon.color + '15' }]}>
+              <Ionicons name={icon.name as any} size={40} color={icon.color} />
+            </View>
+            
+            <Text style={[styles.title, { color: t.text }]}>{title}</Text>
+            <Text style={[styles.message, { color: t.textSecondary }]}>{message}</Text>
 
-          {/* Icon */}
-          <View style={[styles.iconWrap, { backgroundColor: cfg.color + '18' }]}>
-            <Ionicons name={cfg.icon as any} size={40} color={cfg.color} />
-          </View>
-
-          {/* Title */}
-          <Text style={styles.title}>{title}</Text>
-
-          {/* Message */}
-          {!!message && <Text style={styles.message}>{message}</Text>}
-
-          {/* Buttons */}
-          <View style={[styles.btnRow, resolvedButtons.length === 1 && { justifyContent: 'center' }]}>
-            {resolvedButtons.map((btn, i) => {
-              const isCancel = btn.style === 'cancel';
-              const isDestructive = btn.style === 'destructive';
-              const bgColor = isCancel ? t.surface : isDestructive ? '#EF4444' : cfg.color;
-              const textColor = isCancel ? t.textSecondary : '#FFFFFF';
-
-              return (
+            <View style={styles.buttonContainer}>
+              {buttons && buttons.length > 0 ? (
+                buttons.map((btn, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.button,
+                      index > 0 && styles.buttonMargin,
+                      btn.style === 'cancel' 
+                        ? { backgroundColor: t.border } 
+                        : btn.style === 'destructive' 
+                          ? { backgroundColor: '#EF4444' }
+                          : { backgroundColor: t.primary }
+                    ]}
+                    onPress={() => {
+                      hideAlert();
+                      if (btn.onPress) btn.onPress();
+                    }}
+                  >
+                    <Text style={[
+                      styles.buttonText,
+                      btn.style === 'cancel' ? { color: t.text } : { color: '#FFFFFF' }
+                    ]}>
+                      {btn.text}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
                 <TouchableOpacity
-                  key={i}
-                  style={[
-                    styles.btn,
-                    { backgroundColor: bgColor },
-                    isCancel && { borderWidth: 1.5, borderColor: t.border },
-                    resolvedButtons.length === 1 && { minWidth: 140 },
-                  ]}
-                  onPress={() => btn.onPress?.()}
-                  activeOpacity={0.8}
+                  style={[styles.button, { backgroundColor: t.primary, width: '100%' }]}
+                  onPress={hideAlert}
                 >
-                  <Text style={[styles.btnText, { color: textColor }]}>{btn.text}</Text>
+                  <Text style={styles.buttonText}>OKE</Text>
                 </TouchableOpacity>
-              );
-            })}
+              )}
+            </View>
           </View>
-
         </Animated.View>
-      </Animated.View>
+      </View>
     </Modal>
   );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+export const useAlert = () => {
+  const showAlert = (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, buttons?: any) => {
+    useAlertStore.getState().showAlert({ type, title, message, buttons });
+  };
+  return { showAlert, AlertComponent: null };
+};
 
-interface AlertState {
-  visible: boolean;
-  type: AlertType;
-  title: string;
-  message?: string;
-  buttons?: AlertButton[];
-}
-
-export function useAlert() {
-  const [alertState, setAlertState] = useState<AlertState>({
-    visible: false, type: 'info', title: '',
-  });
-
-  const showAlert = useCallback((
-    type: AlertType,
-    title: string,
-    message?: string,
-    buttons?: AlertButton[],
-  ) => {
-    setAlertState({ visible: true, type, title, message, buttons });
-  }, []);
-
-  const hideAlert = useCallback(() => {
-    setAlertState(prev => ({ ...prev, visible: false }));
-  }, []);
-
-  const AlertComponent = (
-    <CustomAlert
-      visible={alertState.visible}
-      type={alertState.type}
-      title={alertState.title}
-      message={alertState.message}
-      buttons={alertState.buttons?.map(b => ({
-        ...b,
-        onPress: () => { b.onPress?.(); hideAlert(); },
-      })) || [{ text: 'OK', onPress: hideAlert }]}
-      onDismiss={hideAlert}
-    />
-  );
-
-  return { showAlert, hideAlert, AlertComponent };
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const getStyles = (t: any) => StyleSheet.create({
+const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.xl,
+    padding: 24,
   },
-  card: {
+  modal: {
     width: '100%',
-    backgroundColor: t.surface,
-    borderRadius: RADIUS.xxl,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: t.border,
+    maxWidth: 320,
+    borderRadius: 24,
+    overflow: 'hidden',
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.35,
-    shadowRadius: 30,
-    elevation: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
-  iconWrap: {
-    width: 72, height: 72, borderRadius: 36,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: SPACING.lg,
+  content: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   title: {
     ...TYPOGRAPHY.h3,
-    color: t.text,
     textAlign: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
+    fontSize: 18,
   },
   message: {
-    ...TYPOGRAPHY.body,
-    color: t.textSecondary,
+    ...TYPOGRAPHY.bodySmall,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: SPACING.xl,
+    marginBottom: 24,
+    lineHeight: 20,
   },
-  btnRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
+  buttonContainer: {
     width: '100%',
-    marginTop: SPACING.sm,
+    flexDirection: 'column',
+    gap: 8,
   },
-  btn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: RADIUS.full,
+  button: {
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
-  btnText: {
-    ...TYPOGRAPHY.body,
+  buttonMargin: {
+    // marginTop: 8,
+  },
+  buttonText: {
+    ...TYPOGRAPHY.bodySmall,
     fontFamily: 'Inter_700Bold',
+    fontSize: 14,
   },
 });

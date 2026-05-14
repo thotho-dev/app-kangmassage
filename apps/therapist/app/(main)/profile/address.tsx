@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
-import { supabase } from '../../lib/supabase';
-import { useTherapistStore } from '../../store/therapistStore';
-import { useAlert } from '../../components/CustomAlert';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import { supabase } from '@/lib/supabase';
+import { useTherapistStore } from '@/store/therapistStore';
+import { useAlert } from '@/components/CustomAlert';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, FlatList
@@ -10,7 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 interface RegionItem {
   id: string;
@@ -307,7 +307,7 @@ export default function AddressScreen() {
 
 const getStyles = (t: any, isDarkMode: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 52, paddingBottom: SPACING.xl, gap: SPACING.sm },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.xl, gap: SPACING.sm },
   backBtn: { padding: 4, marginBottom: SPACING.xs },
   title: { ...TYPOGRAPHY.h2, color: '#FFFFFF' },
   subtitle: { ...TYPOGRAPHY.bodySmall, color: 'rgba(255,255,255,0.7)' },
@@ -372,3 +372,4 @@ const getStyles = (t: any, isDarkMode: boolean) => StyleSheet.create({
   },
   itemText: { ...TYPOGRAPHY.body, color: t.text },
 });
+

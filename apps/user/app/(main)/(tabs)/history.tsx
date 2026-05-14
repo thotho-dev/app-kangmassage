@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, RefreshControl, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { 
   Clock, 
@@ -7,10 +8,11 @@ import {
   FileText,
   Heart,
   MessageSquare,
-  Search
+  Search,
+  ChevronLeft
 } from 'lucide-react-native';
-import { COLORS } from '../../constants/Theme';
-import { useTheme } from '../../context/ThemeContext';
+import { COLORS } from '@/constants/Theme';
+import { useTheme } from '@/context/ThemeContext';
 
 const PURPLE = '#240080';
 const GOLD = '#FDB927';
@@ -72,28 +74,66 @@ const FAV_DATA = [
   }
 ];
 
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function HistoryScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'riwayat' | 'favorit'>('riwayat');
   const [orders, setOrders] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchOrders().then(() => setRefreshing(false));
+    Promise.all([fetchOrders(), fetchFavorites()]).then(() => setRefreshing(false));
   }, [profile?.id]);
 
-  useEffect(() => {
-    if (profile?.id) {
-      fetchOrders();
+  useFocusEffect(
+    useCallback(() => {
+      if (profile?.id) {
+        refreshProfile();
+        fetchOrders();
+        fetchFavorites();
+      }
+    }, [profile?.id])
+  );
+
+  const fetchFavorites = async () => {
+    if (!profile?.id) return;
+    try {
+      const { data: favData, error: favError } = await supabase
+        .from('user_favorites')
+        .select('therapist_id, id')
+        .eq('user_id', profile.id);
+
+      if (favError) throw favError;
+
+      if (favData && favData.length > 0) {
+        const therapistIds = favData.map(f => f.therapist_id);
+        const { data: therapistsData, error: tError } = await supabase
+          .from('therapists')
+          .select('*')
+          .in('id', therapistIds);
+
+        if (tError) throw tError;
+
+        // Combine favorites with therapist details
+        const combined = favData.map(f => ({
+          ...f,
+          therapists: therapistsData.find(t => t.id === f.therapist_id)
+        }));
+        setFavorites(combined);
+      } else {
+        setFavorites([]);
+      }
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
     }
-  }, [profile?.id]);
+  };
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -229,15 +269,51 @@ export default function HistoryScreen() {
     }
   };
 
+  const handleFavoritePress = async (therapistId: string) => {
+    if (!therapistId || !profile?.id) return;
+    
+    try {
+      const isFav = favorites.some(f => f.therapist_id === therapistId);
+      
+      if (isFav) {
+        // Remove from favorites
+        const { error } = await supabase
+          .from('user_favorites')
+          .delete()
+          .eq('user_id', profile.id)
+          .eq('therapist_id', therapistId);
+        
+        if (error) throw error;
+        Alert.alert('Sukses', 'Dihapus dari favorit');
+      } else {
+        // Add to favorites
+        const { error } = await supabase
+          .from('user_favorites')
+          .insert({ user_id: profile.id, therapist_id: therapistId });
+        
+        if (error) throw error;
+        Alert.alert('Sukses', 'Berhasil ditambahkan ke favorit!');
+      }
+      fetchFavorites();
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      Alert.alert('Error', 'Gagal memperbarui favorit');
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: BG }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color={TEXT_DARK} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {activeTab === 'riwayat' ? 'Riwayat Pesanan' : 'Terapis Favorit'}
         </Text>
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Tab Bar */}
@@ -308,15 +384,23 @@ export default function HistoryScreen() {
 
                   {/* Card Footer */}
                   <View style={styles.cardFooter}>
-                    <TouchableOpacity style={styles.footerBtn}>
+                    <TouchableOpacity 
+                      style={styles.footerBtn} 
+                      onPress={() => router.push({ pathname: '/(main)/tracking', params: { id: item.id } })}
+                    >
                       <FileText size={14} color={GOLD} />
                       <Text style={styles.footerBtnText}>Detail</Text>
                     </TouchableOpacity>
                     <View style={styles.footerDivider} />
-                    {(item.status === 'cancelled' || item.status === 'pending') ? (
+                    {item.status === 'cancelled' || item.status === 'pending' ? (
                       <TouchableOpacity style={styles.footerBtn} onPress={() => handleCariLagi(item.id, item.status)}>
                         <Search size={14} color={PURPLE} />
                         <Text style={styles.footerBtnText}>Cari Lagi</Text>
+                      </TouchableOpacity>
+                    ) : item.status === 'completed' ? (
+                      <TouchableOpacity style={styles.footerBtn} onPress={() => handleFavoritePress(item.therapist_id)}>
+                        <Heart size={14} color="#EF4444" />
+                        <Text style={styles.footerBtnText}>Favorit</Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity style={styles.footerBtn} onPress={() => handleChatPress(item.therapist_id)}>
@@ -334,27 +418,65 @@ export default function HistoryScreen() {
             </View>
           )
         ) : (
-          FAV_DATA.map((item) => (
-            <TouchableOpacity key={item.id} activeOpacity={0.85} style={styles.card}>
-              <View style={styles.favRow}>
-                <Image source={{ uri: item.image }} style={styles.favAvatar} />
-                <View style={styles.favInfo}>
-                  <Text style={styles.favName}>{item.name}</Text>
-                  <Text style={styles.favSpecialty}>{item.specialty}</Text>
-                  <View style={styles.favMeta}>
-                    <View style={styles.favRatingRow}>
-                      <Star size={11} color={GOLD} fill={GOLD} />
-                      <Text style={styles.favRatingText}>{item.rating}</Text>
+          favorites.length > 0 ? (
+            favorites.map((fav) => {
+              const item = fav.therapists;
+              if (!item) return null;
+              return (
+                <View key={fav.id} style={styles.favCard}>
+                  <View style={styles.favCardTop}>
+                    <View style={styles.favHeaderLeft}>
+                      <View style={styles.favAvatarWrapper}>
+                        <Image source={{ uri: item.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} style={styles.favAvatar} />
+                        <View style={styles.favStatusDot} />
+                      </View>
+                      <View style={styles.favMainInfo}>
+                        <Text style={styles.favNameText}>{item.full_name}</Text>
+                        <Text style={styles.favSpecialtyText} numberOfLines={1}>
+                          {Array.isArray(item.specializations) ? item.specializations.join(', ') : 'Terapis Profesional'}
+                        </Text>
+                        <View style={styles.favMeta}>
+                          <View style={styles.favRatingBadge}>
+                            <Star size={10} color={GOLD} fill={GOLD} />
+                            <Text style={styles.favRatingValue}>{item.rating || '4.8'}</Text>
+                          </View>
+                          <Text style={styles.favOrdersCount}>• 100+ Pesanan</Text>
+                        </View>
+                      </View>
                     </View>
-                    <Text style={styles.favOrdersText}>• {item.orders} Pesanan</Text>
+                    <TouchableOpacity 
+                      style={styles.favHeartBtn} 
+                      onPress={() => handleFavoritePress(item.id)}
+                    >
+                      <Heart size={20} color="#EF4444" fill="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.favDivider} />
+                  
+                  <View style={styles.favCardBottom}>
+                    <TouchableOpacity 
+                      style={styles.favChatBtn}
+                      onPress={() => handleChatPress(item.id)}
+                    >
+                      <MessageSquare size={16} color={PURPLE} />
+                      <Text style={styles.favChatBtnText}>Chat</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.favBookBtn}
+                      onPress={() => router.push({ pathname: '/(main)/services', params: { therapistId: item.id } })}
+                    >
+                      <Text style={styles.favBookBtnText}>Pesan Sekarang</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-                <TouchableOpacity style={styles.bookBtn}>
-                  <Text style={styles.bookBtnText}>Pesan</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))
+              );
+            })
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Belum ada terapis favorit</Text>
+            </View>
+          )
         )}
       </ScrollView>
     </View>
@@ -371,13 +493,20 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingTop: 50,
     paddingBottom: 15,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: BORDER,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
@@ -554,64 +683,7 @@ const styles = StyleSheet.create({
     color: TEXT_MUTED,
   },
 
-  // Favorit Card
-  favRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-  },
-  favAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  favInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  favName: {
-    fontSize: 15,
-    fontFamily: 'Inter-Bold',
-    color: TEXT_DARK,
-  },
-  favSpecialty: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: TEXT_MUTED,
-  },
-  favMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  favRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  favRatingText: {
-    fontSize: 12,
-    fontFamily: 'Inter-Bold',
-    color: TEXT_DARK,
-  },
-  favOrdersText: {
-    fontSize: 11,
-    fontFamily: 'Inter-Medium',
-    color: TEXT_MUTED,
-  },
-  bookBtn: {
-    backgroundColor: '#EDE8FF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  bookBtnText: {
-    fontSize: 13,
-    fontFamily: 'Inter-Bold',
-    color: PURPLE,
-  },
+
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -621,5 +693,142 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: TEXT_MUTED,
+  },
+
+  // New Favorit Card Styles
+  favCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  favCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  favHeaderLeft: {
+    flexDirection: 'row',
+    flex: 1,
+    gap: 14,
+  },
+  favAvatarWrapper: {
+    position: 'relative',
+  },
+  favAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  favStatusDot: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: SUCCESS,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  favMainInfo: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  favNameText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
+  },
+  favSpecialtyText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+    marginBottom: 4,
+  },
+  favMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  favRatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(253, 185, 39, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  favRatingValue: {
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
+    color: GOLD,
+  },
+  favOrdersCount: {
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+  },
+  favHeartBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF1F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favDivider: {
+    height: 1,
+    backgroundColor: BORDER,
+    marginVertical: 16,
+  },
+  favCardBottom: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  favChatBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: PURPLE + '20',
+  },
+  favChatBtnText: {
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
+    color: PURPLE,
+  },
+  favBookBtn: {
+    flex: 2,
+    backgroundColor: PURPLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  favBookBtnText: {
+    fontSize: 13,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
   },
 });

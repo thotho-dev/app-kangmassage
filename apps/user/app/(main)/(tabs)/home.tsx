@@ -11,6 +11,7 @@ import {
   Dimensions,
   Animated,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import {
   Bell,
@@ -21,7 +22,8 @@ import {
   Star,
   Scissors,
 } from 'lucide-react-native';
-import { useServices } from '../../hooks/useServices';
+import { useServices } from '@/hooks/useServices';
+import { useLocation } from '@/context/LocationContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -175,12 +177,20 @@ function BannerSlideshow({ onBookNow }: { onBookNow: () => void }) {
 }
 
 // ─── Home Screen ───────────────────────────────────────────────────────────────
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { isAuthenticated, user, profile } = useAuth();
+  const { isAuthenticated, user, profile, refreshProfile } = useAuth();
   const { data: services, isLoading } = useServices();
+  const { address, isLoading: isLocLoading, refreshLocation } = useLocation();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshProfile();
+      refreshLocation();
+    }, [])
+  );
 
   const handleProtectedAction = (pathname: string, params?: any) => {
     if (!isAuthenticated) {
@@ -188,6 +198,14 @@ export default function HomeScreen() {
     } else {
       router.push({ pathname: pathname as any, params });
     }
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 11) return 'Selamat Pagi';
+    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+    if (hour >= 15 && hour < 18) return 'Selamat Sore';
+    return 'Selamat Malam';
   };
 
   const getInitials = (name: string) => {
@@ -207,7 +225,7 @@ export default function HomeScreen() {
           <View style={styles.brandLeft}>
             <View style={styles.logoMark}>
               <Image
-                source={require('../../assets/logo-kang-massage.png')}
+                source={require('../../../assets/logo-kang-massage.png')}
                 style={styles.logoImage}
               />
             </View>
@@ -231,7 +249,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.greetingSmall}>Selamat Pagi 👋</Text>
+              <Text style={styles.greetingSmall}>{getGreeting()} 👋</Text>
               <Text style={styles.greetingName}>
                 {isAuthenticated ? (profile?.full_name || 'User') : 'Tamu'}
               </Text>
@@ -257,13 +275,13 @@ export default function HomeScreen() {
         <TouchableOpacity 
           style={styles.locationBlock} 
           activeOpacity={0.75}
-          onPress={() => handleProtectedAction('/(main)/maps')}
+          onPress={() => handleProtectedAction('/(main)/maps', { from: 'home' })}
         >
           <MapPin size={14} color={PURPLE} fill={PURPLE} />
           <View style={{ flex: 1, marginLeft: 6 }}>
             <Text style={styles.locationLabel}>Lokasi saat ini</Text>
             <Text style={styles.locationText} numberOfLines={1}>
-              {isAuthenticated ? 'Jl Tambora Raya No 40, Tambora, Jakarta....' : 'Tentukan lokasi Anda'}
+              {isLocLoading ? 'Mencari lokasi...' : address}
             </Text>
           </View>
           <ChevronRight size={14} color={TEXT_MUTED} />
@@ -313,7 +331,7 @@ export default function HomeScreen() {
                     style={styles.pickButton}
                     activeOpacity={0.9}
                     onPress={() =>
-                      handleProtectedAction('/(main)/order', { serviceId: service.id })
+                      handleProtectedAction('/(main)/order', { serviceId: service.id, from: 'home' })
                     }
                   >
                     <Text style={styles.pickButtonText}>Pilih Layanan</Text>

@@ -37,7 +37,16 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const reverse = await Location.reverseGeocodeAsync(newCoords);
       if (reverse.length > 0) {
         const item = reverse[0];
-        setAddress(`${item.street || ''} ${item.name || ''}, ${item.city || ''}`);
+        // Membangun alamat yang lebih lengkap agar validasi wilayah voucher lebih akurat
+        const addressParts = [
+          item.street,
+          item.name,
+          item.subregion, // Biasanya berisi "Jakarta Barat", "Jakarta Selatan", dll
+          item.city,
+          item.region
+        ].filter(Boolean);
+        
+        setAddress(addressParts.join(', '));
       }
     } catch (error) {
       console.error('Error fetching location:', error);

@@ -28,7 +28,7 @@ const translations = {
     reports: 'Reports',
     settings: 'Settings',
     logout: 'Logout',
-    pijat_admin: 'Pijat Admin',
+    pijat_admin: 'Kang Massage Admin',
     on_demand_platform: 'On-Demand Platform',
 
     // Common Buttons & Actions
@@ -148,7 +148,7 @@ const translations = {
     repeat_order: 'Repeat Order',
     happy_hour: 'Happy Hour',
     location: 'Location Based',
-    user_tier: 'User Tier',
+    based_on_service: 'Service',
     cashback: 'Cashback',
     wallet_balance: 'Wallet Balance',
     registered_date: 'Registered Date',
@@ -219,7 +219,7 @@ const translations = {
     reports: 'Laporan',
     settings: 'Pengaturan',
     logout: 'Keluar',
-    pijat_admin: 'Admin Pijat',
+    pijat_admin: 'Kang Massage Admin',
     on_demand_platform: 'Platform On-Demand',
 
     // Common Buttons & Actions
@@ -339,7 +339,7 @@ const translations = {
     repeat_order: 'Order Berulang',
     happy_hour: 'Happy Hour',
     location: 'Berdasarkan Lokasi',
-    user_tier: 'Tier Pengguna',
+    based_on_service: 'Layanan',
     cashback: 'Cashback',
     wallet_balance: 'Saldo Dompet',
     registered_date: 'Tgl Bergabung',

@@ -5,9 +5,9 @@ import { ChevronLeft, Phone, MessageCircle, MapPin, Clock, Navigation } from 'lu
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS } from '../../constants/Theme';
-import { useTheme } from '../../context/ThemeContext';
-import { supabase } from '../../lib/supabase';
+import { COLORS } from '@/constants/Theme';
+import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -158,6 +158,54 @@ export default function TrackingScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = () => {
+    // Disable jika sudah jalan ke lokasi
+    if (order?.status === 'on_the_way' || order?.status === 'arrived' || order?.status === 'in_progress') {
+      Alert.alert('Gagal', 'Pesanan tidak bisa dibatalkan karena terapis sudah menuju lokasi atau sedang melayani.');
+      return;
+    }
+
+    Alert.alert(
+      'Batalkan Pesanan?',
+      'Apakah Anda yakin ingin membatalkan pesanan ini?',
+      [
+        { text: 'Tidak', style: 'cancel' },
+        { 
+          text: 'Ya, Batalkan', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Atomic check: only cancel if still pending or matching
+              const { data, error } = await supabase
+                .from('orders')
+                .update({ status: 'cancelled' })
+                .eq('id', id)
+                .in('status', ['pending', 'accepted'])
+                .select();
+
+              if (error) throw error;
+
+              if (data && data.length > 0) {
+                // Add log entry
+                await supabase.from('order_logs').insert({
+                  order_id: id,
+                  status: 'cancelled',
+                  note: 'Dibatalkan oleh anda'
+                });
+                Alert.alert('Berhasil', 'Pesanan Anda telah dibatalkan.');
+              }
+
+              router.replace('/(main)/home');
+            } catch (err) {
+              console.error('Cancel order error:', err);
+              Alert.alert('Error', 'Gagal membatalkan pesanan.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Animations
@@ -328,7 +376,8 @@ export default function TrackingScreen() {
                      order?.status === 'on_the_way' ? 'Menuju lokasi Anda' :
                      order?.status === 'arrived' ? 'Sudah tiba di lokasi' :
                      order?.status === 'in_progress' ? 'Sedang melakukan layanan' :
-                     order?.status === 'completed' ? 'Layanan selesai' : 'Memproses...'}
+                     order?.status === 'completed' ? 'Layanan selesai' :
+                     order?.status === 'cancelled' ? 'Pesanan ini telah dibatalkan' : 'Memproses...'}
                   </Text>
                 </View>
               </View>
@@ -379,6 +428,28 @@ export default function TrackingScreen() {
                   </LinearGradient>
                </View>
             </View>
+
+            {order?.status === 'cancelled' && (
+              <View style={[styles.cancelledBanner, { backgroundColor: COLORS.error + '10', borderColor: COLORS.error + '30' }]}>
+                <Ionicons name="alert-circle" size={24} color={COLORS.error} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.cancelledTitle, { color: COLORS.error }]}>
+                    {logs.find(l => l.status === 'cancelled')?.note === 'Dibatalkan oleh terapis' 
+                      ? 'Dibatalkan oleh Terapis' 
+                      : 'Pesanan Dibatalkan'}
+                  </Text>
+                  <Text style={[styles.cancelledSub, { color: theme.textSecondary }]}>
+                    {logs.find(l => l.status === 'cancelled')?.note || 'Maaf, pesanan ini telah dibatalkan. Silakan hubungi admin jika ada kendala.'}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.homeBtn, { backgroundColor: COLORS.error }]}
+                  onPress={() => router.replace('/(main)/home')}
+                >
+                  <Text style={styles.homeBtnText}>Home</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Status Pesanan</Text>
@@ -456,9 +527,20 @@ export default function TrackingScreen() {
                </View>
             </View>
 
-            <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: isDark ? 'rgba(231, 76, 60, 0.05)' : 'rgba(231, 76, 60, 0.03)', borderColor: 'rgba(231, 76, 60, 0.1)', marginTop: 10 }]} activeOpacity={0.7}>
-               <Text style={styles.cancelText}>Batalkan Pesanan</Text>
-            </TouchableOpacity>
+            {order?.status !== 'cancelled' && order?.status !== 'completed' && (
+              <TouchableOpacity 
+                style={[
+                  styles.cancelBtn, 
+                  { backgroundColor: isDark ? 'rgba(231, 76, 60, 0.05)' : 'rgba(231, 76, 60, 0.03)', borderColor: 'rgba(231, 76, 60, 0.1)', marginTop: 10 },
+                  (order?.status === 'on_the_way' || order?.status === 'arrived' || order?.status === 'in_progress') && { opacity: 0.3 }
+                ]} 
+                activeOpacity={0.7}
+                onPress={handleCancel}
+                disabled={order?.status === 'on_the_way' || order?.status === 'arrived' || order?.status === 'in_progress'}
+              >
+                 <Text style={styles.cancelText}>Batalkan Pesanan</Text>
+              </TouchableOpacity>
+            )}
          </ScrollView>
       </Animated.View>
     </View>
@@ -789,5 +871,35 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.success,
     borderWidth: 2,
     borderColor: '#FFFFFF',
+  },
+  homeBtnText: {
+    color: 'white',
+    fontFamily: 'Inter-Bold',
+    fontSize: 12,
+  },
+  cancelledBanner: {
+    margin: 20,
+    marginTop: 0,
+    padding: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+  },
+  cancelledTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 2,
+  },
+  cancelledSub: {
+    fontSize: 11,
+    fontFamily: 'Inter-Regular',
+    lineHeight: 15,
+  },
+  homeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
 });

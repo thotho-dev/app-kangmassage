@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 export default function OTPScreen() {
   const t = useThemeColors();

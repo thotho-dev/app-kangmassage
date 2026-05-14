@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, Image, StatusBar
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
@@ -176,72 +177,78 @@ export default function ChatDetailScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: theme.background }]} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={28} color={theme.text} />
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          {conversation?.therapist?.avatar_url ? (
-            <Image source={{ uri: conversation.therapist.avatar_url }} style={styles.headerAvatar} />
-          ) : (
-            <View style={[styles.headerAvatar, { backgroundColor: COLORS.primary[500] + '20', alignItems: 'center', justifyContent: 'center' }]}>
-              <Text style={{ color: COLORS.primary[500], fontWeight: 'bold' }}>{conversation?.therapist?.full_name?.[0]}</Text>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        
+        {/* Header */}
+        <SafeAreaView edges={['top']} style={{ backgroundColor: theme.surface }}>
+          <View style={[styles.header, { borderBottomColor: theme.border }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={28} color={theme.text} />
+            </TouchableOpacity>
+            <View style={styles.headerInfo}>
+              {conversation?.therapist?.avatar_url ? (
+                <Image source={{ uri: conversation.therapist.avatar_url }} style={styles.headerAvatar} />
+              ) : (
+                <View style={[styles.headerAvatar, { backgroundColor: COLORS.primary[500] + '20', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: COLORS.primary[500], fontWeight: 'bold' }}>{conversation?.therapist?.full_name?.[0]}</Text>
+                </View>
+              )}
+              <View>
+                <Text style={[styles.headerName, { color: theme.text }]}>{conversation?.therapist?.full_name || 'Terapis'}</Text>
+                <Text style={[styles.headerStatus, { color: COLORS.success }]}>Online</Text>
+              </View>
             </View>
-          )}
-          <View>
-            <Text style={[styles.headerName, { color: theme.text }]}>{conversation?.therapist?.full_name || 'Terapis'}</Text>
-            <Text style={[styles.headerStatus, { color: COLORS.success }]}>Online</Text>
+            <TouchableOpacity style={styles.headerAction}>
+              <Ionicons name="call-outline" size={22} color={theme.text} />
+            </TouchableOpacity>
           </View>
-        </View>
-        <TouchableOpacity style={styles.headerAction}>
-          <Ionicons name="call-outline" size={22} color={theme.text} />
-        </TouchableOpacity>
-      </View>
+        </SafeAreaView>
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item: any) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
-
-      {/* Input */}
-      <View style={[styles.inputContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-        <TouchableOpacity style={styles.attachBtn}>
-          <Ionicons name="add-circle-outline" size={28} color={theme.textSecondary} />
-        </TouchableOpacity>
-        <TextInput
-          style={[styles.input, { color: theme.text, backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-          placeholder="Tulis pesan..."
-          placeholderTextColor={theme.textSecondary}
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item: any) => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.listContent}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
-        <TouchableOpacity 
-          style={[styles.sendBtn, { backgroundColor: inputText.trim() ? COLORS.primary[500] : theme.border }]} 
-          onPress={handleSend}
-          disabled={!inputText.trim() || sending}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Ionicons name="send" size={20} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        {/* Input */}
+        <SafeAreaView edges={['bottom']} style={{ backgroundColor: theme.surface }}>
+          <View style={[styles.inputContainer, { borderTopColor: theme.border }]}>
+            <TouchableOpacity style={styles.attachBtn}>
+              <Ionicons name="add-circle-outline" size={28} color={theme.textSecondary} />
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, { color: theme.text, backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
+              placeholder="Tulis pesan..."
+              placeholderTextColor={theme.textSecondary}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+            />
+            <TouchableOpacity 
+              style={[styles.sendBtn, { backgroundColor: inputText.trim() ? COLORS.primary[500] : theme.border }]} 
+              onPress={handleSend}
+              disabled={!inputText.trim() || sending}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="send" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -250,7 +257,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingHorizontal: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,

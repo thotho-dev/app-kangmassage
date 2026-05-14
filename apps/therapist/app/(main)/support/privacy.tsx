@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, TYPOGRAPHY } from '@/constants/Theme';
 
 export default function PrivacyPolicyScreen() {
   const t = useThemeColors();
@@ -49,7 +49,7 @@ export default function PrivacyPolicyScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 35, paddingBottom: SPACING.xl },
   backBtn: { marginBottom: SPACING.md },
   title: { ...TYPOGRAPHY.h2, color: t.text, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.caption, color: t.textSecondary },
@@ -57,3 +57,4 @@ const getStyles = (t: any) => StyleSheet.create({
   content: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, lineHeight: 24 },
   bold: { color: t.text, fontFamily: 'Inter_700Bold' },
 });
+

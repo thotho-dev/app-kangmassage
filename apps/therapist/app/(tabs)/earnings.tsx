@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
-import { useTherapistStore } from '../../store/therapistStore';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
+import { useTherapistStore } from '@/store/therapistStore';
 import { startOfDay, startOfWeek, startOfMonth, isWithinInterval, endOfDay } from 'date-fns';
 
 const SUMMARY_PERIODS = ['Hari Ini', 'Minggu Ini', 'Bulan Ini', 'Semua'];
@@ -218,7 +218,7 @@ export default function EarningsScreen() {
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
-    paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl, gap: SPACING.md,
+    paddingHorizontal: SPACING.lg, paddingTop: 40, paddingBottom: SPACING.xl, gap: SPACING.md,
   },
   title: { ...TYPOGRAPHY.h2 },
   periods: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: RADIUS.full, padding: 4 },

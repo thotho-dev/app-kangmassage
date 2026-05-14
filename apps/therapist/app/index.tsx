@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
-import { useThemeColors } from '../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { TYPOGRAPHY } from '../constants/Theme';
+import { TYPOGRAPHY } from '@/constants/Theme';
 
 export default function SplashScreen() {
   const t = useThemeColors();

@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useRouter } from 'expo-router';
 
 const MOCK_NOTIFS = [
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: 30,
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,

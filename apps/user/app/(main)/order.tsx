@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert, ActivityIndicator } from 'react-native';
-import CustomDateTimePicker from '../../components/ui/CustomDateTimePicker';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert, ActivityIndicator, BackHandler } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import CustomDateTimePicker from '@/components/ui/CustomDateTimePicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { 
   ChevronLeft, 
@@ -17,17 +18,20 @@ import {
   Banknote,
   CreditCard,
   QrCode,
-  MessageSquare
+  MessageSquare,
+  Ticket,
+  Tag,
+  X
 } from 'lucide-react-native';
-import Button from '../../components/ui/Button';
-import Card from '../../components/ui/Card';
-import { COLORS, TYPOGRAPHY } from '../../constants/Theme';
-import { useTheme } from '../../context/ThemeContext';
-import { SERVICES, Service } from '../../constants/Services';
-import { useServices } from '../../hooks/useServices';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
+import { useTheme } from '@/context/ThemeContext';
+import { SERVICES, Service } from '@/constants/Services';
+import { useServices } from '@/hooks/useServices';
 import { useLocation } from '@/context/LocationContext';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -38,8 +42,46 @@ const BORDER = '#EFEFEF';
 export default function OrderScreen() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { serviceId } = useLocalSearchParams();
+  const { serviceId, therapistId, voucherCode: initialVoucherCode, from } = useLocalSearchParams();
   const { data: servicesData } = useServices();
+  const [therapist, setTherapist] = useState<any>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const backAction = () => {
+        if (from === 'services') {
+          router.replace('/(main)/services');
+          return true;
+        } else {
+          router.replace('/(main)/home');
+          return true;
+        }
+      };
+
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        backAction
+      );
+
+      return () => backHandler.remove();
+    }, [from])
+  );
+
+  React.useEffect(() => {
+    if (therapistId) {
+      const fetchTherapist = async () => {
+        const { data } = await supabase.from('therapists').select('*').eq('id', therapistId).single();
+        if (data) setTherapist(data);
+      };
+      fetchTherapist();
+    }
+  }, [therapistId]);
+
+  React.useEffect(() => {
+    if (therapist && therapist.gender) {
+      setTherapistGender(therapist.gender);
+    }
+  }, [therapist]);
   
   const allServices = servicesData || SERVICES;
   const initialService = allServices.find(s => s.id === serviceId) || allServices[0];
@@ -67,6 +109,7 @@ export default function OrderScreen() {
 
   const { user, profile } = useAuth();
   const [selectedDuration, setSelectedDuration] = useState(durationOptions[0]);
+  const totalPrice = selectedDuration?.price || initialService.price || 0;
 
   // Sync selectedDuration when service data loads
   React.useEffect(() => {
@@ -75,27 +118,312 @@ export default function OrderScreen() {
     }
   }, [durationOptions]);
 
+  // Skill Validation for Favorite Therapist
+  useFocusEffect(
+    React.useCallback(() => {
+      if (therapist && initialService) {
+        const requiredSkill = initialService.category_slug || initialService.name;
+        const therapistSkills: string[] = therapist.specializations || [];
+        
+        // Handle both string and array for requiredSkill
+        const checkSkill = (skill: string) => 
+          therapistSkills.some(ts => ts.toLowerCase() === skill.toLowerCase());
+
+        const hasSkill = Array.isArray(requiredSkill)
+          ? requiredSkill.some(s => checkSkill(s))
+          : checkSkill(requiredSkill);
+        
+        if (!hasSkill) {
+          Alert.alert(
+            'Keahlian Tidak Cocok',
+            `Maaf, ${therapist.full_name} tidak memiliki keahlian untuk layanan "${initialService.name}".\n\nSilakan pilih layanan lain yang dikuasai terapis ini.`,
+            [{ text: 'Kembali Pilih Layanan', onPress: () => router.replace({ pathname: '/(main)/services', params: { therapistId } }) }]
+          );
+        }
+      }
+    }, [therapist, initialService, therapistId])
+  );
+
   const [bookingType, setBookingType] = useState<'now' | 'schedule'>('now');
   const [userGender, setUserGender] = useState<'male' | 'female'>('male');
   const [therapistGender, setTherapistGender] = useState<'any' | 'male' | 'female'>('any');
   const [paymentMethod, setPaymentMethod] = useState<'saldo' | 'tunai' | 'transfer' | 'qris'>('tunai');
   const [loading, setLoading] = useState(false);
 
+  // Voucher Logic
+  const [voucherCode, setVoucherCode] = useState((initialVoucherCode as string) || '');
+  const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const finalPrice = Math.max(0, totalPrice - discountAmount);
+
   // Auto-select payment method based on balance
   React.useEffect(() => {
-    if (profile && selectedDuration) {
+    if (profile) {
       const userBalance = profile.wallet_balance || 0;
-      if (userBalance >= selectedDuration.price) {
+      if (userBalance >= finalPrice) {
         setPaymentMethod('saldo');
       } else {
         setPaymentMethod('tunai');
       }
     }
-  }, [profile?.wallet_balance, selectedDuration?.price]);
+  }, [profile?.wallet_balance, finalPrice]);
 
   const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
   const [locationNotes, setLocationNotes] = useState('');
   const [serviceNotes, setServiceNotes] = useState('');
+  const lastCheckedCode = React.useRef<string | null>(null);
+
+
+
+
+  const checkVoucher = async (codeOverride?: string, silent: boolean = false) => {
+    const codeToUse = codeOverride || voucherCode;
+    if (!codeToUse) return;
+    
+    // Prevent repeated alerts for the same code if it's already been checked
+    if (silent && lastCheckedCode.current === codeToUse.toUpperCase()) return;
+    lastCheckedCode.current = codeToUse.toUpperCase();
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vouchers')
+        .select('*')
+        .eq('code', codeToUse.toUpperCase())
+        .eq('is_active', true)
+        .single();
+
+      if (error || !data) {
+        if (!silent) Alert.alert('Voucher Tidak Valid', 'Kode voucher tidak ditemukan atau sudah tidak aktif.');
+        return;
+      }
+
+      // Validasi Masa Berlaku
+      const now = new Date();
+      if (new Date(data.valid_until) < now) {
+        if (!silent) Alert.alert('Voucher Kedaluwarsa', 'Masa berlaku voucher ini telah berakhir.');
+        return;
+      }
+
+      // Validasi Min Order
+      if (totalPrice < data.min_order_amount) {
+        if (!silent) Alert.alert('Minimal Order Belum Tercapai', `Voucher ini hanya berlaku untuk minimal pemesanan Rp ${data.min_order_amount.toLocaleString('id-ID')}`);
+        return;
+      }
+
+      // Validasi Usage Limit
+      if (data.usage_limit && data.usage_count >= data.usage_limit) {
+        if (!silent) Alert.alert('Voucher Habis', 'Kuota penggunaan voucher ini telah habis.');
+        return;
+      }
+
+      // Validasi Layanan Khusus
+      if (data.category === 'service' && data.service_id && data.service_id !== serviceId) {
+        if (!silent) Alert.alert('Layanan Tidak Sesuai', 'Voucher ini hanya berlaku untuk layanan tertentu.');
+        return;
+      }
+
+      // Validasi Happy Hour
+      if (data.category === 'happy_hour' && data.start_time && data.end_time) {
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        
+        const [startH, startM] = data.start_time.split(':').map(Number);
+        const [endH, endM] = data.end_time.split(':').map(Number);
+        
+        const startTime = startH * 60 + startM;
+        const endTime = endH * 60 + endM;
+
+        if (currentTime < startTime || currentTime > endTime) {
+          if (!silent) Alert.alert('Belum Waktunya', `Voucher ini hanya berlaku pada jam ${data.start_time.substring(0, 5)} - ${data.end_time.substring(0, 5)}.`);
+          return;
+        }
+      }
+
+      // Validasi Lokasi (Berlaku untuk semua kategori jika ada data wilayah)
+      if (data.area_names && Array.isArray(data.area_names) && data.area_names.length > 0 && address) {
+        const addressLower = address.toLowerCase();
+        const isCovered = data.area_names.some((areaName: string) => {
+          // Mendukung format "Provinsi - Kota/Kabupaten" atau langsung nama wilayah
+          const target = areaName.includes(' - ') ? areaName.split(' - ')[1] : areaName;
+          const cleanTarget = target.toLowerCase()
+            .replace(/kota\s+/g, '')
+            .replace(/kabupaten\s+/g, '')
+            .replace(/adm\.\s+/g, '')
+            .replace(/jakarta\s+/g, 'jakarta ')
+            .trim();
+          
+          return addressLower.includes(cleanTarget);
+        });
+        
+        if (!isCovered) {
+          if (!silent) Alert.alert('Area Tidak Sesuai', `Voucher ini hanya berlaku untuk wilayah: ${data.area_names.join(', ')}.`);
+          return;
+        }
+      }
+
+      // Validasi Pengguna Baru
+      if (data.category === 'new_user') {
+        const orderCount = profile?.total_orders || 0;
+        if (orderCount > 0) {
+          if (!silent) Alert.alert('Khusus Pengguna Baru', 'Voucher ini hanya berlaku untuk pesanan pertama Anda.');
+          return;
+        }
+      }
+
+      // Validasi Repeat Order
+      if (data.category === 'repeat_order') {
+        const orderCount = profile?.total_orders || 0;
+        if (orderCount < (data.min_order_count || 0)) {
+          if (!silent) Alert.alert('Syarat Tidak Terpenuhi', `Voucher ini hanya berlaku setelah Anda melakukan minimal ${data.min_order_count} pesanan.`);
+          return;
+        }
+      }
+
+      // Hitung Diskon
+      let discount = 0;
+      if (data.type === 'percentage') {
+        discount = (totalPrice * data.value) / 100;
+        if (data.max_discount && discount > data.max_discount) {
+          discount = data.max_discount;
+        }
+      } else {
+        discount = data.value;
+      }
+
+      setAppliedVoucher(data);
+      setDiscountAmount(discount);
+      if (!codeOverride) {
+        Alert.alert('Berhasil', `Voucher "${data.code}" berhasil digunakan! Anda mendapatkan potongan Rp ${discount.toLocaleString('id-ID')}`);
+      }
+    } catch (error) {
+      console.error('Check voucher error:', error);
+      Alert.alert('Error', 'Gagal memproses voucher.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const autoApplyBestVoucher = async () => {
+    if (appliedVoucher) return; // Don't override if already applied from params
+    
+    try {
+      const { data: vouchers, error } = await supabase
+        .from('vouchers')
+        .select('*')
+        .eq('is_active', true)
+        .lte('valid_from', new Date().toISOString())
+        .gte('valid_until', new Date().toISOString());
+
+      if (error || !vouchers) return;
+
+      let bestVoucher = null;
+      let maxDiscount = 0;
+
+      for (const v of vouchers) {
+        // Basic Validations
+        if (totalPrice < v.min_order_amount) continue;
+        if (v.usage_limit && v.usage_count >= v.usage_limit) continue;
+        if (v.category === 'service' && v.service_id && v.service_id !== serviceId) continue;
+        
+        // Validasi Happy Hour (Auto Apply)
+        if (v.category === 'happy_hour' && v.start_time && v.end_time) {
+          const now = new Date();
+          const currentTime = now.getHours() * 60 + now.getMinutes();
+          const [startH, startM] = v.start_time.split(':').map(Number);
+          const [endH, endM] = v.end_time.split(':').map(Number);
+          const startTime = startH * 60 + startM;
+          const endTime = endH * 60 + endM;
+          if (currentTime < startTime || currentTime > endTime) continue;
+        }
+        
+        // Validasi Lokasi (Auto Apply - Berlaku untuk semua kategori)
+        if (v.area_names && Array.isArray(v.area_names) && v.area_names.length > 0 && address) {
+          const addressLower = address.toLowerCase();
+          const isCovered = v.area_names.some((areaName: string) => {
+            const target = areaName.includes(' - ') ? areaName.split(' - ')[1] : areaName;
+            const cleanTarget = target.toLowerCase()
+              .replace('kota ', '')
+              .replace('kabupaten ', '')
+              .replace('adm. ', '')
+              .trim();
+            return addressLower.includes(cleanTarget);
+          });
+          if (!isCovered) continue;
+        }
+        
+        // Validasi Pengguna Baru (Auto Apply)
+        if (v.category === 'new_user') {
+          const orderCount = profile?.total_orders || 0;
+          if (orderCount > 0) continue;
+        }
+
+        // Validasi Repeat Order (Auto Apply)
+        if (v.category === 'repeat_order') {
+          const orderCount = profile?.total_orders || 0;
+          if (orderCount < (v.min_order_count || 0)) continue;
+        }
+
+        // Calculate Discount
+        let discount = 0;
+        if (v.type === 'percentage') {
+          discount = (totalPrice * v.value) / 100;
+          if (v.max_discount && discount > v.max_discount) {
+            discount = v.max_discount;
+          }
+        } else {
+          discount = v.value;
+        }
+
+        if (discount > maxDiscount) {
+          maxDiscount = discount;
+          bestVoucher = v;
+        }
+      }
+
+      if (bestVoucher) {
+        setAppliedVoucher(bestVoucher);
+        setDiscountAmount(maxDiscount);
+        setVoucherCode(bestVoucher.code);
+      }
+    } catch (err) {
+      console.error('Auto-apply error:', err);
+    }
+  };
+
+  // Auto-apply if code from params OR try to find best one
+  React.useEffect(() => {
+    if (initialVoucherCode && totalPrice > 0) {
+      checkVoucher(initialVoucherCode as string, true);
+    } else if (totalPrice > 0 && !appliedVoucher) {
+      autoApplyBestVoucher();
+    }
+  }, [initialVoucherCode, totalPrice, profile]);
+
+  // Recalculate discount if total price changes
+  React.useEffect(() => {
+    if (appliedVoucher) {
+      // Re-validate min order first
+      if (totalPrice < appliedVoucher.min_order_amount) {
+        setAppliedVoucher(null);
+        setDiscountAmount(0);
+        setVoucherCode('');
+        Alert.alert('Voucher Terlepas', 'Minimal order tidak tercapai untuk voucher ini.');
+        return;
+      }
+
+      let discount = 0;
+      if (appliedVoucher.type === 'percentage') {
+        discount = (totalPrice * appliedVoucher.value) / 100;
+        if (appliedVoucher.max_discount && discount > appliedVoucher.max_discount) {
+          discount = appliedVoucher.max_discount;
+        }
+      } else {
+        discount = appliedVoucher.value;
+      }
+      setDiscountAmount(discount);
+    }
+  }, [totalPrice]);
 
   const showDatePickerModal = (mode: 'date' | 'time') => {
     setPickerMode(mode);
@@ -143,7 +471,6 @@ export default function OrderScreen() {
   const allMethods = PAYMENT_GROUPS.flatMap(g => g.items);
   const currentMethod = allMethods.find(m => m.id === paymentMethod) || allMethods[0];
 
-  const totalPrice = selectedDuration?.price || initialService.price || 0;
 
   const handleOrder = async () => {
     if (!address) {
@@ -151,7 +478,7 @@ export default function OrderScreen() {
       return;
     }
 
-    if (paymentMethod === 'saldo' && (profile?.wallet_balance || 0) < totalPrice) {
+    if (paymentMethod === 'saldo' && (profile?.wallet_balance || 0) < finalPrice) {
       Alert.alert('Saldo Kurang', 'Saldo Anda tidak mencukupi untuk melakukan pemesanan ini.');
       return;
     }
@@ -164,7 +491,9 @@ export default function OrderScreen() {
         service_id: initialService.id,
         status: 'pending',
         service_price: selectedDuration.price,
-        total_price: totalPrice,
+        total_price: finalPrice,
+        discount_amount: discountAmount,
+        voucher_id: appliedVoucher?.id || null,
         payment_method: paymentMethod,
         address: address,
         latitude: coords?.latitude,
@@ -172,6 +501,7 @@ export default function OrderScreen() {
         location_notes: locationNotes,
         service_notes: serviceNotes,
         scheduled_at: bookingType === 'schedule' ? selectedDate.toISOString() : null,
+        therapist_id: therapistId || null,
         user_gender: userGender,
         therapist_preference: therapistGender,
         order_number: `ORD-${Math.floor(100000 + Math.random() * 900000)}`
@@ -197,17 +527,21 @@ export default function OrderScreen() {
         await supabase.from('transactions').insert([{
           user_id: profile?.id,
           order_id: order.id,
-          amount: -totalPrice,
+          amount: -finalPrice,
           balance_before: profile?.wallet_balance || 0,
-          balance_after: (profile?.wallet_balance || 0) - totalPrice,
+          balance_after: (profile?.wallet_balance || 0) - finalPrice,
           type: 'payment',
           description: `Pembayaran ${initialService.name}`,
         }]);
 
         router.push({ pathname: '/(main)/tracking', params: { id: order.id } });
       } else if (paymentMethod === 'tunai') {
-        // Redirect ke halaman mencari terapis
-        router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
+        // Redirect ke halaman mencari terapis jika bukan dari favorit
+        if (therapistId) {
+          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+        } else {
+          router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
+        }
       } else {
         // MIDTRANS CORE API CALL
         const response = await fetch('https://app-kangmassage-web.vercel.app/api/payments/create', {
@@ -246,7 +580,16 @@ export default function OrderScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => {
+            if (from === 'services') {
+              router.push('/(main)/services');
+            } else {
+              router.push('/(main)/home');
+            }
+          }} 
+          style={styles.backButton}
+        >
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detail Pesanan</Text>
@@ -302,7 +645,10 @@ export default function OrderScreen() {
             </View>
             <TouchableOpacity 
               style={styles.fullMapsButton} 
-              onPress={() => router.push({ pathname: '/(main)/maps', params: { serviceId: serviceId } })}
+              onPress={() => router.push({ 
+                pathname: '/(main)/maps', 
+                params: { serviceId: serviceId, from: 'order', sourceFrom: from as string } 
+              })}
             >
               <Map size={18} color="#FFFFFF" />
               <Text style={styles.fullMapsButtonText}>Cari di Maps</Text>
@@ -432,21 +778,36 @@ export default function OrderScreen() {
           </View>
           <View style={styles.genderContainer}>
             <TouchableOpacity 
-              style={[styles.genderBtn, therapistGender === 'any' && styles.genderBtnActive]}
+              style={[
+                styles.genderBtn, 
+                therapistGender === 'any' && styles.genderBtnActive,
+                !!therapistId && therapistGender !== 'any' && { opacity: 0.3 }
+              ]}
               onPress={() => setTherapistGender('any')}
+              disabled={!!therapistId}
             >
               <Text style={[styles.genderBtnText, therapistGender === 'any' && styles.genderBtnTextActive]}>Mana Saja</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.genderBtn, therapistGender === 'male' && styles.genderBtnActive]}
+              style={[
+                styles.genderBtn, 
+                therapistGender === 'male' && styles.genderBtnActive,
+                !!therapistId && therapistGender !== 'male' && { opacity: 0.3 }
+              ]}
               onPress={() => setTherapistGender('male')}
+              disabled={!!therapistId}
             >
               <User size={16} color={therapistGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
               <Text style={[styles.genderBtnText, therapistGender === 'male' && styles.genderBtnTextActive]}>Pria</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.genderBtn, therapistGender === 'female' && styles.genderBtnActive]}
+              style={[
+                styles.genderBtn, 
+                therapistGender === 'female' && styles.genderBtnActive,
+                !!therapistId && therapistGender !== 'female' && { opacity: 0.3 }
+              ]}
               onPress={() => setTherapistGender('female')}
+              disabled={!!therapistId}
             >
               <User size={16} color={therapistGender === 'female' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
               <Text style={[styles.genderBtnText, therapistGender === 'female' && styles.genderBtnTextActive]}>Wanita</Text>
@@ -454,7 +815,59 @@ export default function OrderScreen() {
           </View>
         </View>
 
-        {/* 7. Metode Pembayaran Dropdown */}
+        {/* 7. Voucher Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Voucher Promo</Text>
+          <TouchableOpacity 
+            style={[styles.voucherSelector, appliedVoucher && styles.voucherSelectorActive]}
+            onPress={() => router.push({ 
+              pathname: '/(main)/vouchers', 
+              params: { 
+                from: 'order', 
+                sourceFrom: from as string, 
+                serviceId: serviceId as string, 
+                therapistId: therapistId as string,
+                totalPrice: totalPrice.toString()
+              } 
+            })}
+          >
+            <View style={styles.voucherLeft}>
+              <Tag size={20} color={appliedVoucher ? '#FFFFFF' : PURPLE} />
+              <View style={styles.voucherInfo}>
+                {appliedVoucher ? (
+                  <>
+                    <Text style={styles.voucherAppliedTitle}>{appliedVoucher.code}</Text>
+                    <Text style={styles.voucherAppliedSub}>Berhasil digunakan (Hemat Rp {discountAmount.toLocaleString('id-ID')})</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.voucherPlaceholderTitle}>Pilih atau Masukkan Voucher</Text>
+                    <Text style={styles.voucherPlaceholderSub}>Klik untuk melihat promo tersedia</Text>
+                  </>
+                )}
+              </View>
+            </View>
+            <View style={styles.voucherRight}>
+              {appliedVoucher ? (
+                <TouchableOpacity 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setAppliedVoucher(null);
+                    setDiscountAmount(0);
+                    setVoucherCode('');
+                  }}
+                  style={styles.removeVoucherBtn}
+                >
+                  <X size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <ChevronRight size={20} color={TEXT_MUTED} />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* 8. Metode Pembayaran Dropdown */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Metode Pembayaran</Text>
           <View style={styles.dropdownContainer}>
@@ -509,7 +922,10 @@ export default function OrderScreen() {
       <View style={styles.footer}>
         <View style={styles.priceSummary}>
           <Text style={styles.totalLabel}>Total Pembayaran</Text>
-          <Text style={styles.totalPrice}>Rp {totalPrice.toLocaleString('id-ID')}</Text>
+          <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+          {discountAmount > 0 && (
+            <Text style={styles.discountLabel}>Hemat Rp {discountAmount.toLocaleString('id-ID')}</Text>
+          )}
         </View>
         <TouchableOpacity 
           style={[styles.orderButton, loading && { opacity: 0.8 }]} 
@@ -945,6 +1361,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     color: TEXT_DARK,
   },
+  discountLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter-Bold',
+    color: '#10B981',
+    marginTop: 2,
+  },
   orderButton: {
     backgroundColor: PURPLE,
     paddingHorizontal: 24,
@@ -956,5 +1378,63 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Inter-Bold',
+  },
+  // Voucher Styles
+  voucherSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    marginTop: 8,
+  },
+  voucherSelectorActive: {
+    backgroundColor: PURPLE,
+    borderColor: PURPLE,
+  },
+  voucherLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  voucherInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  voucherPlaceholderTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    color: TEXT_DARK,
+  },
+  voucherPlaceholderSub: {
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+    marginTop: 2,
+  },
+  voucherAppliedTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+  },
+  voucherAppliedSub: {
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  voucherRight: {
+    marginLeft: 12,
+  },
+  removeVoucherBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

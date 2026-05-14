@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { useAlert } from '../../components/CustomAlert';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { useAlert } from '@/components/CustomAlert';
 
 const MIN_WITHDRAW = 50000;
 const WITHDRAW_FEE = 5000;
@@ -226,7 +226,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg
+    paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.lg
   },
   backBtn: { padding: 4 },
   headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
@@ -287,3 +287,4 @@ const getStyles = (t: any) => StyleSheet.create({
   infoBox: { flexDirection: 'row', gap: 8, marginTop: 20, paddingHorizontal: 10 },
   infoText: { flex: 1, fontSize: 11, color: t.textMuted, lineHeight: 16 },
 });
+

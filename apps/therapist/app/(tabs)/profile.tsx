@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
-import { useThemeStore, useThemeColors } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
-import { useAlert } from '../../components/CustomAlert';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useThemeStore, useThemeColors } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
+import { useAlert } from '@/components/CustomAlert';
 import { Platform } from 'react-native';
 
 const MENU_ITEMS = [
@@ -34,7 +36,13 @@ export default function ProfileScreen() {
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const t = useThemeColors();
   const styles = getStyles(t);
-  const { showAlert, AlertComponent } = useAlert();
+  const { AlertComponent, showAlert } = useAlert();
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [])
+  );
 
 
 
@@ -88,7 +96,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {AlertComponent}
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -210,7 +218,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { useThemeColors } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
 import { format, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
-import { useAlert } from '../../components/CustomAlert';
+import { useAlert } from '@/components/CustomAlert';
 
 const CANCEL_TIMEOUT_MINUTES = 5;
 
@@ -187,7 +187,7 @@ export default function TopupHistoryScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
   headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg, paddingBottom: 40 },
@@ -212,3 +212,4 @@ const getStyles = (t: any) => StyleSheet.create({
   actionBtn: { paddingVertical: 12, borderRadius: RADIUS.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   actionText: { ...TYPOGRAPHY.bodySmall, fontFamily: 'Inter_700Bold' },
 });
+

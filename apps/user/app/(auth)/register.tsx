@@ -14,14 +14,14 @@ import { useRouter } from 'expo-router';
 import { Mail, Lock, User, Phone, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { useTheme } from '../../context/ThemeContext';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
+import { useTheme } from '@/context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Alert } from 'react-native';
 
 export default function RegisterScreen() {
@@ -118,7 +118,7 @@ export default function RegisterScreen() {
         >
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.text }]}>Buat Akun</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Mulai perjalanan relaksasi Anda bersama kami</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Mulai pengalaman relaksasi terbaik bersama Kang Massage</Text>
           </View>
 
           <View style={styles.form}>

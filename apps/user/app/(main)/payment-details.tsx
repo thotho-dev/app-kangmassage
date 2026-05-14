@@ -2,8 +2,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } fr
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -88,8 +88,14 @@ export default function PaymentDetailsScreen() {
           // Jika sudah ada terapis & jalan, ke tracking
           router.replace({ pathname: '/(main)/tracking', params: { id: orderId } });
         } else {
-          // Jika sudah bayar tapi masih menunggu terapis (pending)
-          router.replace({ pathname: '/(main)/searching-therapist', params: { id: orderId } });
+          // Cek apakah ini pesanan favorit (sudah ada therapist_id di data awal)
+          const { data: fullOrder } = await supabase.from('orders').select('therapist_id').eq('id', orderId).single();
+          
+          if (fullOrder?.therapist_id) {
+            router.replace({ pathname: '/(main)/tracking', params: { id: orderId } });
+          } else {
+            router.replace({ pathname: '/(main)/searching-therapist', params: { id: orderId } });
+          }
         }
       } else {
         Alert.alert('Belum Terdeteksi', 'Pembayaran Anda belum kami terima. Silakan tunggu sebentar atau selesaikan pembayaran Anda.');

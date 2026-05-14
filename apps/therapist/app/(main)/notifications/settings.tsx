@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 const SETTINGS = [
   { id: 'new_order', label: 'Pesanan Baru', desc: 'Notifikasi saat ada pelanggan yang memesan', icon: 'bag-outline', color: '#F97316', enabled: true },
@@ -95,7 +95,7 @@ export default function NotificationSettingsScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.xl },
   backBtn: { marginBottom: SPACING.sm },
   title: { ...TYPOGRAPHY.h2, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.body },
@@ -123,3 +123,4 @@ const getStyles = (t: any) => StyleSheet.create({
   infoBox: { flexDirection: 'row', gap: SPACING.sm, backgroundColor: t.surface, borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: t.border },
   infoText: { ...TYPOGRAPHY.caption, color: t.textSecondary, flex: 1, lineHeight: 18 },
 });
+

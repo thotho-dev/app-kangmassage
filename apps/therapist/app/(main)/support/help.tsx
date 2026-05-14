@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import { useThemeColors } from '../../store/themeStore';
+import { useThemeColors } from '@/store/themeStore';
 
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 export default function HelpSupportScreen() {
   const t = useThemeColors();
@@ -88,7 +88,7 @@ export default function HelpSupportScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 35, paddingBottom: SPACING.xl },
   backBtn: { marginBottom: SPACING.md },
   title: { ...TYPOGRAPHY.h2, color: t.text, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
@@ -103,3 +103,4 @@ const getStyles = (t: any) => StyleSheet.create({
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.md, borderBottomWidth: 1, borderBottomColor: t.border },
   menuText: { ...TYPOGRAPHY.body, color: t.text, flex: 1, marginLeft: SPACING.md },
 });
+

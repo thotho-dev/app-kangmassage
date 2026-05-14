@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Ticket, Plus, Pencil, Trash2, X, Filter, Camera, Upload, Check } from 'lucide-react';
+import { Ticket, Plus, Pencil, Trash2, X, Filter, Camera, Upload, Check, MapPin } from 'lucide-react';
 import { CustomSelect } from '@/components/ui/CustomSelect';
+import { AreaPicker } from '@/components/ui/AreaPicker';
 import { CustomDatePicker } from '@/components/ui/CustomDatePicker';
 import { Voucher } from '@/types';
 import toast from 'react-hot-toast';
@@ -40,13 +41,31 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
     user_limit: voucher?.user_limit || 1,
     start_time: voucher?.start_time || '',
     end_time: voucher?.end_time || '',
-    area_name: voucher?.area_name || '',
-    target_tier: voucher?.target_tier || '',
+    area_names: voucher?.area_names || [],
+    service_id: voucher?.service_id || '',
     is_cashback: voucher?.is_cashback ?? false,
     valid_from: voucher?.valid_from ? voucher.valid_from.split('T')[0] : new Date().toISOString().split('T')[0],
     valid_until: voucher?.valid_until ? voucher.valid_until.split('T')[0] : '',
     is_active: voucher?.is_active ?? true,
   });
+  const [services, setServices] = useState<any[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      setLoadingServices(true);
+      try {
+        const res = await fetch('/api/services');
+        const data = await res.json();
+        if (data.data) setServices(data.data);
+      } catch (err) {
+        console.error('Failed to fetch services', err);
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+    fetchServices();
+  }, []);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(voucher?.image_url || '');
@@ -101,11 +120,13 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
           value: parseFloat(String(form.value)),
           min_order_amount: parseFloat(String(form.min_order_amount)),
           max_discount: form.max_discount ? parseFloat(String(form.max_discount)) : null,
-          min_order_count: parseInt(String(form.min_order_count)),
           usage_limit: form.usage_limit ? parseInt(String(form.usage_limit)) : null,
           user_limit: parseInt(String(form.user_limit)),
-          start_time: form.start_time || null,
-          end_time: form.end_time || null,
+          start_time: form.category === 'happy_hour' ? (form.start_time || null) : null,
+          end_time: form.category === 'happy_hour' ? (form.end_time || null) : null,
+          service_id: form.category === 'service' ? (form.service_id || null) : null,
+          area_names: form.area_names && form.area_names.length > 0 ? form.area_names : null,
+          min_order_count: form.category === 'repeat_order' ? (form.min_order_count || 0) : 0,
           valid_from: new Date(form.valid_from).toISOString(),
           valid_until: new Date(form.valid_until).toISOString(),
         }),
@@ -123,7 +144,7 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content !max-w-4xl" onClick={(e) => e.stopPropagation()}>
         <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full max-h-[90vh]">
           <div className="modal-header">
             <h2 className="text-xl font-bold text-text-primary">{voucher ? t('edit_voucher') : t('add_voucher')}</h2>
@@ -151,32 +172,51 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('voucher_code')} *</label>
-                <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  className="input-field font-mono" placeholder="PROMO20" />
+            {/* 1. Basic Info Section */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">{t('voucher_code')} *</label>
+                  <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                    className="input-field font-mono" placeholder="PROMO20" />
+                </div>
+                <div>
+                  <CustomSelect 
+                    label={`${t('category')} *`}
+                    value={form.category} 
+                    onChange={(val) => setForm({ ...form, category: val as any })}
+                    options={[
+                      { value: 'direct', label: t('direct') },
+                      { value: 'new_user', label: t('new_user') },
+                      { value: 'repeat_order', label: t('repeat_order') },
+                      { value: 'happy_hour', label: t('happy_hour') },
+                      { value: 'service', label: t('based_on_service') }
+                    ]}
+                  />
+                </div>
               </div>
+
+              {form.category === 'service' && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <CustomSelect 
+                    label={`${t('services')} *`}
+                    value={form.service_id} 
+                    onChange={(val) => setForm({ ...form, service_id: val as string })}
+                    options={services.map(s => ({ value: s.id, label: s.name }))}
+                  />
+                </div>
+              )}
+
               <div>
-                <CustomSelect 
-                  label={`${t('category')} *`}
-                  value={form.category} 
-                  onChange={(val) => setForm({ ...form, category: val as any })}
-                  options={[
-                    { value: 'direct', label: t('direct') },
-                    { value: 'new_user', label: t('new_user') },
-                    { value: 'repeat_order', label: t('repeat_order') },
-                    { value: 'happy_hour', label: t('happy_hour') },
-                    { value: 'location', label: t('location') },
-                    { value: 'tier', label: t('user_tier') },
-                    { value: 'cashback', label: t('cashback') }
-                  ]}
-                />
+                <label className="text-sm text-text-primary/60 mb-2 block">{t('description')}</label>
+                <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="input-field" placeholder={t('description')} />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+            {/* 2. Value & Rules Section */}
+            <div className="pt-4 border-t border-white/5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <CustomSelect 
                   label={`${t('type')} *`}
                   value={form.type} 
@@ -186,113 +226,116 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
                     { value: 'fixed', label: `${t('fixed')} (IDR)` }
                   ]}
                 />
-              </div>
-              <div 
-                className="flex items-center gap-2 py-3 px-3 rounded-2xl bg-muted/20 border border-ui-border cursor-pointer hover:border-primary/50 transition-all group mt-6"
-                onClick={() => setForm({ ...form, is_cashback: !form.is_cashback })}
-              >
-                <div className={clsx(
-                  "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-300 flex-shrink-0",
-                  form.is_cashback 
-                    ? "bg-primary border-primary shadow-[0_0_15px_rgba(37,99,235,0.4)]" 
-                    : "border-ui-border bg-transparent group-hover:border-primary/30"
-                )}>
-                  {form.is_cashback && <Check className="w-3 h-3 text-white animate-in zoom-in duration-200" />}
-                </div>
-                <div className="flex-1">
-                  <p className="text-[11px] font-bold text-text-primary transition-colors group-hover:text-primary whitespace-nowrap">{t('cashback_to_wallet')}</p>
+                <div 
+                  className="flex items-center gap-2 py-3 px-3 rounded-2xl bg-muted/20 border border-ui-border cursor-pointer hover:border-primary/50 transition-all group mt-7"
+                  onClick={() => setForm({ ...form, is_cashback: !form.is_cashback })}
+                >
+                  <div className={clsx(
+                    "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-300 flex-shrink-0",
+                    form.is_cashback ? "bg-primary border-primary shadow-[0_0_15px_rgba(37,99,235,0.4)]" : "border-ui-border"
+                  )}>
+                    {form.is_cashback && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <p className="text-[11px] font-bold text-text-primary">{t('cashback_to_wallet')}</p>
                 </div>
               </div>
-            </div>
 
-            <div>
-              <label className="text-sm text-text-primary/60 mb-2 block">{t('description')}</label>
-              <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="input-field" placeholder={t('description')} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('value')} * ({form.type === 'percentage' ? '%' : 'IDR'})</label>
-                <input type="number" value={form.value} min={0} max={form.type === 'percentage' ? 100 : undefined}
-                  onChange={(e) => setForm({ ...form, value: parseFloat(e.target.value) })}
-                  className="input-field" />
-              </div>
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('min_order')} (IDR)</label>
-                <input type="number" value={form.min_order_amount} min={0}
-                  onChange={(e) => setForm({ ...form, min_order_amount: parseFloat(e.target.value) })}
-                  className="input-field" />
-              </div>
-            </div>
-
-            {form.category === 'happy_hour' && (
-              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-primary/5 border border-border">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">{t('start_time')}</label>
-                  <input type="time" value={form.start_time}
-                    onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+                  <label className="text-sm text-text-primary/60 mb-2 block">{t('value')} * ({form.type === 'percentage' ? '%' : 'IDR'})</label>
+                  <input type="number" value={form.value} min={0}
+                    onChange={(e) => setForm({ ...form, value: parseFloat(e.target.value) })}
                     className="input-field" />
                 </div>
                 <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">{t('end_time')}</label>
-                  <input type="time" value={form.end_time}
-                    onChange={(e) => setForm({ ...form, end_time: e.target.value })}
+                  <label className="text-sm text-text-primary/60 mb-2 block">{t('min_order')} (IDR)</label>
+                  <input type="number" value={form.min_order_amount} min={0}
+                    onChange={(e) => setForm({ ...form, min_order_amount: parseFloat(e.target.value) })}
                     className="input-field" />
                 </div>
               </div>
-            )}
 
-            {form.category === 'repeat_order' && (
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('target_order_number')}</label>
-                <input type="number" value={form.min_order_count} min={0}
-                  onChange={(e) => setForm({ ...form, min_order_count: parseInt(e.target.value) })}
-                  className="input-field" />
-              </div>
-            )}
+              {form.category === 'happy_hour' && (
+                <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20 animate-in zoom-in-95">
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">{t('start_time')} (HH:mm)</label>
+                    <input type="text" value={form.start_time} placeholder="09:00"
+                      onChange={(e) => setForm({ ...form, start_time: e.target.value })}
+                      className="input-field" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">{t('end_time')} (HH:mm)</label>
+                    <input type="text" value={form.end_time} placeholder="17:00"
+                      onChange={(e) => setForm({ ...form, end_time: e.target.value })}
+                      className="input-field" />
+                  </div>
+                </div>
+              )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('max_discount')} (IDR)</label>
-                <input type="number" value={form.max_discount} min={0}
-                  onChange={(e) => setForm({ ...form, max_discount: e.target.value })}
-                  className="input-field" placeholder={t('no_cap')} />
-              </div>
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('usage_limit')}</label>
-                <input type="number" value={form.usage_limit} min={1}
-                  onChange={(e) => setForm({ ...form, usage_limit: e.target.value })}
-                  className="input-field" placeholder={t('unlimited')} />
+              {form.category === 'repeat_order' && (
+                <div className="animate-in slide-in-from-left-2">
+                  <label className="text-sm text-text-primary/60 mb-2 block">{t('target_order_number')}</label>
+                  <input type="number" value={form.min_order_count} min={0}
+                    onChange={(e) => setForm({ ...form, min_order_count: parseInt(e.target.value) })}
+                    className="input-field" />
+                </div>
+              )}
+
+              {/* Multi-Area Selection (Full Width) */}
+              <div className="pt-2">
+                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <MapPin className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-text-primary">Syarat Wilayah (Opsional)</h4>
+                      <p className="text-[10px] text-text-primary/40">Kosongkan jika ingin berlaku di semua wilayah</p>
+                    </div>
+                  </div>
+                  <AreaPicker 
+                    value={form.area_names} 
+                    onChange={(val) => setForm({ ...form, area_names: val })}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('user_limit')}</label>
-                <input type="number" value={form.user_limit} min={1}
-                  onChange={(e) => setForm({ ...form, user_limit: parseInt(e.target.value) })}
-                  className="input-field" />
+            {/* 3. Limits & Dates Section */}
+            <div className="pt-4 border-t border-white/5 space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">{t('max_discount')} (IDR)</label>
+                  <input type="number" value={form.max_discount} min={0}
+                    onChange={(e) => setForm({ ...form, max_discount: e.target.value })}
+                    className="input-field" placeholder={t('no_cap')} />
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">{t('usage_limit')}</label>
+                  <input type="number" value={form.usage_limit} min={1}
+                    onChange={(e) => setForm({ ...form, usage_limit: e.target.value })}
+                    className="input-field" placeholder={t('unlimited')} />
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">{t('user_limit')}</label>
+                  <input type="number" value={form.user_limit} min={1}
+                    onChange={(e) => setForm({ ...form, user_limit: parseInt(e.target.value) })}
+                    className="input-field" />
+                </div>
               </div>
-              <div>
-                <label className="text-sm text-text-primary/60 mb-2 block">{t('area_name')}</label>
-                <input value={form.area_name}
-                  onChange={(e) => setForm({ ...form, area_name: e.target.value })}
-                  className="input-field" placeholder="e.g. Jakarta Selatan" />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <CustomDatePicker 
-                label={`${t('valid_from')} *`}
-                value={form.valid_from}
-                onChange={(val) => setForm({ ...form, valid_from: val })}
-              />
-              <CustomDatePicker 
-                label={`${t('valid_until')} *`}
-                value={form.valid_until}
-                onChange={(val) => setForm({ ...form, valid_until: val })}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <CustomDatePicker 
+                  label={`${t('valid_from')} *`}
+                  value={form.valid_from}
+                  onChange={(val) => setForm({ ...form, valid_from: val })}
+                />
+                <CustomDatePicker 
+                  label={`${t('valid_until')} *`}
+                  value={form.valid_until}
+                  onChange={(val) => setForm({ ...form, valid_until: val })}
+                />
+              </div>
             </div>
           </div>
 
@@ -449,6 +492,18 @@ export default function VouchersPage() {
                     <span className="text-text-primary/30">{t('used')}:</span>
                     <span className="text-text-primary/60">{voucher.usage_count} / {voucher.usage_limit || '∞'}</span>
                   </div>
+                  {voucher.area_names && voucher.area_names.length > 0 && (
+                    <div className="flex flex-col gap-1 pt-1 mt-1 border-t border-white/5">
+                      <span className="text-text-primary/30 text-[11px]">Area:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {voucher.area_names.map((area: string) => (
+                          <span key={area} className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold">
+                            {area}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );

@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTherapistStore } from '../store/therapistStore';
 import { useThemeColors } from '../store/themeStore';
 import { SPACING, RADIUS, TYPOGRAPHY } from '../constants/Theme';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
+import { calculateDistance } from '../lib/utils';
+import { CustomAlertTrigger } from '../store/alertStore';
 
 export default function IncomingOrderModal() {
   const { incomingOrder, setIncomingOrder, profile } = useTherapistStore();
   const t = useThemeColors();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [therapistLoc, setTherapistLoc] = useState<{latitude: number, longitude: number} | null>(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
@@ -23,8 +26,22 @@ export default function IncomingOrderModal() {
         tension: 50,
         friction: 7,
       }).start();
+
+      // Fetch current location to calculate real distance
+      (async () => {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            setTherapistLoc({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+          }
+        } catch (e) {
+          console.warn('IncomingOrderModal location error:', e);
+        }
+      })();
     } else {
       fadeAnim.setValue(0);
+      setTherapistLoc(null);
     }
   }, [incomingOrder]);
 
@@ -34,16 +51,51 @@ export default function IncomingOrderModal() {
     if (!profile) return;
     setLoading(true);
     try {
-      const { error } = await supabase
+      // Atomic update: only if status is still pending AND (therapist_id is NULL or is us)
+      const { data, error } = await supabase
         .from('orders')
         .update({ 
           status: 'accepted', 
           therapist_id: profile.id,
           updated_at: new Date().toISOString()
         })
-        .eq('id', incomingOrder.id);
+        .eq('id', incomingOrder.id)
+        .eq('status', 'pending')
+        .or(`therapist_id.is.null,therapist_id.eq.${profile.id}`)
+        .select();
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        // Someone else got it or it was cancelled
+        const { data: check } = await supabase
+          .from('orders')
+          .select('status, therapist_id')
+          .eq('id', incomingOrder.id)
+          .single();
+          
+        if (check?.status === 'accepted' && check?.therapist_id !== profile.id) {
+           CustomAlertTrigger.show({
+             title: 'Pesanan Diambil',
+             message: 'Maaf, pesanan ini baru saja diterima oleh terapis lain.',
+             type: 'warning'
+           });
+        } else if (check?.status === 'cancelled') {
+           CustomAlertTrigger.show({
+             title: 'Pesanan Batal',
+             message: 'Maaf, pesanan ini sudah dibatalkan oleh Customer.',
+             type: 'error'
+           });
+        } else {
+           CustomAlertTrigger.show({
+             title: 'Gagal',
+             message: 'Pesanan sudah tidak tersedia.',
+             type: 'error'
+           });
+        }
+        setIncomingOrder(null);
+        return;
+      }
       
       const orderId = incomingOrder.id;
       setIncomingOrder(null);
@@ -56,6 +108,7 @@ export default function IncomingOrderModal() {
   };
 
   const handleReject = () => {
+    // Tutup modal secara lokal saja tanpa mengubah status di database (Broadcast Mode)
     setIncomingOrder(null);
   };
 
@@ -75,13 +128,13 @@ export default function IncomingOrderModal() {
             }] 
           }
         ]}>
-          <LinearGradient colors={[t.primaryDark, t.headerBg]} style={styles.header}>
+          <View style={[styles.header, { backgroundColor: t.primary }]}>
             <View style={styles.iconWrap}>
               <Ionicons name="notifications" size={32} color="#FFFFFF" />
             </View>
             <Text style={styles.headerTitle}>Pesanan Baru Masuk!</Text>
             <Text style={styles.headerSub}>Seseorang membutuhkan jasa Anda</Text>
-          </LinearGradient>
+          </View>
 
           <View style={styles.content}>
             <View style={styles.customerRow}>
@@ -92,14 +145,25 @@ export default function IncomingOrderModal() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.customerName, { color: t.text }]}>{incomingOrder.users?.full_name || 'Pelanggan'}</Text>
-                <Text style={[styles.serviceText, { color: t.textSecondary }]}>{incomingOrder.service_name || 'Pijat Tradisional'}</Text>
+                <View style={styles.serviceRow}>
+                  <Text style={[styles.serviceText, { color: t.textSecondary }]}>{incomingOrder.services?.name || 'Layanan Pijat'}</Text>
+                  <Text style={{ color: t.textMuted, fontSize: 10 }}>·</Text>
+                  <Ionicons name="time-outline" size={12} color={t.textMuted} style={{ marginTop: 1 }} />
+                  <Text style={[styles.durationText, { color: t.textMuted }]}>
+                    {incomingOrder.services?.price_type === 'treatment' ? '1 Treatment' : `${incomingOrder.duration || incomingOrder.services?.duration_min || 60} Menit`}
+                  </Text>
+                </View>
               </View>
             </View>
 
             <View style={styles.infoGrid}>
               <View style={[styles.infoBox, { backgroundColor: t.background, borderColor: t.border }]}>
                 <Ionicons name="navigate-outline" size={20} color={t.secondary} />
-                <Text style={[styles.infoValue, { color: t.text }]}>{incomingOrder.distance || '1.2'} km</Text>
+                <Text style={[styles.infoValue, { color: t.text }]}>
+                  {therapistLoc 
+                    ? `${calculateDistance(therapistLoc.latitude, therapistLoc.longitude, incomingOrder.latitude, incomingOrder.longitude)} km` 
+                    : (incomingOrder.distance || '1.2 km')}
+                </Text>
                 <Text style={[styles.infoLabel, { color: t.textMuted }]}>Jarak</Text>
               </View>
               <View style={[styles.infoBox, { backgroundColor: t.background, borderColor: t.border }]}>
@@ -124,10 +188,12 @@ export default function IncomingOrderModal() {
               >
                 <Text style={[styles.rejectText, { color: t.danger }]}>Tolak</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.acceptBtn} onPress={handleAccept} disabled={loading}>
-                <LinearGradient colors={[t.secondary, '#EA580C']} style={styles.gradientBtn}>
-                  <Text style={styles.acceptText}>{loading ? 'Memproses...' : 'Terima Sekarang'}</Text>
-                </LinearGradient>
+              <TouchableOpacity 
+                style={[styles.acceptBtn, { backgroundColor: t.secondary }]} 
+                onPress={handleAccept} 
+                disabled={loading}
+              >
+                <Text style={styles.acceptText}>{loading ? 'Memproses...' : 'Terima Sekarang'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -165,7 +231,9 @@ const styles = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   avatarText: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   customerName: { ...TYPOGRAPHY.bodySmall, fontFamily: 'Inter_700Bold' },
-  serviceText: { ...TYPOGRAPHY.caption },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  serviceText: { ...TYPOGRAPHY.caption, fontFamily: 'Inter_600SemiBold', fontSize: 11 },
+  durationText: { ...TYPOGRAPHY.caption, fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   infoGrid: { flexDirection: 'row', gap: 10 },
   infoBox: { flex: 1, borderRadius: 16, padding: 10, alignItems: 'center', gap: 2, borderWidth: 1 },
   infoValue: { ...TYPOGRAPHY.bodySmall, fontSize: 13, fontFamily: 'Inter_700Bold' },
@@ -175,7 +243,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   rejectBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1.5 },
   rejectText: { ...TYPOGRAPHY.bodySmall, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  acceptBtn: { flex: 2, borderRadius: 14, overflow: 'hidden' },
-  gradientBtn: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  acceptBtn: { flex: 2, borderRadius: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
   acceptText: { ...TYPOGRAPHY.bodySmall, color: '#FFFFFF', fontSize: 13, fontFamily: 'Inter_700Bold' },
 });

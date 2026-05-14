@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, Switch } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { 
   User, 
@@ -17,15 +18,21 @@ import {
   Sun
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
-import { useTheme } from '../../context/ThemeContext';
+import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
+import { useTheme } from '@/context/ThemeContext';
 
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { theme, isDark, toggleTheme } = useTheme();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refreshProfile } = useAuth();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshProfile();
+    }, [])
+  );
 
   const handleLogout = async () => {
     await signOut();
@@ -143,8 +150,8 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={[styles.versionText, { color: theme.textSecondary }]}>Pijat On-Demand v1.0.0</Text>
-          <Text style={[styles.copyrightText, { color: theme.textSecondary, opacity: 0.5 }]}>© 2024 Premium Wellness Inc.</Text>
+          <Text style={[styles.versionText, { color: theme.textSecondary }]}>Kang Massage v1.0.0</Text>
+          <Text style={[styles.copyrightText, { color: theme.textSecondary, opacity: 0.5 }]}>© 2026 Kang Massage</Text>
         </View>
       </ScrollView>
     </View>

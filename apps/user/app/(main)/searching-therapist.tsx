@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Alert, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
 const BG = '#F8F9FE';
@@ -45,7 +45,7 @@ export default function SearchingTherapistScreen() {
         filter: `id=eq.${id}`
       }, (payload) => {
         console.log('Order Updated:', payload.new);
-        if (payload.new.status === 'accepted' || payload.new.therapist_id) {
+        if (payload.new.status === 'accepted') {
           router.replace({ pathname: '/(main)/tracking', params: { id } });
         }
       })
@@ -65,30 +65,12 @@ export default function SearchingTherapistScreen() {
 
     if (data) {
       setOrder(data);
-      // Jika ternyata sudah di-accept atau sudah memiliki therapist_id
-      if (data.status !== 'pending' || data.therapist_id) {
+      // Jika ternyata sudah di-accept
+      if (data.status === 'accepted') {
         router.replace({ pathname: '/(main)/tracking', params: { id } });
       } else {
-        // Jika belum ada terapis yang terpilih, mulai matchmaking
-        console.log('[DEBUG Matchmaking] Memulai pencarian terapis untuk order:', data.id);
-        const matchedId = await findMatchingTherapist(data);
-        
-        if (matchedId) {
-          console.log('[DEBUG Matchmaking] Terapis ditemukan! Assigning to:', matchedId);
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update({ therapist_id: matchedId })
-            .eq('id', id)
-            .is('therapist_id', null); // Optimistic locking
-            
-          if (!updateError) {
-             console.log("[DEBUG Matchmaking] Berhasil update orders dengan therapist_id:", matchedId);
-          } else {
-             console.error("[DEBUG Matchmaking] Gagal update order:", updateError);
-          }
-        } else {
-          console.log('[DEBUG Matchmaking] TIDAK ADA TERAPIS YANG COCOK dengan kriteria.');
-        }
+        // Broadcast mode: Pesanan akan muncul di semua HP terapis terdekat secara otomatis
+        console.log('[DEBUG Broadcast] Pesanan sedang menunggu untuk diambil oleh terapis terdekat...');
       }
     }
   };
@@ -155,7 +137,7 @@ export default function SearchingTherapistScreen() {
         return true;
       });
 
-      console.log(`[DEBUG Matchmaking] Terapis yang lolos syarat awal (Aktif, Verified, Rating > 4.5, Saldo < 15000): ${candidates.length}`);
+      console.log(`[DEBUG Matchmaking] Terapis yang lolos syarat awal (Aktif, Verified, Rating > 4.5, Saldo >= 15000): ${candidates.length}`);
 
       if (candidates.length === 0) return null;
 
@@ -259,7 +241,23 @@ export default function SearchingTherapistScreen() {
           text: 'Ya, Batalkan', 
           style: 'destructive',
           onPress: async () => {
-            await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id);
+            // Atomic update: only if still pending
+            const { data, error } = await supabase
+              .from('orders')
+              .update({ status: 'cancelled' })
+              .eq('id', id)
+              .eq('status', 'pending')
+              .select();
+            
+            if (data && data.length > 0) {
+              // Add log entry
+              await supabase.from('order_logs').insert({
+                order_id: id,
+                status: 'cancelled',
+                note: 'Dibatalkan oleh pengguna'
+              });
+            }
+
             router.replace('/(main)/home');
           }
         }
@@ -276,7 +274,10 @@ export default function SearchingTherapistScreen() {
           {/* @ts-ignore */}
           <Animated.View style={[styles.pulse, { transform: [{ scale: Animated.multiply(pulseAnim, 0.7) }], opacity: 0.5 }]} />
           <View style={styles.iconCircle}>
-            <Ionicons name="search" size={40} color="white" />
+            <Image
+              source={require('../../assets/logo-kang-massage.png')}
+              style={styles.logoImage}
+            />
           </View>
         </View>
 
@@ -324,17 +325,23 @@ const styles = StyleSheet.create({
     backgroundColor: PURPLE,
   },
   iconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: PURPLE,
+    width: 100,
+    height: 100,
+    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 10,
     shadowColor: PURPLE,
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 10,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 70,
+    height: 70,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 24,

@@ -48,11 +48,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative">
         <div className="glass-card p-8 border border-white/10 shadow-2xl">
           <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-primary-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-700/40">
-              <Sparkles className="w-8 h-8 text-white" />
+            <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-black/10 overflow-hidden">
+              <img src="/logo-kang-massage.png" alt="Logo" className="w-16 h-16 object-contain" />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
-            <p className="text-white/40">Pijat On-Demand Dashboard</p>
+            <p className="text-white/40">Kang Massage Dashboard</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">

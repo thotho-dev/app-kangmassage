@@ -9,12 +9,12 @@ import {
   Dimensions,
   Image
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Clock, Star, MapPin } from 'lucide-react-native';
-import { SERVICES } from '../../constants/Services';
-import { useServices } from '../../hooks/useServices';
-import { COLORS, TYPOGRAPHY } from '../../constants/Theme';
-import { useTheme } from '../../context/ThemeContext';
+import { SERVICES } from '@/constants/Services';
+import { useServices } from '@/hooks/useServices';
+import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
+import { useTheme } from '@/context/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
@@ -28,6 +28,7 @@ const BORDER = '#EFEFEF';
 
 export default function ServicesScreen() {
   const router = useRouter();
+  const { therapistId } = useLocalSearchParams();
   const { theme, isDark } = useTheme();
   const { data: servicesData, isLoading } = useServices();
 
@@ -65,7 +66,7 @@ export default function ServicesScreen() {
             <TouchableOpacity 
               key={service.id}
               activeOpacity={0.9}
-              onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id } })}
+              onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
               style={styles.serviceCard}
             >
               {/* Image */}
@@ -98,7 +99,7 @@ export default function ServicesScreen() {
 
                 <TouchableOpacity 
                   style={styles.selectBtn}
-                  onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id } })}
+                  onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
                 >
                   <Text style={styles.selectBtnText}>Pilih</Text>
                 </TouchableOpacity>

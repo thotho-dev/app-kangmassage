@@ -3,12 +3,13 @@ import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
-import { supabase } from '../../lib/supabase';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
@@ -165,70 +166,76 @@ export default function ChatDetailScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: t.background }]} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={t.text} />
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          {conversation?.users?.avatar_url ? (
-            <Image source={{ uri: conversation.users.avatar_url }} style={styles.headerAvatar} />
-          ) : (
-            <View style={[styles.headerAvatar, { backgroundColor: t.primary + '20', alignItems: 'center', justifyContent: 'center' }]}>
-              <Text style={{ color: t.primary, fontWeight: 'bold' }}>{conversation?.users?.full_name?.[0]}</Text>
+    <View style={{ flex: 1, backgroundColor: t.background }}>
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        {/* Header */}
+        <SafeAreaView edges={['top']} style={{ backgroundColor: t.headerBg }}>
+          <View style={[styles.header, { borderBottomWidth: 1, borderBottomColor: t.border }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24} color={t.text} />
+            </TouchableOpacity>
+            <View style={styles.headerInfo}>
+              {conversation?.users?.avatar_url ? (
+                <Image source={{ uri: conversation.users.avatar_url }} style={styles.headerAvatar} />
+              ) : (
+                <View style={[styles.headerAvatar, { backgroundColor: t.primary + '20', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: t.primary, fontWeight: 'bold' }}>{conversation?.users?.full_name?.[0]}</Text>
+                </View>
+              )}
+              <View>
+                <Text style={[styles.headerName, { color: t.text }]}>{conversation?.users?.full_name || 'Pelanggan'}</Text>
+                <Text style={[styles.headerStatus, { color: t.success }]}>Online</Text>
+              </View>
             </View>
-          )}
-          <View>
-            <Text style={[styles.headerName, { color: t.text }]}>{conversation?.users?.full_name || 'Pelanggan'}</Text>
-            <Text style={[styles.headerStatus, { color: t.success }]}>Online</Text>
+            <TouchableOpacity style={styles.headerAction}>
+              <Ionicons name="call-outline" size={22} color={t.text} />
+            </TouchableOpacity>
           </View>
-        </View>
-        <TouchableOpacity style={styles.headerAction}>
-          <Ionicons name="call-outline" size={22} color={t.text} />
-        </TouchableOpacity>
-      </View>
+        </SafeAreaView>
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
-
-      {/* Input */}
-      <View style={[styles.inputContainer, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-        <TouchableOpacity style={styles.attachBtn}>
-          <Ionicons name="add" size={24} color={t.textMuted} />
-        </TouchableOpacity>
-        <TextInput
-          style={[styles.input, { color: t.text, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
-          placeholder="Tulis pesan..."
-          placeholderTextColor={t.textMuted}
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.listContent}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
-        <TouchableOpacity 
-          style={[styles.sendBtn, { backgroundColor: inputText.trim() ? t.secondary : t.border }]} 
-          onPress={handleSend}
-          disabled={!inputText.trim() || sending}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Ionicons name="send" size={20} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        {/* Input */}
+        <SafeAreaView edges={['bottom']} style={{ backgroundColor: t.surface }}>
+          <View style={[styles.inputContainer, { borderTopColor: t.border }]}>
+            <TouchableOpacity style={styles.attachBtn}>
+              <Ionicons name="add" size={24} color={t.textMuted} />
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, { color: t.text, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
+              placeholder="Tulis pesan..."
+              placeholderTextColor={t.textMuted}
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+            />
+            <TouchableOpacity 
+              style={[styles.sendBtn, { backgroundColor: inputText.trim() ? t.secondary : t.border }]} 
+              onPress={handleSend}
+              disabled={!inputText.trim() || sending}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="send" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -237,7 +244,6 @@ const getStyles = (t: any) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 52,
     paddingHorizontal: SPACING.md,
     paddingBottom: 16,
     gap: 12,

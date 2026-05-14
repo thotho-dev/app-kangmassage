@@ -65,8 +65,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <aside className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-6 border-b border-ui-border">
-        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0">
-          <Sparkles className="w-5 h-5 text-white" />
+        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-primary/10 flex-shrink-0 overflow-hidden">
+          <img src="/logo-kang-massage.png" alt="Logo" className="w-8 h-8 object-contain" />
         </div>
         <div>
           <h1 className="font-bold text-text-primary text-base leading-tight">{t('pijat_admin')}</h1>

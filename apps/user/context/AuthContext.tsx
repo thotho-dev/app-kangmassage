@@ -12,6 +12,7 @@ interface Profile {
   wallet_balance?: number;
   points?: number;
   cashback?: number;
+  total_orders?: number;
 }
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,7 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session, 
       loading, 
       isAuthenticated: !!user,
-      signOut
+      signOut,
+      refreshProfile: () => user ? fetchProfile(user.id) : Promise.resolve()
     }}>
       {children}
     </AuthContext.Provider>

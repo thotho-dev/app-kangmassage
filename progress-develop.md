@@ -1,5 +1,67 @@
 # Progress Development - App Kang Massage
 
+## [2026-05-13] - Broadcast Matchmaking & Precision Tracking Refinement
+
+### 🚀 Sistem Matchmaking "Rebutan" (Broadcast Mode)
+- **Broadcast System Implementation**: 
+    - Migrasi logika pencarian terapis dari sistem penunjukan tunggal ke **Sistem Broadcast (Rebutan)**. Pesanan kini muncul serentak di semua terapis yang memenuhi kriteria dalam radius 3km.
+    - **Smart Filtering Logic**:
+        - **Radius & Lokasi**: Hanya terapis dalam jangkauan 3km dari pelanggan yang menerima notifikasi.
+        - **Saldo Minimal**: Filter saldo wallet minimal Rp 15.000 untuk memastikan terapis bisa membayar bagi hasil platform.
+        - **Status Kesibukan (Busy Filter)**: Terapis yang sedang menjalankan pesanan (`accepted`, `on_site`, `in_progress`) tidak akan menerima notifikasi broadcast baru.
+        - **Gender Matching**: Filter otomatis berdasarkan preferensi gender yang diminta pelanggan.
+    - **Concurrency Control**: Implementasi *atomic update* di Supabase untuk memastikan pesanan hanya bisa diambil oleh satu terapis tercepat, mencegah terjadinya *double-booking*.
+
+### 📱 Tracking & Map Precision
+- **Route Snapping Fix**: Penambahan logika "Push Coordinate" pada ujung rute OSRM untuk memastikan garis hijau rute menyentuh tepat pada titik pin pelanggan, menghilangkan celah visual antara jalan raya dan lokasi tujuan.
+- **Active GPS Synchronization**: Tombol **Refresh Map** kini memicu pembaruan lokasi GPS terapis secara aktif ke database `therapist_locations` dan sinkronisasi ulang data pesanan dari Supabase.
+
+### 🎨 UI/UX Refinement (Chat & Details)
+- **Full SafeArea Integration (Chat)**:
+    - Implementasi `SafeAreaView` (Top & Bottom edges) pada halaman percakapan User dan Terapis.
+    - Resolusi masalah header tertutup poni (*notch*) dan input chat yang tertutup bar navigasi bawah pada perangkat Android modern.
+- **Keyboard Avoiding Optimization**: 
+    - Perbaikan `KeyboardAvoidingView` dengan mode `height` di Android untuk memastikan kolom input naik mengikuti keyboard dengan presisi.
+    - Penghapusan jarak kosong (*gap*) di bawah input saat keyboard aktif.
+- **Enhanced Order Details**:
+    - Penambahan field **Petunjuk Lokasi** (`location_notes`) dan **Catatan Layanan** (`service_notes`) pada halaman detail pesanan terapis.
+    - Layout catatan layanan diletakkan tepat di bawah jenis layanan untuk alur informasi yang lebih logis bagi terapis.
+
+### 🎨 Sistem UI & Custom Alerts
+- **Premium Custom Alert System**:
+    - Migrasi seluruh notifikasi pesan standar (`Alert.alert`) ke **Sistem Alert Kustom** yang lebih premium.
+    - Desain alert modern dengan dukungan kategori (Success, Error, Warning, Info) dan animasi spring yang halus.
+    - Implementasi `alertStore` (Zustand) untuk memicu alert secara global dari logika bisnis manapun tanpa ketergantungan pada komponen UI lokal.
+    - **Backward Compatibility Hook**: Pembuatan hook `useAlert` untuk memastikan seluruh fitur lama otomatis menggunakan desain alert baru tanpa perlu perombakan kode besar-besaran.
+    - Penambahan dialog konfirmasi pembatalan pesanan (Confirmation Modal) untuk mencegah aksi pembatalan yang tidak disengaja oleh terapis.
+
+---
+
+## [2026-05-12] - Map Hybrid Evolution & Real-time Tracking
+
+### 📱 Evolusi Peta (Hybrid WebView)
+- **WebView Map Integration (Leaflet)**: 
+    - Migrasi dari `react-native-maps` ke **WebView Map** berbasis Leaflet. Solusi ini menjamin peta tampil 100% di **Expo Go** tanpa eror `RNMapsAirModule`.
+    - **Custom Avatar Pins**: Marker peta kini menggunakan **foto profil asli** terapis dan pelanggan yang dibungkus dalam desain pin lokasi yang stylish.
+    - **Real-time Route (Green Solid)**: Penambahan visualisasi rute jalan raya berwarna hijau solid yang menghubungkan kedua titik lokasi.
+- **Dynamic Full View (90% Height)**:
+    - Fitur untuk memperluas peta hingga **90% tinggi layar** dengan menyembunyikan komponen detail lainnya secara otomatis.
+    - Tombol **Swipe Status** tetap dipertahankan di bagian bawah saat mode Full View untuk memudahkan perubahan status pesanan sambil navigasi.
+    - Tombol kontrol (Expand/Close) yang responsif di pojok kanan atas peta.
+- **Precision Tracking**:
+    - Implementasi `Location.watchPositionAsync` untuk pelacakan posisi terapis secara live dan otomatis.
+    - Kalkulasi jarak akurat berdasarkan rute jalan raya (driving distance) dari API OSRM yang diupdate secara real-time.
+- **UI/UX Polishing**:
+    - **Parallax Scroll Effect**: Peta kini memiliki efek paralaks saat discroll, memberikan kesan kedalaman (*depth*) yang premium.
+    - **Refined Swipe Button**: Tombol swipe dibuat lebih presisi dengan **shadow khusus** hanya pada bagian bulatan (*thumb*) agar terlihat menonjol dan taktil.
+    - **Optimal Button Placement**: Tombol Close pada mode Full View dipindahkan ke sebelah kanan sesuai standar kenyamanan pengguna.
+
+### 🛠️ Troubleshooting & Configuration
+- **Expo Go Compatibility**: Resolusi total masalah native module dengan pendekatan hybrid.
+- **Clean Configuration**: Pembersihan plugin `react-native-maps` di `app.json` yang tidak diperlukan untuk lingkungan Expo Go.
+
+---
+
 ## [2026-05-11] - Therapist Tracking Optimization & UI Enhancement
 
 ### 📱 Optimasi Tracking (Therapist App)

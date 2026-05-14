@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, MessageSquare } from 'lucide-react-native';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
 const BG = '#F5F5F7';

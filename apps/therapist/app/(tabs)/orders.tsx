@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
-import { supabase } from '../../lib/supabase';
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
+import { supabase } from '@/lib/supabase';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, RefreshControl
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, RefreshControl, Alert
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import * as Location from 'expo-location';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { calculateDistance } from '@/lib/utils';
+import { CustomAlertTrigger } from '@/store/alertStore';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: '#F97316',
@@ -42,10 +46,34 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [therapistLoc, setTherapistLoc] = useState<{latitude: number, longitude: number} | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+      updateLocation();
+    }, [])
+  );
 
   useEffect(() => {
     fetchOrders();
+    updateLocation();
   }, [profile, activeTab]);
+
+  const updateLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setTherapistLoc({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+    } catch (e) {
+      console.warn('Error getting location in Orders:', e);
+    }
+  };
 
   const fetchOrders = async (isRefreshing = false) => {
     if (!profile) return;
@@ -84,13 +112,69 @@ export default function OrdersScreen() {
     fetchOrders(true);
   };
 
+  const handleDecline = async (orderId: string, orderTherapistId: string | null) => {
+    try {
+      // Only cancel status if it was a directed order for this therapist
+      if (orderTherapistId === profile?.id) {
+        const { data, error } = await supabase
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', orderId)
+          .eq('status', 'pending')
+          .select();
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          await supabase.from('order_logs').insert({
+            order_id: orderId,
+            status: 'cancelled',
+            note: 'Dibatalkan oleh terapis'
+          });
+        }
+      }
+
+      fetchOrders();
+    } catch (error) {
+      console.error('Error declining order:', error);
+    }
+  };
+
   const handleAccept = async (orderId: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('orders')
-        .update({ status: 'accepted' })
-        .eq('id', orderId);
+        .update({ status: 'accepted', therapist_id: profile?.id })
+        .eq('id', orderId)
+        .eq('status', 'pending')
+        .or(`therapist_id.is.null,therapist_id.eq.${profile?.id}`)
+        .select();
+
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        const { data: check } = await supabase.from('orders').select('status, therapist_id').eq('id', orderId).single();
+        if (check?.status === 'accepted' && check?.therapist_id !== profile?.id) {
+           CustomAlertTrigger.show({
+             title: 'Gagal',
+             message: 'Pesanan ini sudah diterima oleh terapis lain.',
+             type: 'warning'
+           });
+        } else if (check?.status === 'cancelled') {
+           CustomAlertTrigger.show({
+             title: 'Pesanan Batal',
+             message: 'Maaf, pesanan ini sudah dibatalkan oleh Pelanggan.',
+             type: 'error'
+           });
+        } else {
+           CustomAlertTrigger.show({
+             title: 'Gagal',
+             message: 'Pesanan tidak tersedia.',
+             type: 'error'
+           });
+        }
+      }
+
       fetchOrders();
     } catch (error) {
       console.error('Error accepting order:', error);
@@ -98,7 +182,7 @@ export default function OrdersScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <Text style={[styles.title, { color: t.text }]}>Pesanan</Text>
@@ -163,7 +247,11 @@ export default function OrdersScreen() {
                 <View style={styles.metaRow}>
                   <View style={styles.metaItem}>
                     <Ionicons name="navigate-outline" size={14} color={t.textMuted} />
-                    <Text style={styles.metaText}>{order.distance || '1.2'} km</Text>
+                    <Text style={styles.metaText}>
+                      {therapistLoc 
+                        ? `${calculateDistance(therapistLoc.latitude, therapistLoc.longitude, order.latitude, order.longitude)} km`
+                        : (order.distance || '1.2 km')}
+                    </Text>
                   </View>
                   <View style={styles.metaItem}>
                     <Ionicons name="time-outline" size={14} color={t.textMuted} />
@@ -175,14 +263,16 @@ export default function OrdersScreen() {
   
               {order.status === 'pending' && (
                 <View style={styles.cardActions}>
-                  <TouchableOpacity style={styles.declineBtn}>
+                  <TouchableOpacity style={styles.declineBtn} onPress={() => handleDecline(order.id, order.therapist_id)}>
                     <Text style={styles.declineText}>Tolak</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.85} onPress={() => handleAccept(order.id)}>
-                    <LinearGradient colors={['#10B981', '#059669']} style={styles.acceptBtn}>
-                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                      <Text style={[styles.acceptText, { color: '#FFFFFF' }]}>Terima Pesanan</Text>
-                    </LinearGradient>
+                  <TouchableOpacity 
+                    style={[styles.acceptBtn, { backgroundColor: t.secondary, flex: 1 }]} 
+                    activeOpacity={0.85} 
+                    onPress={() => handleAccept(order.id)}
+                  >
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                    <Text style={[styles.acceptText, { color: '#FFFFFF' }]}>Terima Pesanan</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -190,14 +280,14 @@ export default function OrdersScreen() {
           ))
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
-    paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg,
+    paddingHorizontal: SPACING.lg, paddingTop: 10, paddingBottom: SPACING.lg,
   },
   title: { ...TYPOGRAPHY.h2, marginBottom: SPACING.md },
   tabs: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: RADIUS.full, padding: 4 },
@@ -222,9 +312,9 @@ const getStyles = (t: any) => StyleSheet.create({
   metaText: { ...TYPOGRAPHY.caption, color: t.textSecondary, flex: 1 },
   price: { ...TYPOGRAPHY.bodySmall, color: t.text, fontFamily: 'Inter_700Bold', marginLeft: 'auto' },
   cardActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  declineBtn: { paddingVertical: 12, paddingHorizontal: SPACING.lg, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: t.border },
+  declineBtn: { paddingVertical: 10, paddingHorizontal: SPACING.lg, borderRadius: RADIUS.lg, borderWidth: 1.5, borderColor: t.border },
   declineText: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, fontFamily: 'Inter_600SemiBold' },
-  acceptBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: RADIUS.full },
+  acceptBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: RADIUS.lg },
   acceptText: { ...TYPOGRAPHY.bodySmall, fontFamily: 'Inter_700Bold' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },

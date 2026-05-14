@@ -52,6 +52,7 @@ CREATE TABLE users (
   avatar_url      TEXT,
   role            user_role NOT NULL DEFAULT 'user',
   wallet_balance  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  total_orders    INTEGER NOT NULL DEFAULT 0,
   is_active       BOOLEAN NOT NULL DEFAULT true,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -139,10 +140,10 @@ CREATE TABLE vouchers (
   days_of_week      INTEGER[],              -- 0 (Minggu) s/d 6 (Sabtu)
   
   -- Location-based
-  area_name         VARCHAR(100),           -- Nama area promo
+  area_names        TEXT[],                 -- Daftar area promo (Multi-area)
   
   -- User-specific
-  target_tier       VARCHAR(50),            -- VIP, Gold, etc.
+  service_id        UUID REFERENCES services(id), -- Voucher spesifik layanan
   therapist_id      UUID REFERENCES therapists(id), -- Jika disubsidi terapis
   
   -- Limits
@@ -360,6 +361,22 @@ BEGIN
   RETURN R * c;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Update user total_orders on completion
+CREATE OR REPLACE FUNCTION update_user_total_orders()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (NEW.status = 'completed' AND (OLD.status IS NULL OR OLD.status != 'completed')) THEN
+    UPDATE users SET total_orders = total_orders + 1 WHERE id = NEW.user_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_order_completed
+AFTER UPDATE ON orders
+FOR EACH ROW
+EXECUTE FUNCTION update_user_total_orders();
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS)

@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation, Image } from 'react-native';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
-import { supabase } from '../../lib/supabase';
-import { useAlert } from '../../components/CustomAlert';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/components/CustomAlert';
 
 const PRESETS = [50000, 100000, 200000, 500000, 1000000];
 const MIN_TOPUP = 20000;
@@ -19,8 +19,8 @@ const PAYMENT_GROUPS = [
     title: 'E-Wallet & QRIS',
     icon: 'qr-code-outline',
     items: [
-      { id: 'gopay', name: 'GoPay / QRIS', image: require('../../assets/Gopay.png') },
-      { id: 'shopeepay', name: 'ShopeePay', image: require('../../assets/ShopeePay.png') },
+      { id: 'gopay', name: 'GoPay / QRIS', image: require('@/assets/Gopay.png') },
+      { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png') },
     ]
   },
   {
@@ -28,10 +28,10 @@ const PAYMENT_GROUPS = [
     title: 'Virtual Account (Transfer Bank)',
     icon: 'card-outline',
     items: [
-      { id: 'bca_va', name: 'BCA Virtual Account', image: require('../../assets/bca.png') },
-      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: require('../../assets/mandiri.png') },
-      { id: 'bni_va', name: 'BNI Virtual Account', image: require('../../assets/bni.png') },
-      { id: 'bri_va', name: 'BRI Virtual Account', image: require('../../assets/bri.png') },
+      { id: 'bca_va', name: 'BCA Virtual Account', image: require('@/assets/bca.png') },
+      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: require('@/assets/mandiri.png') },
+      { id: 'bni_va', name: 'BNI Virtual Account', image: require('@/assets/bni.png') },
+      { id: 'bri_va', name: 'BRI Virtual Account', image: require('@/assets/bri.png') },
     ]
   },
   {
@@ -39,8 +39,8 @@ const PAYMENT_GROUPS = [
     title: 'Gerai Retail',
     icon: 'storefront-outline',
     items: [
-      { id: 'alfamart', name: 'Alfamart', image: require('../../assets/Alfamart.png') },
-      { id: 'indomaret', name: 'Indomaret', image: require('../../assets/Indomaret.png') },
+      { id: 'alfamart', name: 'Alfamart', image: require('@/assets/Alfamart.png') },
+      { id: 'indomaret', name: 'Indomaret', image: require('@/assets/Indomaret.png') },
     ]
   }
 ];
@@ -105,7 +105,7 @@ export default function TopupScreen() {
         return;
       }
 
-      const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/create', {
+      const response = await fetch('http://10.0.2.2:3000/api/topup/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,6 +115,16 @@ export default function TopupScreen() {
         }),
       });
 
+      // const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/create', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     therapist_id: profile?.id,
+      //     amount: rawAmount + ADMIN_FEE,
+      //     payment_method: selectedMethod,
+      //   }),
+      // });
+      
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
@@ -244,7 +254,7 @@ export default function TopupScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.lg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.lg },
   backBtn: { padding: 4 },
   headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg },
@@ -281,3 +291,4 @@ const getStyles = (t: any) => StyleSheet.create({
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: RADIUS.full, shadowColor: t.secondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
 });
+

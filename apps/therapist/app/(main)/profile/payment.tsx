@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useThemeColors, useThemeStore } from '../../store/themeStore';
-import { useTherapistStore } from '../../store/therapistStore';
-import { useAlert } from '../../components/CustomAlert';
+import { useThemeColors, useThemeStore } from '@/store/themeStore';
+import { useTherapistStore } from '@/store/therapistStore';
+import { useAlert } from '@/components/CustomAlert';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SPACING, RADIUS, TYPOGRAPHY } from '../../constants/Theme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 export default function PaymentMethodScreen() {
   const t = useThemeColors();
@@ -189,7 +189,7 @@ export default function PaymentMethodScreen() {
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
-  header: { paddingHorizontal: SPACING.lg, paddingTop: 56, paddingBottom: SPACING.xl },
+  header: { paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.xl },
   backBtn: { marginBottom: SPACING.md },
   title: { ...TYPOGRAPHY.h2, color: t.text, marginBottom: 4 },
   subtitle: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
@@ -258,3 +258,4 @@ const getStyles = (t: any) => StyleSheet.create({
   securityGradient: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 16, alignItems: 'center' },
   securityText: { flex: 1, fontSize: 11, color: t.textSecondary, lineHeight: 18 },
 });
+
