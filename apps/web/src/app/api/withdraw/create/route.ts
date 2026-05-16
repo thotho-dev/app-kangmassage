@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
         .eq('id', withdrawal.id);
 
       return NextResponse.json({ 
-        error: irisData.errorMessage || irisData.message || 'Gagal memproses penarikan di Midtrans',
+        error: `Midtrans Error (${response.status}): ${irisData.errorMessage || irisData.message || 'Gagal memproses penarikan'}`,
         debug_step: debugStep,
         details: irisData
       }, { status: 400 });
