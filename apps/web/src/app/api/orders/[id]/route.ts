@@ -157,6 +157,37 @@ export async function PATCH(
       }
     }
 
+    // 3. Handle REFUND if cancelled and payment was via saldo
+    if (status === 'cancelled' && currentOrder.payment_method === 'saldo') {
+      const { data: user } = await supabase
+        .from('users')
+        .select('wallet_balance')
+        .eq('id', currentOrder.user_id)
+        .single();
+      
+      if (user) {
+        const refundAmount = currentOrder.total_price;
+        const newBalance = (user.wallet_balance || 0) + refundAmount;
+        
+        // Update user balance
+        await supabase
+          .from('users')
+          .update({ wallet_balance: newBalance })
+          .eq('id', currentOrder.user_id);
+        
+        // Log refund transaction
+        await supabase.from('transactions').insert({
+          user_id: currentOrder.user_id,
+          order_id: currentOrder.id,
+          type: 'credit',
+          amount: refundAmount,
+          balance_before: user.wallet_balance,
+          balance_after: newBalance,
+          description: `Refund pembatalan pesanan ${currentOrder.order_number}`,
+        });
+      }
+    }
+
     return NextResponse.json({ data });
   } catch (err) {
     console.error(err);
