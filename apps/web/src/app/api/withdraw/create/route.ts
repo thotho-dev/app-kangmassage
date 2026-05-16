@@ -4,8 +4,8 @@ import { createAdminClient } from '@/lib/supabase/server';
 const MIDTRANS_IRIS_API_KEY = process.env.MIDTRANS_IRIS_API_KEY || process.env.MIDTRANS_SERVER_KEY;
 const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 const IRIS_BASE_URL = MIDTRANS_IS_PRODUCTION 
-  ? 'https://api.midtrans.com/iris/api/v1' 
-  : 'https://api.sandbox.midtrans.com/iris/api/v1';
+  ? 'https://app.midtrans.com/iris/api/v1' 
+  : 'https://app.sandbox.midtrans.com/iris/api/v1';
 
 export async function POST(req: NextRequest) {
   let debugStep = 'INIT';
@@ -145,10 +145,12 @@ export async function POST(req: NextRequest) {
     });
 
     let irisData;
+    const responseText = await response.text();
     try {
-      irisData = await response.json();
+      irisData = JSON.parse(responseText);
     } catch (e) {
-      irisData = { message: 'Failed to parse Midtrans response' };
+      console.error('[Withdraw Debug] Midtrans non-JSON response:', responseText);
+      irisData = { message: 'Failed to parse Midtrans response', raw: responseText.slice(0, 500) };
     }
 
     if (response.status >= 300) {
