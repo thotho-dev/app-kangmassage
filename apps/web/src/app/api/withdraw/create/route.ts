@@ -106,7 +106,29 @@ export async function POST(req: NextRequest) {
 
     if (transError) console.error('[Withdraw Debug] Transaction Log Error:', transError);
 
+    debugStep = 'CHECK_WITHDRAW_MODE';
+    // Use manual mode if Iris key is missing or explicitly set to manual
+    const isManualMode = !process.env.MIDTRANS_IRIS_API_KEY || process.env.WITHDRAW_MODE === 'manual';
+
+    if (isManualMode) {
+      console.log('[Withdraw Debug] Manual Mode Active: Skipping Midtrans Iris call.');
+      
+      await supabase
+        .from('therapist_withdrawals')
+        .update({ 
+          payment_data: { mode: 'manual', note: 'Processed manually (Iris not active)' } 
+        })
+        .eq('id', withdrawal.id);
+
+      return NextResponse.json({ 
+        status: 'success',
+        message: 'Permintaan penarikan telah diterima dan akan diproses secara manual oleh admin.',
+        mode: 'manual'
+      });
+    }
+
     debugStep = 'PREPARE_MIDTRANS_PAYLOAD';
+    // ... (rest of the Midtrans Iris logic)
     const authString = Buffer.from(`${MIDTRANS_IRIS_API_KEY}:`).toString('base64');
     
     const bankMapping: Record<string, string> = {
