@@ -157,8 +157,16 @@ export async function PATCH(
       }
     }
 
-    // 3. Handle REFUND if cancelled and payment was via saldo
-    if (status === 'cancelled' && currentOrder.payment_method === 'saldo') {
+    // 3. Handle REFUND if cancelled
+    // Refund applies if:
+    // a. Payment method was 'saldo' (already deducted at start)
+    // b. Payment status is 'paid' (already paid via Midtrans but cancelled)
+    const shouldRefund = status === 'cancelled' && (
+      currentOrder.payment_method === 'saldo' || 
+      currentOrder.payment_status === 'paid'
+    );
+
+    if (shouldRefund) {
       const { data: user } = await supabase
         .from('users')
         .select('wallet_balance')
@@ -183,7 +191,7 @@ export async function PATCH(
           amount: refundAmount,
           balance_before: user.wallet_balance,
           balance_after: newBalance,
-          description: `Refund pembatalan pesanan ${currentOrder.order_number}`,
+          description: `Refund pembatalan pesanan ${currentOrder.order_number} (${currentOrder.payment_method})`,
         });
       }
     }
