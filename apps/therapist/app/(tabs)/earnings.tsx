@@ -97,8 +97,10 @@ export default function EarningsScreen() {
       }
     });
 
-    // Komisi adalah 20% dari total bruto
-    const commission = gross * 0.2;
+    // Komisi (Potongan Platform)
+    const therapistRate = profile?.commission_rate || 80;
+    const commissionRate = (100 - therapistRate) / 100;
+    const commission = gross * commissionRate;
     const net = gross - commission;
 
     setSummary({

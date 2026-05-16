@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/components/CustomAlert';
 
 interface Withdrawal {
   id: string;
@@ -23,6 +24,7 @@ export default function WithdrawHistoryScreen() {
   const styles = getStyles(t);
   const router = useRouter();
   const { profile } = useTherapistStore();
+  const { showAlert, AlertComponent } = useAlert();
 
   const [history, setHistory] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +89,61 @@ export default function WithdrawHistoryScreen() {
     });
   };
 
+  const handleCancel = async (item: Withdrawal) => {
+    if (item.status !== 'pending') return;
+
+    showAlert('warning', 'Batalkan Penarikan?', 'Saldo akan dikembalikan ke dompet Anda.', [
+      { text: 'Tidak', style: 'cancel' },
+      { 
+        text: 'Ya, Batalkan', 
+        style: 'destructive',
+        onPress: async () => {
+          setLoading(true);
+          try {
+            // 1. Update Withdrawal Status
+            const { error: wdError } = await supabase
+              .from('therapist_withdrawals')
+              .update({ status: 'failed', payment_data: { reason: 'Cancelled by therapist' } })
+              .eq('id', item.id);
+
+            if (wdError) throw wdError;
+
+            // 2. Refund Balance
+            const currentBalance = Number(profile?.wallet_balance) || 0;
+            const refundAmount = Number(item.amount) + Number(item.fee);
+            const newBalance = currentBalance + refundAmount;
+
+            const { error: tError } = await supabase
+              .from('therapists')
+              .update({ wallet_balance: newBalance })
+              .eq('id', profile?.id);
+
+            if (tError) throw tError;
+
+            // 3. Create Transaction Record
+            await supabase.from('transactions').insert({
+              therapist_id: profile?.id,
+              type: 'credit',
+              amount: refundAmount,
+              balance_before: currentBalance,
+              balance_after: newBalance,
+              description: `Batal: Penarikan Saldo (${item.bank_name})`,
+              metadata: { withdrawal_id: item.id, type: 'cancellation' }
+            });
+
+            showAlert('success', 'Berhasil', 'Penarikan telah dibatalkan dan saldo dikembalikan.');
+            fetchHistory();
+            useTherapistStore.getState().fetchProfile(); // Refresh global balance
+          } catch (error: any) {
+            showAlert('error', 'Gagal', error.message || 'Terjadi kesalahan saat membatalkan');
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+    ]);
+  };
+
   const renderItem = ({ item }: { item: Withdrawal }) => (
     <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
       <View style={styles.cardHeader}>
@@ -109,17 +166,29 @@ export default function WithdrawHistoryScreen() {
       <View style={styles.cardDivider} />
       
       <View style={styles.cardFooter}>
-        <View style={styles.infoRow}>
-          <Ionicons name="business-outline" size={14} color={t.textMuted} />
-          <Text style={[styles.infoText, { color: t.textSecondary }]}>{item.bank_name} • {item.account_number}</Text>
+        <View style={{ flex: 1 }}>
+          <View style={styles.infoRow}>
+            <Ionicons name="business-outline" size={14} color={t.textMuted} />
+            <Text style={[styles.infoText, { color: t.textSecondary }]}>{item.bank_name} • {item.account_number}</Text>
+          </View>
+          <Text style={[styles.refText, { color: t.textMuted }]}>Ref: {item.external_id}</Text>
         </View>
-        <Text style={[styles.refText, { color: t.textMuted }]}>Ref: {item.external_id}</Text>
+        
+        {item.status === 'pending' && (
+          <TouchableOpacity 
+            style={styles.cancelActionBtn} 
+            onPress={() => handleCancel(item)}
+          >
+            <Text style={styles.cancelActionText}>Batalkan</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: t.background }]}>
+      {AlertComponent}
       <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={t.text} />
@@ -187,5 +256,19 @@ const getStyles = (t: any) => StyleSheet.create({
   emptyIcon: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   emptyTitle: { ...TYPOGRAPHY.h3, fontFamily: 'Inter_700Bold', marginBottom: 8 },
   emptyDesc: { ...TYPOGRAPHY.bodySmall, textAlign: 'center', lineHeight: 20 },
+
+  cancelActionBtn: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelActionText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+  },
 });
 

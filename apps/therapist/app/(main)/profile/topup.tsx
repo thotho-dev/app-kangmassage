@@ -105,7 +105,7 @@ export default function TopupScreen() {
         return;
       }
 
-      const response = await fetch('http://10.0.2.2:3000/api/topup/create', {
+      const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,15 +115,6 @@ export default function TopupScreen() {
         }),
       });
 
-      // const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/create', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     therapist_id: profile?.id,
-      //     amount: rawAmount + ADMIN_FEE,
-      //     payment_method: selectedMethod,
-      //   }),
-      // });
       
       const result = await response.json();
       if (result.error) throw new Error(result.error);

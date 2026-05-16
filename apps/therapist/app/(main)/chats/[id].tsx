@@ -62,7 +62,7 @@ export default function ChatDetailScreen() {
     try {
       const { data, error } = await supabase
         .from('conversations')
-        .select('*, users (full_name, avatar_url)')
+        .select('*, users (full_name, avatar_url, phone)')
         .eq('id', conversationId)
         .single();
       if (error) throw error;
@@ -212,7 +212,14 @@ export default function ChatDetailScreen() {
                 <Text style={[styles.headerStatus, { color: t.success }]}>Online</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.headerAction}>
+            <TouchableOpacity 
+              style={[styles.headerAction, !hasActiveOrder && { opacity: 0.3 }]}
+              onPress={() => {
+                if (!hasActiveOrder) return;
+                if (conversation?.users?.phone) Linking.openURL(`tel:${conversation.users.phone}`);
+              }}
+              disabled={!hasActiveOrder}
+            >
               <Ionicons name="call-outline" size={22} color={t.text} />
             </TouchableOpacity>
           </View>

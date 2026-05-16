@@ -8,8 +8,11 @@ const IRIS_BASE_URL = MIDTRANS_IS_PRODUCTION
   : 'https://api.sandbox.midtrans.com/iris/api/v1';
 
 export async function POST(req: NextRequest) {
+  let debugStep = 'INIT';
   try {
+    debugStep = 'PARSE_JSON';
     const { therapist_id, amount } = await req.json();
+    console.log(`[Withdraw Debug] therapist_id: ${therapist_id}, amount: ${amount}`);
 
     if (!therapist_id || !amount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -19,36 +22,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Minimal penarikan adalah Rp 50.000' }, { status: 400 });
     }
 
+    debugStep = 'CREATE_SUPABASE_CLIENT';
     const supabase = createAdminClient();
 
-    // 1. Get Therapist Data & Validate Balance
+    debugStep = 'FETCH_THERAPIST';
     const { data: therapist, error: tError } = await supabase
       .from('therapists')
       .select('*')
       .eq('id', therapist_id)
       .single();
 
-    if (tError || !therapist) return NextResponse.json({ error: 'Therapist not found' }, { status: 404 });
+    if (tError) {
+      console.error('[Withdraw Debug] Therapist Fetch Error:', tError);
+      return NextResponse.json({ error: `Therapist not found: ${tError.message}`, debug_step: debugStep }, { status: 404 });
+    }
+    
+    if (!therapist) return NextResponse.json({ error: 'Therapist not found', debug_step: debugStep }, { status: 404 });
 
+    debugStep = 'VALIDATE_BALANCE';
     if (therapist.wallet_balance < amount) {
-      return NextResponse.json({ error: 'Saldo tidak mencukupi' }, { status: 400 });
+      return NextResponse.json({ error: 'Saldo tidak mencukupi', debug_step: debugStep }, { status: 400 });
     }
 
+    debugStep = 'VALIDATE_BANK';
     if (!therapist.bank_name || !therapist.bank_account_number) {
-      return NextResponse.json({ error: 'Informasi bank belum lengkap' }, { status: 400 });
+      return NextResponse.json({ error: 'Informasi bank belum lengkap', debug_step: debugStep }, { status: 400 });
     }
 
     const external_id = `WD-${Date.now()}-${therapist.id.slice(0, 8)}`;
-    const WITHDRAW_FEE = 5000; // Fixed fee for payout
-    const totalDeduction = amount; // User input is what they want to withdraw (including fee)
-    // Or user wants to get 'amount' and we add fee? Usually we deduct fee from the amount.
+    const WITHDRAW_FEE = 5000;
+    const totalDeduction = amount;
     const payoutAmount = amount - WITHDRAW_FEE;
 
     if (payoutAmount <= 0) {
-      return NextResponse.json({ error: 'Nominal terlalu kecil setelah dipotong biaya admin' }, { status: 400 });
+      return NextResponse.json({ error: 'Nominal terlalu kecil setelah dipotong biaya admin', debug_step: debugStep }, { status: 400 });
     }
 
-    // 2. Create Withdrawal Record (Pending)
+    debugStep = 'INSERT_WITHDRAWAL_RECORD';
     const { data: withdrawal, error: wdError } = await supabase
       .from('therapist_withdrawals')
       .insert([{
@@ -64,20 +74,41 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (wdError) throw wdError;
+    if (wdError) {
+      console.error('[Withdraw Debug] Withdrawal Insert Error:', wdError);
+      throw new Error(`Gagal mencatat data penarikan: ${wdError.message}`);
+    }
 
-    // 3. Deduct Balance from Therapist (Pending status)
+    debugStep = 'UPDATE_BALANCE';
     const { error: updateError } = await supabase
       .from('therapists')
       .update({ wallet_balance: therapist.wallet_balance - totalDeduction })
       .eq('id', therapist_id);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('[Withdraw Debug] Balance Update Error:', updateError);
+      throw new Error(`Gagal update saldo: ${updateError.message}`);
+    }
+    
+    debugStep = 'CREATE_TRANSACTION';
+    const { error: transError } = await supabase
+      .from('transactions')
+      .insert([{
+        therapist_id,
+        type: 'debit',
+        amount: totalDeduction,
+        balance_before: therapist.wallet_balance,
+        balance_after: therapist.wallet_balance - totalDeduction,
+        description: `Penarikan Saldo (${therapist.bank_name})`,
+        reference_id: external_id,
+        metadata: { withdrawal_id: withdrawal.id }
+      }]);
 
-    // 4. Call Midtrans Iris API (Create Payout)
+    if (transError) console.error('[Withdraw Debug] Transaction Log Error:', transError);
+
+    debugStep = 'PREPARE_MIDTRANS_PAYLOAD';
     const authString = Buffer.from(`${MIDTRANS_IRIS_API_KEY}:`).toString('base64');
     
-    // Bank mapping for Iris (common banks)
     const bankMapping: Record<string, string> = {
       'bca': 'bca',
       'mandiri': 'mandiri',
@@ -101,6 +132,7 @@ export async function POST(req: NextRequest) {
       ]
     };
 
+    debugStep = 'CALL_MIDTRANS_IRIS';
     const response = await fetch(`${IRIS_BASE_URL}/payouts`, {
       method: 'POST',
       headers: {
@@ -112,12 +144,17 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(payload),
     });
 
-    const irisData = await response.json();
+    let irisData;
+    try {
+      irisData = await response.json();
+    } catch (e) {
+      irisData = { message: 'Failed to parse Midtrans response' };
+    }
 
-    if (response.status !== 201) {
-      console.error('Iris Payout Error:', irisData);
+    if (response.status >= 300) {
+      console.error('[Withdraw Debug] Iris Payout Error:', irisData);
       
-      // REVERT BALANCE if failed immediately
+      debugStep = 'REVERT_BALANCE_ON_IRIS_FAILURE';
       await supabase
         .from('therapists')
         .update({ wallet_balance: therapist.wallet_balance })
@@ -128,10 +165,14 @@ export async function POST(req: NextRequest) {
         .update({ status: 'failed', payment_data: irisData })
         .eq('id', withdrawal.id);
 
-      return NextResponse.json({ error: irisData.errorMessage || 'Gagal memproses penarikan' }, { status: 400 });
+      return NextResponse.json({ 
+        error: irisData.errorMessage || irisData.message || 'Gagal memproses penarikan di Midtrans',
+        debug_step: debugStep,
+        details: irisData
+      }, { status: 400 });
     }
 
-    // 5. Update Withdrawal Record with Iris Data
+    debugStep = 'FINAL_UPDATE_WITH_IRIS_DATA';
     await supabase
       .from('therapist_withdrawals')
       .update({ payment_data: irisData })
@@ -144,7 +185,11 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Withdraw API Error:', error.message);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error(`[Withdraw Debug Error at ${debugStep}]`, error);
+    return NextResponse.json({ 
+      error: error.message || 'Internal server error',
+      debug_step: debugStep,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    }, { status: 500 });
   }
 }

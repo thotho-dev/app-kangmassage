@@ -31,6 +31,7 @@ interface TherapistProfile {
   bank_name?: string;
   bank_account_number?: string;
   bank_account_name?: string;
+  commission_rate?: number;
 }
 
 interface TherapistState {
