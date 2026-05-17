@@ -12,6 +12,7 @@ interface Profile {
   wallet_balance?: number;
   points?: number;
   cashback?: number;
+  cashback_balance?: number;
   total_orders?: number;
 }
 

@@ -149,7 +149,7 @@ export default function DashboardScreen() {
 
       const { data: todayData, error: todayError } = await supabase
         .from('orders')
-        .select('total_price, status, created_at, duration')
+        .select('total_price, service_price, service_fee, status, created_at, duration')
         .eq('therapist_id', profile.id)
         .gte('created_at', startOfDay.toISOString());
 
@@ -157,10 +157,12 @@ export default function DashboardScreen() {
 
       const completedToday = todayData ? todayData.filter(o => o.status === 'completed') : [];
       
-      // Calculate NET earnings (80% share for therapist by default)
+      // Calculate NET earnings (Subtract service_fee first, then apply commission)
       const earnings = completedToday.reduce((sum, o) => {
         const rate = profile.commission_rate || 80;
-        const share = ((o.total_price || 0) * rate) / 100;
+        // Therapist commission is based on Normal Price (service_price)
+        const servicePrice = Number(o.service_price) || (Number(o.total_price) - (Number(o.service_fee) || 0));
+        const share = (servicePrice * rate) / 100;
         return sum + share;
       }, 0);
 
@@ -387,7 +389,7 @@ export default function DashboardScreen() {
                     <Text style={styles.orderMetaText}>{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</Text>
                   </View>
                   <Text style={[styles.orderPrice, { color: t.text }]}>
-                    Rp {(order.total_price || 0).toLocaleString('id-ID')}
+                    Rp {(order.service_price || order.total_price || 0).toLocaleString('id-ID')}
                   </Text>
                 </View>
               </View>

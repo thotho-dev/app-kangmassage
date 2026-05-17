@@ -42,6 +42,8 @@ export default function EarningsScreen() {
             id,
             order_number,
             total_price,
+            service_price,
+            service_fee,
             users (full_name),
             services (name)
           )
@@ -91,8 +93,9 @@ export default function EarningsScreen() {
         const orderInfo = Array.isArray(t.orders) ? t.orders[0] : t.orders;
         
         if (orderInfo) {
-          const price = Number(orderInfo.total_price) || 0;
-          gross += price;
+          // Therapist earnings base should be Normal Price (service_price)
+          const servicePrice = Number(orderInfo.service_price) || (Number(orderInfo.total_price) - (Number(orderInfo.service_fee) || 0));
+          gross += servicePrice;
         }
       }
     });

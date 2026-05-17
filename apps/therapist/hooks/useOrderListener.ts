@@ -77,6 +77,23 @@ export const useOrderListener = () => {
                return;
              }
 
+             // Check Skills (Keahlian)
+             const { data: svcData } = await supabase.from('services').select('name, category_slug').eq('id', newOrder.service_id).single();
+             if (svcData) {
+               const reqSkill = svcData.category_slug || svcData.name;
+               const therapistSkills: string[] = profile.specializations || [];
+               
+               const checkSkill = (skill: string) => therapistSkills.some(ts => ts.toLowerCase() === skill.toLowerCase());
+               const hasSkill = Array.isArray(reqSkill) 
+                 ? reqSkill.some(s => checkSkill(s))
+                 : checkSkill(reqSkill);
+                 
+               if (!hasSkill) {
+                 console.log(`[DEBUG OrderListener] GAGAL: Tidak memiliki skill untuk layanan ${svcData.name}`);
+                 return;
+               }
+             }
+
              // Check Gender Preference
 
              // Check Gender Preference

@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert, ActivityIndicator, BackHandler } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert, ActivityIndicator, BackHandler, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import CustomDateTimePicker from '@/components/ui/CustomDateTimePicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { 
-  ChevronLeft, 
-  MapPin, 
-  Map, 
-  Clock, 
-  Calendar, 
-  User, 
+import {
+  ChevronLeft,
+  MapPin,
+  Map,
+  Clock,
+  Calendar,
+  User,
   ChevronRight,
   ChevronDown,
   ChevronUp,
@@ -83,7 +84,7 @@ export default function OrderScreen() {
       setTherapistGender(therapist.gender);
     }
   }, [therapist]);
-  
+
   const allServices = servicesData || SERVICES;
   const initialService = allServices.find(s => s.id === serviceId) || allServices[0];
   const { address, setAddress, coords } = useLocation();
@@ -104,10 +105,10 @@ export default function OrderScreen() {
     }
     // Fallback if no options in DB
     return [
-      { 
-        label: initialService.price_type === 'treatment' ? '1 Treatment' : `${initialService.duration_min || parseInt(initialService.duration) || 0} Menit`, 
-        value: initialService.duration_min || parseInt(initialService.duration) || 0, 
-        price: initialService.base_price || initialService.price || 0 
+      {
+        label: initialService.price_type === 'treatment' ? '1 Treatment' : `${initialService.duration_min || parseInt(initialService.duration) || 0} Menit`,
+        value: initialService.duration_min || parseInt(initialService.duration) || 0,
+        price: initialService.base_price || initialService.price || 0
       }
     ];
   }, [initialService]);
@@ -129,15 +130,15 @@ export default function OrderScreen() {
       if (therapist && initialService) {
         const requiredSkill = initialService.category_slug || initialService.name;
         const therapistSkills: string[] = therapist.specializations || [];
-        
+
         // Handle both string and array for requiredSkill
-        const checkSkill = (skill: string) => 
+        const checkSkill = (skill: string) =>
           therapistSkills.some(ts => ts.toLowerCase() === skill.toLowerCase());
 
         const hasSkill = Array.isArray(requiredSkill)
           ? requiredSkill.some(s => checkSkill(s))
           : checkSkill(requiredSkill);
-        
+
         if (!hasSkill) {
           Alert.alert(
             'Keahlian Tidak Cocok',
@@ -159,8 +160,19 @@ export default function OrderScreen() {
   const [voucherCode, setVoucherCode] = useState((initialVoucherCode as string) || '');
   const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [useCashback, setUseCashback] = useState(false);
+  const SERVICE_FEE = 0;
   const isCashback = appliedVoucher?.is_cashback === true;
-  const finalPrice = isCashback ? totalPrice : Math.max(0, totalPrice - discountAmount);
+  
+  // Perhitungan Cashback 70%
+  const userCashbackBalance = profile?.cashback_balance || 0;
+  const maxCashbackCanUse = Math.floor(userCashbackBalance * 0.7);
+  
+  let finalPrice = (isCashback ? totalPrice : Math.max(0, totalPrice - discountAmount)) + SERVICE_FEE;
+  
+  // Potong Cashback jika diaktifkan (Hanya untuk pembayaran Saldo)
+  const cashbackToDeduct = (useCashback && paymentMethod === 'saldo') ? Math.min(finalPrice, maxCashbackCanUse) : 0;
+  finalPrice = finalPrice - cashbackToDeduct;
 
   // Auto-select payment method based on balance
   React.useEffect(() => {
@@ -185,11 +197,11 @@ export default function OrderScreen() {
   const checkVoucher = async (codeOverride?: string, silent: boolean = false) => {
     const codeToUse = codeOverride || voucherCode;
     if (!codeToUse) return;
-    
+
     // Prevent repeated alerts for the same code if it's already been checked
     if (silent && lastCheckedCode.current === codeToUse.toUpperCase()) return;
     lastCheckedCode.current = codeToUse.toUpperCase();
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -226,7 +238,7 @@ export default function OrderScreen() {
       // Validasi Usage Limit Per User
       const limitPerUser = Number(data.user_limit) || 1;
       console.log('[DEBUG Voucher] Checking manual usage for User:', profile?.id, 'Voucher ID:', data.id);
-      
+
       const { data: usageData, error: usageError } = await supabase
         .from('voucher_usages')
         .select('id')
@@ -255,10 +267,10 @@ export default function OrderScreen() {
       if (data.category === 'happy_hour' && data.start_time && data.end_time) {
         const now = new Date();
         const currentTime = now.getHours() * 60 + now.getMinutes();
-        
+
         const [startH, startM] = data.start_time.split(':').map(Number);
         const [endH, endM] = data.end_time.split(':').map(Number);
-        
+
         const startTime = startH * 60 + startM;
         const endTime = endH * 60 + endM;
 
@@ -280,10 +292,10 @@ export default function OrderScreen() {
             .replace(/adm\.\s+/g, '')
             .replace(/jakarta\s+/g, 'jakarta ')
             .trim();
-          
+
           return addressLower.includes(cleanTarget);
         });
-        
+
         if (!isCovered) {
           if (!silent) Alert.alert('Area Tidak Sesuai', `Voucher ini hanya berlaku untuk wilayah: ${data.area_names.join(', ')}.`);
           return;
@@ -334,7 +346,7 @@ export default function OrderScreen() {
 
   const autoApplyBestVoucher = async () => {
     if (appliedVoucher) return; // Don't override if already applied from params
-    
+
     try {
       const { data: vouchers, error } = await supabase
         .from('vouchers')
@@ -353,7 +365,7 @@ export default function OrderScreen() {
         if (totalPrice < v.min_order_amount) continue;
         if (v.usage_limit && v.usage_count >= v.usage_limit) continue;
         if (v.category === 'service' && v.service_id && v.service_id !== serviceId) continue;
-        
+
         // Validasi Happy Hour (Auto Apply)
         if (v.category === 'happy_hour' && v.start_time && v.end_time) {
           const now = new Date();
@@ -364,7 +376,7 @@ export default function OrderScreen() {
           const endTime = endH * 60 + endM;
           if (currentTime < startTime || currentTime > endTime) continue;
         }
-        
+
         // Validasi Lokasi (Auto Apply - Berlaku untuk semua kategori)
         if (v.area_names && Array.isArray(v.area_names) && v.area_names.length > 0 && address) {
           const addressLower = address.toLowerCase();
@@ -379,7 +391,7 @@ export default function OrderScreen() {
           });
           if (!isCovered) continue;
         }
-        
+
         // Validasi Pengguna Baru (Auto Apply)
         if (v.category === 'new_user') {
           const orderCount = profile?.total_orders || 0;
@@ -410,14 +422,14 @@ export default function OrderScreen() {
           .select('id')
           .eq('voucher_id', v.id)
           .eq('user_id', profile?.id);
-        
+
         if (usageError) {
           console.error('[DEBUG Voucher] Auto-Apply Usage Query Error:', usageError.message);
         }
-        
+
         const userUsageCount = usageData?.length || 0;
         const limitPerUser = Number(v.user_limit) || 1;
-        
+
         if (userUsageCount >= limitPerUser) {
           console.log('[DEBUG Voucher] User reached limit for:', v.code);
           continue;
@@ -534,12 +546,16 @@ export default function OrderScreen() {
     setLoading(true);
     try {
       // 1. Create Order
+      const earnedCashback = isCashback ? discountAmount : 0;
+      const usedCashback = (paymentMethod === 'saldo' && useCashback) ? (cashbackToDeduct || 0) : 0;
+
       const orderData = {
         user_id: profile?.id,
         service_id: initialService.id,
         duration: selectedDuration.value,
         status: 'pending',
         service_price: selectedDuration.price,
+        service_fee: SERVICE_FEE,
         total_price: finalPrice,
         discount_amount: discountAmount,
         voucher_id: appliedVoucher?.id || null,
@@ -553,7 +569,9 @@ export default function OrderScreen() {
         therapist_id: therapistId || null,
         user_gender: userGender,
         therapist_preference: therapistGender,
-        order_number: `ORD-${Math.floor(100000 + Math.random() * 900000)}`
+        order_number: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
+        used_cashback: usedCashback,
+        earned_cashback: earnedCashback
       };
 
       const { data: order, error: orderError } = await supabase
@@ -563,7 +581,7 @@ export default function OrderScreen() {
         .single();
 
       if (orderError) throw orderError;
-      
+
       // 1.5. Record Voucher Usage
       if (appliedVoucher && profile?.id) {
         console.log('[DEBUG Voucher] Recording usage for:', appliedVoucher.code, 'User:', profile.id);
@@ -572,44 +590,66 @@ export default function OrderScreen() {
           voucher_id: appliedVoucher.id,
           order_id: order.id
         });
-        
+
         if (vUseErr) {
           console.error('[DEBUG Voucher] CRITICAL: Failed to record usage in voucher_usages:', vUseErr.message, vUseErr.details);
-        } else {
-          console.log('[DEBUG Voucher] SUCCESS: Usage recorded in voucher_usages');
         }
-        
-        // Update global usage count
+
         const { error: vUpdateErr } = await supabase
           .from('vouchers')
           .update({ usage_count: (Number(appliedVoucher.usage_count) || 0) + 1 })
           .eq('id', appliedVoucher.id);
-          
+
         if (vUpdateErr) {
           console.error('[DEBUG Voucher] Failed to increment usage_count in vouchers:', vUpdateErr.message);
         }
       }
 
-      // 2. Handle Payment Based on Method
+      // 2. Handle Balance & Cashback Credit
+      
       if (paymentMethod === 'saldo') {
+        const newWalletBalance = (profile?.wallet_balance || 0) - finalPrice;
+        const newCashbackBalance = (profile?.cashback_balance || 0) - usedCashback + earnedCashback;
+
         const { error: updateError } = await supabase
           .from('users')
-          .update({ wallet_balance: (profile?.wallet_balance || 0) - totalPrice })
+          .update({ 
+            wallet_balance: newWalletBalance,
+            cashback_balance: newCashbackBalance
+          })
           .eq('id', profile?.id);
 
         if (updateError) throw updateError;
+      } else if (earnedCashback > 0) {
+        // Jika bukan saldo tapi dapat cashback voucher
+        await supabase
+          .from('users')
+          .update({ 
+            cashback_balance: (profile?.cashback_balance || 0) + earnedCashback 
+          })
+          .eq('id', profile?.id);
+      }
+
+      // 3. Handle Navigation Based on Method & Therapist Selection
+      if (paymentMethod === 'saldo') {
+        const newWalletBalance = (profile?.wallet_balance || 0) - finalPrice;
 
         await supabase.from('transactions').insert([{
           user_id: profile?.id,
           order_id: order.id,
           amount: -finalPrice,
           balance_before: profile?.wallet_balance || 0,
-          balance_after: (profile?.wallet_balance || 0) - finalPrice,
+          balance_after: newWalletBalance,
           type: 'payment',
           description: `Pembayaran ${initialService.name}`,
         }]);
 
-        router.push({ pathname: '/(main)/tracking', params: { id: order.id } });
+        // Jika memesan dari terapis favorit, langsung tracking. Jika tidak, cari terapis.
+        if (therapistId) {
+          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+        } else {
+          router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
+        }
       } else if (paymentMethod === 'tunai') {
         // Redirect ke halaman mencari terapis jika bukan dari favorit
         if (therapistId) {
@@ -634,9 +674,9 @@ export default function OrderScreen() {
         // Redirect to payment details
         // Gunakan timeout kecil untuk memastikan state update selesai & router siap
         setTimeout(() => {
-          router.push({ 
-            pathname: '/(main)/payment-details', 
-            params: { data: JSON.stringify(result.data), order_id: order.id } 
+          router.push({
+            pathname: '/(main)/payment-details',
+            params: { data: JSON.stringify(result.data), order_id: order.id }
           });
         }, 100);
       }
@@ -652,17 +692,17 @@ export default function OrderScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             if (from === 'services') {
               router.push('/(main)/services');
             } else {
               router.push('/(main)/home');
             }
-          }} 
+          }}
           style={styles.backButton}
         >
           <ChevronLeft size={24} color={TEXT_DARK} />
@@ -672,11 +712,11 @@ export default function OrderScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+
         {/* 1. Selected Service Card */}
         <View style={styles.section}>
           <Card style={styles.serviceCard}>
-            <Image 
+            <Image
               source={{ uri: initialService.image }}
               style={styles.serviceImage}
             />
@@ -693,7 +733,7 @@ export default function OrderScreen() {
           <View style={{ marginTop: 12 }}>
             <View style={styles.noteInputBox}>
               <MessageSquare size={18} color={TEXT_MUTED} style={{ marginTop: 15 }} />
-              <TextInput 
+              <TextInput
                 style={[styles.noteInput, { height: 100, textAlignVertical: 'top', paddingTop: 12 }]}
                 value={serviceNotes}
                 onChangeText={setServiceNotes}
@@ -710,7 +750,7 @@ export default function OrderScreen() {
           <View style={styles.locationContainer}>
             <View style={styles.locationInputBox}>
               <MapPin size={18} color={PURPLE} style={{ marginTop: 20 }} />
-              <TextInput 
+              <TextInput
                 style={[styles.locationInput, { height: 80, textAlignVertical: 'top' }]}
                 value={address}
                 onChangeText={setAddress}
@@ -718,11 +758,11 @@ export default function OrderScreen() {
                 multiline={true}
               />
             </View>
-            <TouchableOpacity 
-              style={styles.fullMapsButton} 
-              onPress={() => router.push({ 
-                pathname: '/(main)/maps', 
-                params: { serviceId: serviceId, from: 'order', sourceFrom: from as string } 
+            <TouchableOpacity
+              style={styles.fullMapsButton}
+              onPress={() => router.push({
+                pathname: '/(main)/maps',
+                params: { serviceId: serviceId, from: 'order', sourceFrom: from as string }
               })}
             >
               <Map size={18} color="#FFFFFF" />
@@ -734,7 +774,7 @@ export default function OrderScreen() {
             <Text style={styles.inputLabel}>Catatan Lokasi (Patokan/Blok/Gang)</Text>
             <View style={styles.noteInputBox}>
               <Info size={18} color={TEXT_MUTED} style={{ marginTop: 15 }} />
-              <TextInput 
+              <TextInput
                 style={[styles.noteInput, { height: 100, textAlignVertical: 'top', paddingTop: 12 }]}
                 value={locationNotes}
                 onChangeText={setLocationNotes}
@@ -752,7 +792,7 @@ export default function OrderScreen() {
           </Text>
           <View style={styles.durationOptionsContainer}>
             {durationOptions.map((option, index) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={`${option.value}-${index}`}
                 style={[
                   styles.durationOptionCard,
@@ -780,14 +820,14 @@ export default function OrderScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Waktu Booking</Text>
           <View style={styles.tabContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.tab, bookingType === 'now' && styles.activeTab]}
               onPress={() => setBookingType('now')}
             >
               <Clock size={16} color={bookingType === 'now' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
               <Text style={[styles.tabText, bookingType === 'now' && styles.activeTabText]}>Sekarang</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.tab, bookingType === 'schedule' && styles.activeTab]}
               onPress={() => setBookingType('schedule')}
             >
@@ -804,7 +844,7 @@ export default function OrderScreen() {
                   {selectedDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.scheduleBtn} onPress={() => showDatePickerModal('time')}>
                 <Clock size={18} color={PURPLE} />
                 <Text style={styles.scheduleBtnText}>
@@ -828,14 +868,14 @@ export default function OrderScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Jenis Kelamin Anda</Text>
           <View style={styles.genderContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.genderBtn, userGender === 'male' && styles.genderBtnActive]}
               onPress={() => setUserGender('male')}
             >
               <User size={16} color={userGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
               <Text style={[styles.genderBtnText, userGender === 'male' && styles.genderBtnTextActive]}>Laki-laki</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.genderBtn, userGender === 'female' && styles.genderBtnActive]}
               onPress={() => setUserGender('female')}
             >
@@ -852,9 +892,9 @@ export default function OrderScreen() {
             <TouchableOpacity><Info size={16} color={TEXT_MUTED} /></TouchableOpacity>
           </View>
           <View style={styles.genderContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.genderBtn, 
+                styles.genderBtn,
                 therapistGender === 'any' && styles.genderBtnActive,
                 !!therapistId && therapistGender !== 'any' && { opacity: 0.3 }
               ]}
@@ -863,9 +903,9 @@ export default function OrderScreen() {
             >
               <Text style={[styles.genderBtnText, therapistGender === 'any' && styles.genderBtnTextActive]}>Mana Saja</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.genderBtn, 
+                styles.genderBtn,
                 therapistGender === 'male' && styles.genderBtnActive,
                 !!therapistId && therapistGender !== 'male' && { opacity: 0.3 }
               ]}
@@ -875,9 +915,9 @@ export default function OrderScreen() {
               <User size={16} color={therapistGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
               <Text style={[styles.genderBtnText, therapistGender === 'male' && styles.genderBtnTextActive]}>Pria</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.genderBtn, 
+                styles.genderBtn,
                 therapistGender === 'female' && styles.genderBtnActive,
                 !!therapistId && therapistGender !== 'female' && { opacity: 0.3 }
               ]}
@@ -893,17 +933,17 @@ export default function OrderScreen() {
         {/* 7. Voucher Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Voucher Promo</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.voucherSelector, appliedVoucher && styles.voucherSelectorActive]}
-            onPress={() => router.push({ 
-              pathname: '/(main)/vouchers', 
-              params: { 
-                from: 'order', 
-                sourceFrom: from as string, 
-                serviceId: serviceId as string, 
+            onPress={() => router.push({
+              pathname: '/(main)/vouchers',
+              params: {
+                from: 'order',
+                sourceFrom: from as string,
+                serviceId: serviceId as string,
                 therapistId: therapistId as string,
                 totalPrice: totalPrice.toString()
-              } 
+              }
             })}
           >
             <View style={styles.voucherLeft}>
@@ -926,7 +966,7 @@ export default function OrderScreen() {
             </View>
             <View style={styles.voucherRight}>
               {appliedVoucher ? (
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={(e) => {
                     e.stopPropagation();
                     setAppliedVoucher(null);
@@ -948,8 +988,8 @@ export default function OrderScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Metode Pembayaran</Text>
           <View style={styles.dropdownContainer}>
-            <TouchableOpacity 
-              style={[styles.paymentSelector, { borderColor: BORDER }]} 
+            <TouchableOpacity
+              style={[styles.paymentSelector, { borderColor: BORDER }]}
               onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
             >
               <View style={styles.paymentIcon}>
@@ -969,11 +1009,11 @@ export default function OrderScreen() {
                     {group.items.map((method) => {
                       const isSaldo = method.id === 'saldo';
                       const isInsufficient = isSaldo && (profile?.wallet_balance || 0) < finalPrice;
-                      
+
                       return (
-                        <TouchableOpacity 
-                          key={method.id} 
-                          style={[styles.paymentItem, isInsufficient && { opacity: 0.5 }]} 
+                        <TouchableOpacity
+                          key={method.id}
+                          style={[styles.paymentItem, isInsufficient && { opacity: 0.5 }]}
                           onPress={() => {
                             if (isInsufficient) {
                               Alert.alert('Saldo Kurang', 'Saldo Anda tidak mencukupi. Silakan top up atau pilih metode lain.');
@@ -987,7 +1027,7 @@ export default function OrderScreen() {
                             <method.icon size={20} color={paymentMethod === method.id ? PURPLE : TEXT_MUTED} />
                             <View style={{ marginLeft: 12 }}>
                               <Text style={[
-                                styles.paymentItemLabel, 
+                                styles.paymentItemLabel,
                                 { color: paymentMethod === method.id ? PURPLE : TEXT_DARK }
                               ]}>
                                 {method.label}
@@ -1011,32 +1051,86 @@ export default function OrderScreen() {
           </View>
         </View>
 
+        {/* 9. Cashback Option (Only for Saldo Payment) */}
+        {paymentMethod === 'saldo' && userCashbackBalance > 0 && (
+          <View style={styles.section}>
+            <View style={[styles.cashbackCard, useCashback && styles.cashbackCardActive]}>
+              <View style={styles.cashbackInfo}>
+                <Ionicons name="gift-outline" size={24} color={useCashback ? '#FFFFFF' : PURPLE} />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={[styles.cashbackTitle, useCashback && { color: '#FFFFFF' }]}>Gunakan Cashback</Text>
+                  <Text style={[styles.cashbackSub, useCashback && { color: 'rgba(255,255,255,0.8)' }]}>
+                    Tersedia Rp {userCashbackBalance.toLocaleString('id-ID')} (Bisa pakai Rp {maxCashbackCanUse.toLocaleString('id-ID')})
+                  </Text>
+                </View>
+                <Switch
+                  value={useCashback}
+                  onValueChange={setUseCashback}
+                  trackColor={{ false: '#CBD5E1', true: 'rgba(255,255,255,0.3)' }}
+                  thumbColor={useCashback ? '#FFFFFF' : '#F4F4F5'}
+                />
+              </View>
+              {useCashback && (
+                <View style={styles.appliedBadge}>
+                  <Text style={styles.appliedBadgeText}>Hemat Rp {cashbackToDeduct.toLocaleString('id-ID')} dari Cashback</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         <View style={{ height: 140 }} />
       </ScrollView>
 
       {/* Footer / Summary */}
       <View style={styles.footer}>
         <View style={styles.priceSummary}>
-          <Text style={styles.totalLabel}>Total Pembayaran</Text>
-          <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+          {/* Breakdown Section */}
+          <View style={styles.breakdownRow}>
+            <Text style={styles.breakdownLabel}>Harga Layanan</Text>
+            <Text style={styles.breakdownValue}>Rp {totalPrice.toLocaleString('id-ID')}</Text>
+          </View>
+
+          <View style={styles.breakdownRow}>
+            <Text style={styles.breakdownLabel}>Biaya Layanan</Text>
+            <Text style={styles.breakdownValue}>Rp {SERVICE_FEE.toLocaleString('id-ID')}</Text>
+          </View>
+
           {discountAmount > 0 && (
-            <Text style={styles.discountLabel}>{isCashback ? 'Cashback' : 'Hemat'} Rp {discountAmount.toLocaleString('id-ID')}</Text>
-          )}
-        </View>
-        <TouchableOpacity 
-          style={[styles.orderButton, loading && { opacity: 0.8 }]} 
-          onPress={handleOrder}
-          disabled={loading}
-        >
-          {loading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <ActivityIndicator color="white" />
-              <Text style={styles.orderButtonText}>Memproses...</Text>
+            <View style={styles.breakdownRow}>
+              <Text style={[styles.breakdownLabel, { color: '#10B981' }]}>{isCashback ? 'Potensi Cashback' : 'Diskon Voucher'}</Text>
+              <Text style={[styles.breakdownValue, { color: '#10B981' }]}>-Rp {discountAmount.toLocaleString('id-ID')}</Text>
             </View>
-          ) : (
-            <Text style={styles.orderButtonText}>Pesan Sekarang</Text>
           )}
-        </TouchableOpacity>
+
+          {cashbackToDeduct > 0 && (
+            <View style={styles.breakdownRow}>
+              <Text style={[styles.breakdownLabel, { color: PURPLE }]}>Potongan Cashback (70%)</Text>
+              <Text style={[styles.breakdownValue, { color: PURPLE }]}>-Rp {cashbackToDeduct.toLocaleString('id-ID')}</Text>
+            </View>
+          )}
+
+          <View style={[styles.divider, { marginVertical: 10, backgroundColor: '#F1F5F9' }]} />
+
+          {/* Total Section */}
+          <View style={styles.totalRow}>
+            <View>
+              <Text style={styles.totalLabel}>Total Pembayaran</Text>
+              <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.orderButton, loading && { opacity: 0.8 }]}
+              onPress={handleOrder}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.orderButtonText}>Pesan Sekarang</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -1439,23 +1533,90 @@ const styles = StyleSheet.create({
     paddingBottom: 35,
     borderTopWidth: 1,
     borderTopColor: BORDER,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  priceSummary: {
+    width: '100%',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    color: TEXT_MUTED,
+    fontFamily: 'Inter-Medium',
+  },
+  breakdownValue: {
+    fontSize: 13,
+    color: TEXT_DARK,
+    fontFamily: 'Inter-SemiBold',
+  },
+  totalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  priceSummary: {
-    flex: 1,
+    marginTop: 5,
   },
   totalLabel: {
     fontSize: 12,
     fontFamily: 'Inter-Medium',
     color: TEXT_MUTED,
-    marginBottom: 4,
   },
   totalPrice: {
-    fontSize: 20,
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: PURPLE,
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+    backgroundColor: '#E2E8F0',
+  },
+  cashbackCard: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  cashbackCardActive: {
+    backgroundColor: PURPLE,
+    borderColor: PURPLE,
+  },
+  cashbackInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cashbackTitle: {
+    fontSize: 15,
     fontFamily: 'Inter-Bold',
     color: TEXT_DARK,
+  },
+  cashbackSub: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED,
+    marginTop: 2,
+  },
+  appliedBadge: {
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  appliedBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
   },
   discountLabel: {
     fontSize: 11,
@@ -1468,6 +1629,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 15,
+    minWidth: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
     elevation: 3,
   },
   orderButtonText: {

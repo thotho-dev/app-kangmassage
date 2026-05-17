@@ -11,9 +11,41 @@ export default function SearchingTherapistScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const spinAnim = useRef(new Animated.Value(0)).current;
   const [order, setOrder] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState(45);
+  const [isTimeout, setIsTimeout] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const startTimer = () => {
+    stopTimer();
+    setTimeLeft(45);
+    setIsTimeout(false);
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        console.log('[DEBUG Timer] Tick:', prev - 1);
+        if (prev <= 1) {
+          stopTimer();
+          setIsTimeout(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   useEffect(() => {
+    if (!id) return;
+
     // 1. Start Pulse Animation
     Animated.loop(
       Animated.sequence([
@@ -32,10 +64,42 @@ export default function SearchingTherapistScreen() {
       ])
     ).start();
 
+    // 1b. Start Floating Ornaments Animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 2500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // 1c. Start Spin Animation
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 20000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+
     // 2. Fetch Initial Data
     fetchOrder();
 
-    // 3. Subscribe to Real-time Changes
+    // 3. Start Timer
+    console.log('[DEBUG Timer] Starting countdown...');
+    startTimer();
+
+    // 4. Subscribe to Real-time Changes
     const channel = supabase
       .channel(`searching_order_${id}`)
       .on('postgres_changes', { 
@@ -46,15 +110,40 @@ export default function SearchingTherapistScreen() {
       }, (payload) => {
         console.log('Order Updated:', payload.new);
         if (payload.new.status === 'accepted') {
+          stopTimer();
           router.replace({ pathname: '/(main)/tracking', params: { id } });
         }
       })
       .subscribe();
 
     return () => {
+      stopTimer();
       supabase.removeChannel(channel);
     };
   }, [id]);
+
+  const handleRetry = async () => {
+    if (retryCount >= 2) {
+      // Jika sudah klik 3x (0, 1, 2), maka batalkan otomatis
+      Alert.alert(
+        'Batas Pencarian Tercapai',
+        'Maaf, sepertinya belum ada terapis yang tersedia saat ini. Silakan coba lagi beberapa saat lagi.',
+        [{ text: 'OK', onPress: handleCancelAction }]
+      );
+      return;
+    }
+
+    setIsTimeout(false);
+    setRetryCount(prev => prev + 1);
+    
+    // Update updated_at agar muncul lagi di broadcast terapis sebagai pesanan baru
+    await supabase
+      .from('orders')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', id);
+    
+    startTimer();
+  };
 
   const fetchOrder = async () => {
     const { data, error } = await supabase
@@ -235,6 +324,54 @@ export default function SearchingTherapistScreen() {
     }
   };
 
+  const handleCancelAction = async () => {
+    setIsTimeout(false);
+    // Atomic update: only if still pending
+    const { data: cancelledOrders, error: updateError } = await supabase
+      .from('orders')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select();
+    
+    if (cancelledOrders && cancelledOrders.length > 0) {
+      const orderData = cancelledOrders[0];
+      
+      // Refund Logic
+      if (orderData.payment_method === 'saldo') {
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('wallet_balance, cashback_balance')
+          .eq('id', orderData.user_id)
+          .single();
+
+        if (userProfile) {
+          const usedCashback = Number(orderData.used_cashback) || 0;
+          const earnedCashback = Number(orderData.earned_cashback) || 0;
+          const paidAmount = Number(orderData.total_price) || 0;
+          
+          if (usedCashback > 0 || earnedCashback > 0) {
+            await supabase
+              .from('users')
+              .update({ 
+                cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
+              })
+              .eq('id', orderData.user_id);
+          }
+        }
+      }
+
+      // Add log entry
+      await supabase.from('order_logs').insert({
+        order_id: id,
+        status: 'cancelled',
+        note: 'Dibatalkan oleh pengguna (Timeout)'
+      });
+    }
+
+    router.replace('/(main)/home');
+  };
+
   const handleCancel = () => {
     Alert.alert(
       'Batalkan Pencarian?',
@@ -244,39 +381,69 @@ export default function SearchingTherapistScreen() {
         { 
           text: 'Ya, Batalkan', 
           style: 'destructive',
-          onPress: async () => {
-            // Atomic update: only if still pending
-            const { data, error } = await supabase
-              .from('orders')
-              .update({ status: 'cancelled' })
-              .eq('id', id)
-              .eq('status', 'pending')
-              .select();
-            
-            if (data && data.length > 0) {
-              // Add log entry
-              await supabase.from('order_logs').insert({
-                order_id: id,
-                status: 'cancelled',
-                note: 'Dibatalkan oleh pengguna'
-              });
-            }
-
-            router.replace('/(main)/home');
-          }
+          onPress: handleCancelAction
         }
       ]
     );
   };
 
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
+
+  const floatY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -20]
+  });
+
+  const floatYReverse = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 20]
+  });
+
+  const ORNAMENTS = [
+    { id: 1, icon: 'leaf-outline', size: 36, top: -30, left: -10, color: '#10B981', rotation: '15deg', reverse: false },
+    { id: 2, icon: 'flower-outline', size: 42, top: -10, right: -30, color: '#EC4899', rotation: '-20deg', reverse: true },
+    { id: 3, icon: 'water-outline', size: 32, bottom: -10, left: -30, color: '#3B82F6', rotation: '45deg', reverse: true },
+    { id: 4, icon: 'sparkles-outline', size: 34, bottom: -40, right: 0, color: '#F59E0B', rotation: '0deg', reverse: false },
+    { id: 5, icon: 'moon-outline', size: 28, top: 70, left: -50, color: '#8B5CF6', rotation: '-15deg', reverse: false },
+    { id: 6, icon: 'body-outline', size: 32, top: 90, right: -50, color: '#F97316', rotation: '10deg', reverse: true },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.animationContainer}>
+          {/* Massage Ornaments */}
+          <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: spin }] }]}>
+            {ORNAMENTS.map((ornament) => (
+              <Animated.View 
+                key={ornament.id}
+                style={{
+                  position: 'absolute',
+                  top: ornament.top,
+                  bottom: ornament.bottom,
+                  left: ornament.left,
+                  right: ornament.right,
+                  transform: [
+                    { rotate: ornament.rotation },
+                    { translateY: ornament.reverse ? floatYReverse : floatY }
+                  ],
+                  opacity: 0.6
+                }}
+              >
+                {/* @ts-ignore */}
+                <Ionicons name={ornament.icon} size={ornament.size} color={ornament.color} />
+              </Animated.View>
+            ))}
+          </Animated.View>
+
           {/* @ts-ignore */}
           <Animated.View style={[styles.pulse, { transform: [{ scale: pulseAnim }], opacity: 0.3 }]} />
           {/* @ts-ignore */}
           <Animated.View style={[styles.pulse, { transform: [{ scale: Animated.multiply(pulseAnim, 0.7) }], opacity: 0.5 }]} />
+          
           <View style={styles.iconCircle}>
             <Image
               source={require('../../assets/logo-kang-massage.png')}
@@ -291,14 +458,55 @@ export default function SearchingTherapistScreen() {
         </Text>
 
         <View style={styles.infoCard}>
-          <Text style={styles.infoLabel}>Estimasi Waktu Tunggu</Text>
-          <Text style={styles.infoValue}>1 - 5 Menit</Text>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Mencari Mitra Terdekat</Text>
+            <Text style={styles.infoValue}>{timeLeft}s</Text>
+          </View>
+          <View style={styles.retryBadge}>
+            <Text style={styles.retryBadgeText}>Percobaan {retryCount + 1}/3</Text>
+          </View>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-        <Text style={styles.cancelText}>Batalkan Pesanan</Text>
-      </TouchableOpacity>
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+          <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+          <Text style={styles.cancelText}>Batalkan Pesanan</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Timeout Popup Modal */}
+      {isTimeout && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.warningIcon}>
+                <Ionicons name="time" size={32} color="#F59E0B" />
+              </View>
+              <Text style={styles.modalTitle}>Waktu Habis</Text>
+              <Text style={styles.modalSub}>
+                Maaf, belum ada terapis yang tersedia di area Anda saat ini.
+              </Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.retryBtn]} 
+                onPress={handleRetry}
+              >
+                <Text style={styles.retryBtnText}>Cari Ulang</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.modalCancelBtn]} 
+                onPress={handleCancelAction}
+              >
+                <Text style={styles.modalCancelText}>Batalkan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -342,9 +550,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
+    fontFamily: 'Inter-Bold',
     color: PURPLE,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
@@ -352,36 +560,154 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
+    fontFamily: 'Inter-Medium',
   },
   infoCard: {
     marginTop: 40,
     backgroundColor: 'white',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 20,
+    padding: 20,
+    borderRadius: 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    width: '90%',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  infoItem: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
+  dividerVertical: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E2E8F0',
   },
   infoLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 4,
+    fontSize: 13,
+    color: '#94A3B8',
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   infoValue: {
-    fontSize: 18,
-    color: PURPLE,
-    fontWeight: '700',
+    fontSize: 36,
+    color: '#EF4444',
+    fontWeight: 'bold',
   },
-  cancelBtn: {
-    paddingVertical: 18,
+  retryBadge: {
+    marginTop: 15,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  retryBadgeText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontFamily: 'Inter-Bold',
+  },
+  footer: {
+    paddingBottom: 20,
     alignItems: 'center',
   },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
+  },
   cancelText: {
-    color: '#E74C3C',
-    fontSize: 15,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
+    color: '#EF4444',
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 100,
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 28,
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  warningIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFFBEB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontFamily: 'Inter-Bold',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  modalSub: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: 'Inter-Medium',
+  },
+  modalActions: {
+    width: '100%',
+    gap: 12,
+  },
+  modalBtn: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryBtn: {
+    backgroundColor: PURPLE,
+  },
+  retryBtnText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Inter-Bold',
+  },
+  modalCancelBtn: {
+    backgroundColor: '#F1F5F9',
+  },
+  modalCancelText: {
+    color: '#64748B',
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
   },
 });

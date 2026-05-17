@@ -56,16 +56,39 @@ export default function VouchersScreen() {
     try {
       setLoading(true);
       
-      // Order count is now part of profile
-      const { data, error } = await supabase
+      // 1. Fetch Active Vouchers
+      const { data: voucherData, error: vError } = await supabase
         .from('vouchers')
         .select('*')
         .eq('is_active', true)
         .gte('valid_until', new Date().toISOString())
         .order('valid_until', { ascending: true });
 
-      if (error) throw error;
-      setVouchers(data || []);
+      if (vError) throw vError;
+
+      // 2. Fetch User Usages to check limits
+      const { data: usageData, error: uError } = await supabase
+        .from('voucher_usages')
+        .select('voucher_id')
+        .eq('user_id', profile?.id);
+
+      if (uError) {
+        console.error('Error fetching usage data:', uError);
+      }
+
+      // Map usage counts
+      const usageCounts: Record<string, number> = {};
+      usageData?.forEach((u: any) => {
+        usageCounts[u.voucher_id] = (usageCounts[u.voucher_id] || 0) + 1;
+      });
+
+      // Combine data
+      const processedVouchers = (voucherData || []).map(v => ({
+        ...v,
+        user_usage_count: usageCounts[v.id] || 0
+      }));
+
+      setVouchers(processedVouchers);
     } catch (error) {
       console.error('Error fetching vouchers:', error);
     } finally {
@@ -76,8 +99,8 @@ export default function VouchersScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchVouchers();
-    }, [profile])
+      if (profile?.id) fetchVouchers();
+    }, [profile?.id])
   );
 
   const onRefresh = () => {
@@ -101,6 +124,12 @@ export default function VouchersScreen() {
   };
 
   const checkVoucherValidity = (item: any) => {
+    // 0. User Limit Check (Per User)
+    const userLimit = Number(item.user_limit) || 1;
+    if (item.user_usage_count >= userLimit) {
+      return { valid: false, reason: 'Batas pemakaian tercapai' };
+    }
+
     // 1. New User Check
     if (item.category === 'new_user') {
       const orderCount = profile?.total_orders || 0;

@@ -362,6 +362,18 @@ export default function OrderDetailScreen() {
           throw new Error('Fresh order data not found');
         }
 
+        // Fetch voucher separately to avoid relation error
+        if (freshOrder.voucher_id) {
+          const { data: voucherData } = await supabase
+            .from('vouchers')
+            .select('*')
+            .eq('id', freshOrder.voucher_id)
+            .maybeSingle();
+          if (voucherData) {
+            freshOrder.vouchers = voucherData;
+          }
+        }
+
         console.log('[DEBUG Earnings] Fresh Order Data:', {
           id: freshOrder.id,
           therapist_id: freshOrder.therapist_id,
@@ -382,21 +394,6 @@ export default function OrderDetailScreen() {
             points: currentPoints + 1000 
           };
 
-          if (freshOrder.vouchers?.is_cashback && freshOrder.discount_amount > 0) {
-            const cashbackAmount = freshOrder.discount_amount;
-            userUpdateData.wallet_balance = currentBalance + cashbackAmount;
-            userUpdateData.cashback = currentCashback + cashbackAmount;
-
-            await supabase.from('transactions').insert({
-              user_id: freshOrder.user_id,
-              order_id: freshOrder.id,
-              type: 'cashback',
-              amount: cashbackAmount,
-              balance_before: currentBalance,
-              balance_after: currentBalance + cashbackAmount,
-              description: `Cashback dari voucher ${freshOrder.vouchers.code}`
-            });
-          }
           await supabase.from('users').update(userUpdateData).eq('id', freshOrder.user_id);
         }
 
@@ -416,63 +413,118 @@ export default function OrderDetailScreen() {
           }
 
           if (therapistData) {
-            const totalAmount = Number(freshOrder.total_price) || 0;
-            const rate = Number(therapistData.commission_rate) || 80; 
-            const therapistShare = (totalAmount * rate) / 100;
-            const platformShare = totalAmount - therapistShare;
-            
-            let balanceUpdate = 0;
-            let txType: 'credit' | 'debit' = 'credit';
-            let txDesc = '';
+            const isCashbackVoucher = freshOrder.vouchers?.is_cashback === true;
+            const discountAmount = Number(freshOrder.discount_amount) || 0;
+            const usedCashback = Number(freshOrder.used_cashback) || 0;
+            const serviceFee = Number(freshOrder.service_fee) || 0;
+            const totalPrice = Number(freshOrder.total_price) || 0;
 
+            // Fallback: Jika service_price null/hilang dari database, hitung manual dari total_price + potongan
+            const calculatedServicePrice = totalPrice - serviceFee + usedCashback + (isCashbackVoucher ? 0 : discountAmount);
+            const servicePrice = Number(freshOrder.service_price) || calculatedServicePrice;
+
+            const cashCollected = totalPrice;
+            const rate = Number(therapistData.commission_rate) || 80; 
+            const commissionRate = 100 - rate;
+            const commissionAmount = (servicePrice * commissionRate) / 100;
+            const therapistShare = servicePrice - commissionAmount;
+            
             const pMethod = String(freshOrder.payment_method || '').toLowerCase();
             const isCash = pMethod === 'tunai' || pMethod === 'cash';
 
+            const currentBalance = Number(therapistData.wallet_balance) || 0;
+            
+            let txsToInsert = [];
+            let balanceCounter = currentBalance;
+
             if (isCash) {
-              balanceUpdate = -platformShare;
-              txType = 'debit';
-              txDesc = `Bagi hasil (Tunai) - ${freshOrder.order_number}`;
+              // 1. Potongan Komisi Aplikasi
+              const commTx = {
+                therapist_id: targetTherapistId,
+                order_id: freshOrder.id,
+                type: 'debit',
+                amount: -commissionAmount,
+                balance_before: balanceCounter,
+                balance_after: balanceCounter - commissionAmount,
+                description: `Potongan Komisi (Tunai) - ${freshOrder.order_number}`
+              };
+              balanceCounter -= commissionAmount;
+              txsToInsert.push(commTx);
+
+              // 2. Adjust for cash collected differences (Service Fee and Promo)
+              const adjustment = servicePrice - cashCollected;
+              
+              if (adjustment > 0) {
+                // Customer paid less than service price (e.g. used promo/discount)
+                const adjTx = {
+                  therapist_id: targetTherapistId,
+                  order_id: freshOrder.id,
+                  type: 'credit',
+                  amount: adjustment,
+                  balance_before: balanceCounter,
+                  balance_after: balanceCounter + adjustment,
+                  description: `Kompensasi Diskon Pesanan - ${freshOrder.order_number}`
+                };
+                balanceCounter += adjustment;
+                txsToInsert.push(adjTx);
+              } else if (adjustment < 0) {
+                // Customer paid more than service price (e.g. app fee was included in cash)
+                const adjTx = {
+                  therapist_id: targetTherapistId,
+                  order_id: freshOrder.id,
+                  type: 'debit',
+                  amount: adjustment, // this is negative
+                  balance_before: balanceCounter,
+                  balance_after: balanceCounter + adjustment,
+                  description: `Titipan Biaya Aplikasi - ${freshOrder.order_number}`
+                };
+                balanceCounter += adjustment;
+                txsToInsert.push(adjTx);
+              }
             } else {
-              balanceUpdate = therapistShare;
-              txType = 'credit';
-              txDesc = `Pendapatan layanan - ${freshOrder.order_number}`;
+              // NON-CASH (Saldo)
+              // 1. Pendapatan Layanan
+              const incomeTx = {
+                therapist_id: targetTherapistId,
+                order_id: freshOrder.id,
+                type: 'credit',
+                amount: servicePrice,
+                balance_before: balanceCounter,
+                balance_after: balanceCounter + servicePrice,
+                description: `Pendapatan Layanan (Non-Tunai) - ${freshOrder.order_number}`
+              };
+              balanceCounter += servicePrice;
+              txsToInsert.push(incomeTx);
+
+              // 2. Potongan Komisi Aplikasi
+              const commTx = {
+                therapist_id: targetTherapistId,
+                order_id: freshOrder.id,
+                type: 'debit',
+                amount: -commissionAmount,
+                balance_before: balanceCounter,
+                balance_after: balanceCounter - commissionAmount,
+                description: `Potongan Komisi Aplikasi - ${freshOrder.order_number}`
+              };
+              balanceCounter -= commissionAmount;
+              txsToInsert.push(commTx);
             }
 
-            const currentBalance = Number(therapistData.wallet_balance) || 0;
-            const durationHours = (Number(freshOrder.duration) || 60) / 60;
-            
-            console.log('[DEBUG Earnings] Calculated Update:', {
-              isCash,
-              currentBalance,
-              balanceUpdate,
-              newBalance: currentBalance + balanceUpdate
-            });
-
+            // Update Therapist Table
             const { error: tUpdateErr } = await supabase.from('therapists').update({
-              wallet_balance: currentBalance + balanceUpdate,
+              wallet_balance: balanceCounter,
               total_orders: (Number(therapistData.total_orders) || 0) + 1
             }).eq('id', targetTherapistId);
 
             if (tUpdateErr) {
               console.error('[DEBUG Earnings] Update Failed:', tUpdateErr.message, tUpdateErr.details);
             } else {
-              console.log('[DEBUG Earnings] Therapist table updated successfully');
-            }
-
-            const { error: txErr } = await supabase.from('transactions').insert({
-              therapist_id: targetTherapistId,
-              order_id: freshOrder.id,
-              type: txType,
-              amount: balanceUpdate,
-              balance_before: currentBalance,
-              balance_after: currentBalance + balanceUpdate,
-              description: txDesc
-            });
-            
-            if (txErr) {
-              console.error('[DEBUG Earnings] Transaction record failed:', txErr.message);
-            } else {
-              console.log('[DEBUG Earnings] Transaction recorded successfully');
+              // Insert all explicit transactions
+              for (const tx of txsToInsert) {
+                const { error: txErr } = await supabase.from('transactions').insert(tx);
+                if (txErr) console.error('[DEBUG Earnings] Transaction record failed:', txErr.message);
+              }
+              console.log('[DEBUG Earnings] Transactions recorded successfully');
             }
           }
         } else {
@@ -859,9 +911,40 @@ export default function OrderDetailScreen() {
                   </View>
 
                   <View style={styles.payRow}>
-                    <Text style={styles.payLabel}>Total Tagihan</Text>
-                    <Text style={styles.payAmount}>Rp {(order.total_price || 0).toLocaleString('id-ID')}</Text>
+                    <Text style={styles.payLabel}>Harga Layanan</Text>
+                    <Text style={[styles.payAmount, { color: t.text }]}>Rp {(order.service_price || order.total_price || 0).toLocaleString('id-ID')}</Text>
                   </View>
+
+                  {order.discount_amount > 0 && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Diskon Promo</Text>
+                      <Text style={[styles.payAmount, { color: t.danger }]}>- Rp {order.discount_amount.toLocaleString('id-ID')}</Text>
+                    </View>
+                  )}
+
+                  {order.used_cashback > 0 && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Potongan Cashback</Text>
+                      <Text style={[styles.payAmount, { color: t.danger }]}>- Rp {order.used_cashback.toLocaleString('id-ID')}</Text>
+                    </View>
+                  )}
+
+                  <View style={{ height: 1, backgroundColor: t.border, marginVertical: 8 }} />
+
+                  <View style={styles.payRow}>
+                    <Text style={[styles.payLabel, { fontFamily: 'Inter_700Bold', color: t.text }]}>
+                      {order.payment_method === 'saldo' ? 'Total (Saldo Pembeli)' : 'TAGIHAN KE CUSTOMER'}
+                    </Text>
+                    <Text style={[styles.payAmount, { fontSize: 16 }]}>
+                      Rp {(order.total_price || 0).toLocaleString('id-ID')}
+                    </Text>
+                  </View>
+
+                  {(order.discount_amount > 0 || order.used_cashback > 0) && (
+                    <Text style={{ fontSize: 10, color: t.textSecondary, marginTop: 4, fontStyle: 'italic', lineHeight: 14 }}>
+                      *Jangan khawatir, kompensasi selisih diskon akan otomatis ditambahkan ke saldo dompet Anda saat pesanan selesai.
+                    </Text>
+                  )}
                 </View>
 
                 {order.status === 'accepted' && (
@@ -911,16 +994,19 @@ export default function OrderDetailScreen() {
   );
 }
 
-const accStyles = (t: any, color: string) => StyleSheet.create({
-  wrap: { marginHorizontal: SPACING.lg, marginBottom: SPACING.sm, backgroundColor: t.surface, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: t.border, overflow: 'hidden' },
+function accStyles(t: any, color: string) { 
+  return StyleSheet.create({
+    wrap: { marginHorizontal: SPACING.lg, marginBottom: SPACING.sm, backgroundColor: t.surface, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: t.border, overflow: 'hidden' },
   header: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, gap: SPACING.sm },
   iconBox: { width: 32, height: 32, borderRadius: 10, backgroundColor: color + '20', alignItems: 'center', justifyContent: 'center' },
   title: { ...TYPOGRAPHY.body, flex: 1, color: t.text, fontFamily: 'Inter_600SemiBold' },
-  body: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
-});
+    body: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
+  });
+}
 
-const getStyles = (t: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: t.background },
+function getStyles(t: any) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.background },
   header: { paddingHorizontal: SPACING.lg, paddingTop: 30, paddingBottom: SPACING.lg, flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1022,5 +1108,6 @@ const getStyles = (t: any) => StyleSheet.create({
   },
   cancelledText: { fontSize: 22, fontFamily: 'Inter_700Bold' },
   cancelledSub: { fontSize: 14, textAlign: 'center', opacity: 0.7, marginBottom: 20 },
-  backBtn: { width: '100%', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-});
+    backBtn: { width: '100%', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  });
+}

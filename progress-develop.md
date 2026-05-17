@@ -1,5 +1,22 @@
 # Progress Development - App Kang Massage
 
+## [2026-05-17] - Optimasi Skema Pendapatan, Algoritma Rating & UI Terapis
+
+### 💰 Pembaruan Skema Pendapatan & Komisi Terapis
+- **Transparansi Riwayat Dompet**: Memisahkan kalkulasi pembayaran ke dalam 2 nota terpisah yang sangat jelas bagi terapis: (1) Pendapatan Layanan Penuh, (2) Potongan Komisi Aplikasi. Ini mencegah kesalahpahaman nominal yang membingungkan.
+- **Proteksi Harga Terapis (Fallback)**: Memperbaiki *bug* relasi Supabase yang menyebabkan harga layanan gagal dimuat saat menggunakan *cashback*. Sistem kini memiliki perhitungan mundur yang kebal *error* untuk memastikan terapis selalu dibayar 100% dari "Harga Normal", tanpa menanggung subsidi diskon/promo pelanggan.
+- **Validasi UI Tagihan Tunai**: Mengubah tampilan "Total Tagihan" di halaman detail pesanan terapis agar secara gamblang membedakan "Harga Layanan", "Potongan Diskon/Cashback", dan "Tagihan Tunai ke Customer" untuk mencegah terapis menagih harga normal kepada pelanggan yang memakai diskon.
+
+### ⭐ Standardisasi Sistem Rating (Ala Grab/Gojek)
+- **Moving Average 50 Penilaian Terakhir**: Mengubah algoritma rating menjadi murni *Moving Average* berbatas 50 orderan (FIFO). Rating 1 Bintang di masa lalu akan otomatis "gugur" bila terapis konsisten mendapat bintang 5 di 50 orderan terbaru.
+- **Bumper Rating (Bayesian Anchor)**: Menginjeksi 10 "Penilaian Fiktif Bintang 5" sebagai bumper/penyangga rahasia. Melindungi terapis baru agar rating mereka tidak langsung hancur menjadi 3.0 jika kebetulan pelanggan pertama memberi bintang 3.
+- **Fitur Edit Ulasan**: Menambahkan kemampuan bagi pengguna untuk mengubah kembali Bintang dan Teks Ulasan yang sudah mereka berikan, lengkap dengan sistem kalkulasi ulang otomatis di backend.
+
+### 🛠️ Fitur Pintar & UI/UX
+- **Filter Keahlian (Skills) pada Broadcast**: Menambahkan validasi *Skill Check* pada *background listener* terapis. Kini orderan rebutan otomatis tertolak dari notifikasi jika terapis tidak memiliki layanan tersebut di profil keahliannya.
+- **Animasi Ornamen Latar Belakang**: Mengganti layar putih "Mencari Terapis..." menjadi jauh lebih interaktif dan menenangkan, lengkap dengan 6 animasi ornamen khas pijat (daun, bunga, air, bulan, tubuh, *sparkles*) yang berputar *orbit* dan mengapung perlahan.
+
+
 ## [2026-05-14] - Branding Refinement, Realtime Stabilization & Financial Logic Sync
 
 ### 🎨 Branding & UI Refinement

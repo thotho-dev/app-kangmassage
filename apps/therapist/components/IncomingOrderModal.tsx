@@ -107,9 +107,41 @@ export default function IncomingOrderModal() {
     }
   };
 
-  const handleReject = () => {
-    // Tutup modal secara lokal saja tanpa mengubah status di database (Broadcast Mode)
-    setIncomingOrder(null);
+  const handleReject = async () => {
+    if (!incomingOrder) return;
+
+    // Jika ini adalah pesanan favorit (ada therapist_id), maka kita harus batalkan di DB
+    if (incomingOrder.therapist_id) {
+      setLoading(true);
+      try {
+        // 1. Update status pesanan ke cancelled
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .eq('id', incomingOrder.id)
+          .eq('status', 'pending');
+
+        if (error) throw error;
+
+        // 2. Tambahkan log agar user tahu ini ditolak oleh terapis
+        await supabase.from('order_logs').insert({
+          order_id: incomingOrder.id,
+          status: 'cancelled',
+          note: 'Ditolak oleh terapis'
+        });
+
+        console.log('[DEBUG Reject] Targeted order rejected successfully');
+      } catch (err) {
+        console.error('[DEBUG Reject] Error rejecting targeted order:', err);
+      } finally {
+        setLoading(false);
+        setIncomingOrder(null);
+      }
+    } else {
+      // Jika pesanan broadcast (rebutan), cukup tutup modal secara lokal saja
+      // Biar terapis lain masih bisa ambil
+      setIncomingOrder(null);
+    }
   };
 
   return (
@@ -168,7 +200,7 @@ export default function IncomingOrderModal() {
               </View>
               <View style={[styles.infoBox, { backgroundColor: t.background, borderColor: t.border }]}>
                 <Ionicons name="wallet-outline" size={20} color={t.success} />
-                <Text style={[styles.infoValue, { color: t.text }]}>Rp {(incomingOrder.total_price || 0).toLocaleString('id-ID')}</Text>
+                <Text style={[styles.infoValue, { color: t.text }]}>Rp {(incomingOrder.service_price || incomingOrder.total_price || 0).toLocaleString('id-ID')}</Text>
                 <Text style={[styles.infoLabel, { color: t.textMuted }]}>Biaya</Text>
               </View>
             </View>

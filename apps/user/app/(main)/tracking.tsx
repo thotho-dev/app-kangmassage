@@ -223,7 +223,9 @@ export default function TrackingScreen() {
           .select('id, rating')
           .eq('therapist_id', therapistId)
           .not('id', 'eq', id) // Get OTHER ratings
-          .not('rating', 'is', null);
+          .not('rating', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(49); // Menggunakan sistem 50 Penilaian Terakhir (49 riwayat + 1 baru)
         
         if (fetchErr) {
           console.error('[DEBUG Rating] Error fetching other ratings:', fetchErr);
@@ -231,17 +233,26 @@ export default function TrackingScreen() {
 
         // Combine other ratings with the CURRENT rating
         const otherRatings = allRatings || [];
-        const total = otherRatings.reduce((sum, r) => sum + (r.rating || 0), 0) + rating;
-        const count = otherRatings.length + 1;
-        const avg = total / count;
         
-        console.log('[DEBUG Rating] New Calculation -> Total:', total, 'Count:', count, 'Avg:', avg);
+        // Modal Bumper Sistem (Perlindungan Terapis Baru)
+        const BUMPER_VOTES = 10;
+        const BUMPER_TOTAL_STARS = BUMPER_VOTES * 5; // Asumsi 10 penilaian fiktif bintang 5
+        
+        const realTotalStars = otherRatings.reduce((sum, r) => sum + (r.rating || 0), 0) + rating;
+        const realCount = otherRatings.length + 1;
+        
+        // Hitung rata-rata dengan memasukkan Bumper
+        const totalStarsWithBumper = realTotalStars + BUMPER_TOTAL_STARS;
+        const totalCountWithBumper = realCount + BUMPER_VOTES;
+        const avg = totalStarsWithBumper / totalCountWithBumper;
+        
+        console.log('[DEBUG Rating] New Calculation -> RealTotal:', realTotalStars, 'RealCount:', realCount, 'AvgWithBumper:', avg);
 
         const { error: updateErr } = await supabase
           .from('therapists')
           .update({ 
             rating: avg,
-            total_reviews: count 
+            total_reviews: realCount // Tetap simpan jumlah ulasan riil ke profil
           })
           .eq('id', therapistId);
           
@@ -292,6 +303,32 @@ export default function TrackingScreen() {
               if (error) throw error;
 
               if (data && data.length > 0) {
+                const orderData = data[0];
+                
+                // Refund Logic
+                if (orderData.payment_method === 'saldo') {
+                  const { data: userProfile } = await supabase
+                    .from('users')
+                    .select('wallet_balance, cashback_balance')
+                    .eq('id', orderData.user_id)
+                    .single();
+
+                  if (userProfile) {
+                    const usedCashback = Number(orderData.used_cashback) || 0;
+                    const earnedCashback = Number(orderData.earned_cashback) || 0;
+                    const paidAmount = Number(orderData.total_price) || 0;
+                    
+                    if (usedCashback > 0 || earnedCashback > 0) {
+                      await supabase
+                        .from('users')
+                        .update({ 
+                          cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
+                        })
+                        .eq('id', orderData.user_id);
+                    }
+                  }
+                }
+
                 // Add log entry
                 await supabase.from('order_logs').insert({
                   order_id: id,
@@ -623,8 +660,8 @@ export default function TrackingScreen() {
                 <Ionicons name="alert-circle" size={24} color={COLORS.error} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.cancelledTitle, { color: COLORS.error }]}>
-                    {logs.find((l: any) => l.status === 'cancelled')?.note === 'Dibatalkan oleh terapis' 
-                      ? 'Dibatalkan oleh Terapis' 
+                    {logs.find((l: any) => l.status === 'cancelled')?.note?.includes('Ditolak') 
+                      ? 'Pesanan Ditolak Terapis' 
                       : 'Pesanan Dibatalkan'}
                   </Text>
                   <Text style={[styles.cancelledSub, { color: theme.textSecondary }]}>
@@ -735,6 +772,10 @@ export default function TrackingScreen() {
                       <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Harga Layanan</Text>
                       <Text style={[styles.priceValueSmall, { color: theme.text }]}>Rp {(order?.service_price || 0).toLocaleString('id-ID')}</Text>
                    </View>
+                   <View style={styles.priceRow}>
+                      <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Biaya Layanan</Text>
+                      <Text style={[styles.priceValueSmall, { color: theme.text }]}>Rp 2.000</Text>
+                   </View>
                    {order?.discount_amount > 0 && (
                      <View style={styles.priceRow}>
                         <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Diskon Voucher</Text>
@@ -750,56 +791,49 @@ export default function TrackingScreen() {
                    </View>
                 </View>
 
-                {order?.status === 'completed' && (order?.rating || order?.review) && (
-                  <View style={[styles.ratingDisplaySection, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }]}>
-                    <View style={styles.ratingDisplayHeader}>
-                      <View style={styles.displayStars}>
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Ionicons 
-                            key={s} 
-                            name={s <= (order.rating || 0) ? "star" : "star-outline"} 
-                            size={14} 
-                            color={s <= (order.rating || 0) ? "#F59E0B" : theme.textSecondary} 
-                          />
-                        ))}
+                {order?.status === 'completed' && (order?.rating || hasRated) && (
+                  <View style={[styles.ratingDisplaySection, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)', marginTop: 16 }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <View>
+                        <Text style={[styles.detailLabel, { marginBottom: 6 }]}>Rating & Ulasan Anda</Text>
+                        <View style={styles.ratingDisplayHeader}>
+                          <View style={styles.displayStars}>
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Ionicons 
+                                key={s} 
+                                name={s <= (order?.rating || rating || 0) ? "star" : "star-outline"} 
+                                size={14} 
+                                color={s <= (order?.rating || rating || 0) ? "#F59E0B" : theme.textSecondary} 
+                              />
+                            ))}
+                          </View>
+                          <Text style={[styles.ratingDisplayText, { color: theme.textSecondary }]}>
+                            {order?.rating || rating ? `${order?.rating || rating}.0` : 'Belum ada rating'}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={[styles.ratingDisplayText, { color: theme.textSecondary }]}>
-                        {order.rating ? `${order.rating}.0` : 'No rating'}
-                      </Text>
+                      <TouchableOpacity 
+                        style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(253, 185, 39, 0.15)', borderRadius: 12 }}
+                        onPress={() => {
+                          setRating(order?.rating || rating || 0);
+                          setReview(order?.review || review || '');
+                          setShowRatingModal(true);
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#FDB927' }}>Edit Ulasan</Text>
+                      </TouchableOpacity>
                     </View>
-                    {order.review && (
-                      <Text style={[styles.reviewDisplayText, { color: theme.text }]} numberOfLines={2}>
-                        "{order.review}"
+                    
+                    {(order?.review || review) ? (
+                      <Text style={[styles.reviewDisplayText, { color: theme.text, marginTop: 8 }]} numberOfLines={3}>
+                        "{order?.review || review}"
+                      </Text>
+                    ) : (
+                      <Text style={[styles.reviewDisplayText, { color: theme.textSecondary, fontStyle: 'italic', marginTop: 8 }]}>
+                        Tidak ada ulasan tertulis.
                       </Text>
                     )}
                   </View>
-                )}
-
-                {/* Rating History Display */}
-                {(order?.rating || hasRated) && !order?.review && !order?.rating && (
-                  <>
-                    <View style={[styles.detailDivider, { backgroundColor: theme.border, marginVertical: 16, height: 1.5 }]} />
-                    <View style={styles.ratingHistory}>
-                       <View style={styles.ratingHistoryHeader}>
-                          <Text style={[styles.detailLabel, { marginBottom: 4 }]}>Rating & Ulasan Anda</Text>
-                          <View style={styles.starsRowSmall}>
-                             {[1, 2, 3, 4, 5].map((s) => (
-                               <Star 
-                                 key={s} 
-                                 size={14} 
-                                 color={s <= (order?.rating || rating) ? '#FDB927' : '#E2E8F0'} 
-                                 fill={s <= (order?.rating || rating) ? '#FDB927' : 'transparent'} 
-                               />
-                             ))}
-                          </View>
-                       </View>
-                       {(order?.review || review) ? (
-                         <Text style={[styles.ratingHistoryText, { color: theme.text }]}>"{order?.review || review}"</Text>
-                       ) : (
-                         <Text style={[styles.ratingHistoryText, { color: theme.textSecondary, fontStyle: 'italic' }]}>Tidak ada ulasan tertulis.</Text>
-                       )}
-                    </View>
-                  </>
                 )}
               </View>
             </View>

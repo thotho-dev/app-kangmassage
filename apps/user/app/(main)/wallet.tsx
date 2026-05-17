@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
   ChevronLeft, 
@@ -39,13 +39,23 @@ import { useAuth } from '@/context/AuthContext';
 export default function WalletScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [transactions, setTransactions] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchTransactions(),
+      refreshProfile()
+    ]);
+    setRefreshing(false);
+  }, [profile?.supabase_uid]);
 
   const balance = profile?.wallet_balance || 0;
   const points = profile?.points || 0;
-  const cashback = profile?.cashback || 0;
+  const cashback = profile?.cashback_balance || 0;
 
   React.useEffect(() => {
     if (profile?.supabase_uid) {
@@ -94,7 +104,13 @@ export default function WalletScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[PURPLE]} />
+        }
+      >
 
         {/* Balance Card */}
         <View style={styles.cardWrapper}>

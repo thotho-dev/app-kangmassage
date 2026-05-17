@@ -35,6 +35,15 @@ export default function VoucherDetailScreen() {
         .single();
 
       if (!error && data) {
+        const { count, error: usageError } = await supabase
+          .from('voucher_usages')
+          .select('*', { count: 'exact', head: true })
+          .eq('voucher_id', id)
+          .eq('user_id', profile?.id);
+        
+        if (!usageError) {
+          data.user_usage_count = count || 0;
+        }
         setVoucher(data);
       }
     } catch (err) {
@@ -56,6 +65,12 @@ export default function VoucherDetailScreen() {
 
   const checkVoucherValidity = () => {
     if (!voucher) return { valid: false, reason: '' };
+
+    // 0. User Limit Check
+    const userLimit = Number(voucher.user_limit) || 1;
+    if (voucher.user_usage_count >= userLimit) {
+      return { valid: false, reason: 'Batas pemakaian tercapai' };
+    }
 
     // 1. New User Check
     if (voucher.category === 'new_user') {
