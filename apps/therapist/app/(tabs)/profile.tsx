@@ -17,6 +17,7 @@ const MENU_ITEMS = [
     { icon: 'phone-portrait-outline', label: 'Ubah Nomor Telepon', route: '/profile/change-phone', color: 'secondary' },
     { icon: 'location-outline', label: 'Kelola Alamat', route: '/profile/address', color: 'success' },
     { icon: 'card-outline', label: 'Metode Pembayaran', route: '/profile/payment', color: 'warning' },
+    { icon: 'star-outline', label: 'Ulasan Pelanggan', route: '/profile/reviews', color: 'warning' },
   ]},
   { group: 'Dukungan', items: [
     { icon: 'help-circle-outline', label: 'Bantuan', route: '/support/help', color: 'info' },
@@ -130,10 +131,13 @@ export default function ProfileScreen() {
               <View>
                 <Text style={[styles.name, { color: t.text }]}>{profile?.full_name || 'Mitra Terapis'}</Text>
                 <Text style={[styles.phone, { color: t.textSecondary }]}>{profile?.phone || '-'}</Text>
-                <View style={styles.tierBadge}>
+                <TouchableOpacity 
+                  style={styles.tierBadge}
+                  onPress={() => router.push('/profile/tier-info')}
+                >
                   <Ionicons name="star" size={12} color={t.warning} />
                   <Text style={styles.tierText}>{profile?.tier?.toUpperCase() || 'BRONZE'} MEMBER</Text>
-                </View>
+                </TouchableOpacity>
               </View>
               <TouchableOpacity 
                 style={[styles.editBtn, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.05)', borderColor: t.border }]} 
@@ -146,12 +150,45 @@ export default function ProfileScreen() {
 
           {/* Stats */}
           <View style={[styles.statsRow, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : t.surfaceLight, borderColor: t.border, borderWidth: 1 }]}>
-            {stats.map(s => (
-              <View key={s.label} style={styles.statItem}>
-                <Text style={[styles.statValue, { color: t.text }]}>{s.value}</Text>
-                <Text style={[styles.statLabel, { color: t.textSecondary }]}>{s.label}</Text>
-              </View>
-            ))}
+            {stats.map(s => {
+              const isRating = s.label === 'Rating';
+              const isLevel = s.label === 'Level';
+              
+              if (isRating) {
+                return (
+                  <TouchableOpacity 
+                    key={s.label} 
+                    style={styles.statItem} 
+                    onPress={() => router.push('/profile/reviews')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.statValue, { color: t.text }]}>{s.value}</Text>
+                    <Text style={[styles.statLabel, { color: t.textSecondary }]}>{s.label}</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              if (isLevel) {
+                return (
+                  <TouchableOpacity 
+                    key={s.label} 
+                    style={styles.statItem} 
+                    onPress={() => router.push('/profile/tier-info')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.statValue, { color: t.text }]}>{s.value}</Text>
+                    <Text style={[styles.statLabel, { color: t.textSecondary }]}>{s.label}</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              return (
+                <View key={s.label} style={styles.statItem}>
+                  <Text style={[styles.statValue, { color: t.text }]}>{s.value}</Text>
+                  <Text style={[styles.statLabel, { color: t.textSecondary }]}>{s.label}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 

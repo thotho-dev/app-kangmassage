@@ -15,6 +15,7 @@ import {
 import { COLORS } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useAlert } from '@/context/AlertContext';
 
 const PURPLE = '#240080';
 const GOLD = '#FDB927';
@@ -83,7 +84,8 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
   const { profile, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'riwayat' | 'favorit'>('riwayat');
+  const { showAlert } = useAlert();
+  const [activeTab, setActiveTab] = useState<'riwayat' | 'terjadwal' | 'favorit'>('riwayat');
   const [orders, setOrders] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,15 +171,18 @@ export default function HistoryScreen() {
     });
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
+  const getStatusLabel = (item: any) => {
+    if (item.status === 'pending' && item.scheduled_at) {
+      return 'Terjadwal';
+    }
+    switch (item.status) {
       case 'completed': return 'Selesai';
       case 'cancelled': return 'Dibatalkan';
       case 'pending': return 'Menunggu';
       case 'accepted': return 'Diterima';
       case 'on_way': return 'Di Jalan';
       case 'processing': return 'Diproses';
-      default: return status;
+      default: return item.status;
     }
   };
 
@@ -194,7 +199,10 @@ export default function HistoryScreen() {
     // 1. Jika Pesanan Masih Aktif (Bukan Selesai/Batal)
     if (item.status !== 'completed' && item.status !== 'cancelled') {
       if (item.status === 'pending') {
-        if (item.payment_status === 'paid' || item.payment_method === 'tunai') {
+        if (item.scheduled_at) {
+          // Jika pesanan terjadwal, arahkan langsung ke tracking!
+          router.push({ pathname: '/(main)/tracking', params: { id: item.id } });
+        } else if (item.payment_status === 'paid' || item.payment_method === 'tunai') {
           // Sudah bayar/tunai tapi belum dapat terapis
           router.push({ pathname: '/(main)/searching-therapist', params: { id: item.id } });
         } else if (item.payment_data) {
@@ -221,7 +229,7 @@ export default function HistoryScreen() {
           .eq('id', orderId);
           
         if (error) {
-          Alert.alert('Gagal', 'Tidak dapat melakukan pencarian ulang.');
+          showAlert('Gagal', 'Tidak dapat melakukan pencarian ulang.');
           return;
         }
       }
@@ -229,13 +237,13 @@ export default function HistoryScreen() {
       router.push({ pathname: '/(main)/searching-therapist', params: { id: orderId } });
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Terjadi kesalahan sistem.');
+      showAlert('Error', 'Terjadi kesalahan sistem.');
     }
   };
 
   const handleChatPress = async (therapistId: string) => {
     if (!therapistId || !profile?.id) {
-      Alert.alert('Informasi', 'Terapis belum ditugaskan untuk pesanan ini.');
+      showAlert('Informasi', 'Terapis belum ditugaskan untuk pesanan ini.');
       return;
     }
     
@@ -267,7 +275,7 @@ export default function HistoryScreen() {
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Gagal membuka percakapan.');
+      showAlert('Error', 'Gagal membuka percakapan.');
     }
   };
 
@@ -286,7 +294,7 @@ export default function HistoryScreen() {
           .eq('therapist_id', therapistId);
         
         if (error) throw error;
-        Alert.alert('Sukses', 'Dihapus dari favorit');
+        showAlert('Sukses', 'Dihapus dari favorit');
       } else {
         // Add to favorites
         const { error } = await supabase
@@ -294,12 +302,12 @@ export default function HistoryScreen() {
           .insert({ user_id: profile.id, therapist_id: therapistId });
         
         if (error) throw error;
-        Alert.alert('Sukses', 'Berhasil ditambahkan ke favorit!');
+        showAlert('Sukses', 'Berhasil ditambahkan ke favorit!');
       }
       fetchFavorites();
     } catch (error) {
       console.error('Error toggling favorite:', error);
-      Alert.alert('Error', 'Gagal memperbarui favorit');
+      showAlert('Error', 'Gagal memperbarui favorit');
     }
   };
 
@@ -313,7 +321,7 @@ export default function HistoryScreen() {
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {activeTab === 'riwayat' ? 'Riwayat Pesanan' : 'Terapis Favorit'}
+          {activeTab === 'riwayat' ? 'Riwayat Pesanan' : activeTab === 'terjadwal' ? 'Jadwal Pijat' : 'Terapis Favorit'}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -325,6 +333,12 @@ export default function HistoryScreen() {
           onPress={() => setActiveTab('riwayat')}
         >
           <Text style={[styles.tabText, activeTab === 'riwayat' && styles.activeTabText]}>Riwayat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'terjadwal' && styles.activeTab]}
+          onPress={() => setActiveTab('terjadwal')}
+        >
+          <Text style={[styles.tabText, activeTab === 'terjadwal' && styles.activeTabText]}>Terjadwal</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'favorit' && styles.activeTab]}
@@ -341,7 +355,7 @@ export default function HistoryScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[PURPLE]} />
         }
       >
-        {activeTab === 'riwayat' ? (
+        {activeTab === 'riwayat' || activeTab === 'terjadwal' ? (
           loading && !refreshing ? (
             <View style={{ gap: 12 }}>
               {[1, 2, 3].map(i => (
@@ -367,8 +381,8 @@ export default function HistoryScreen() {
                 </View>
               ))}
             </View>
-          ) : orders.length > 0 ? (
-            orders.map((item) => {
+          ) : (activeTab === 'riwayat' ? orders.filter(item => item.status === 'completed' || item.status === 'cancelled' || !item.scheduled_at) : orders.filter(item => item.scheduled_at && item.status !== 'completed' && item.status !== 'cancelled')).length > 0 ? (
+            (activeTab === 'riwayat' ? orders.filter(item => item.status === 'completed' || item.status === 'cancelled' || !item.scheduled_at) : orders.filter(item => item.scheduled_at && item.status !== 'completed' && item.status !== 'cancelled')).map((item) => {
               const statusColor = getStatusColor(item.status);
               return (
                 <TouchableOpacity 
@@ -385,7 +399,7 @@ export default function HistoryScreen() {
                     </View>
                     <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
                       <Text style={[styles.statusText, { color: statusColor }]}>
-                        {getStatusLabel(item.status)}
+                        {getStatusLabel(item)}
                       </Text>
                     </View>
                   </View>
@@ -399,10 +413,19 @@ export default function HistoryScreen() {
                     <View style={styles.infoBox}>
                       <Text style={styles.therapistName}>{item.therapists?.full_name || 'Mencari Terapis...'}</Text>
                       <Text style={styles.serviceName}>{item.services?.name}</Text>
-                      <View style={styles.metaRow}>
-                        <Clock size={11} color={TEXT_MUTED} />
-                        <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
-                      </View>
+                      {item.scheduled_at ? (
+                        <View style={[styles.metaRow, { backgroundColor: '#F5F3FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginTop: 4 }]}>
+                          <Clock size={11} color="#8B5CF6" />
+                          <Text style={[styles.dateText, { color: '#5B21B6', fontFamily: 'Inter-Bold', fontSize: 10 }]}>
+                            Jadwal: {formatDate(item.scheduled_at)}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.metaRow}>
+                          <Clock size={11} color={TEXT_MUTED} />
+                          <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={styles.rightBox}>
                       <Text style={styles.priceText}>Rp {item.total_price?.toLocaleString('id-ID')}</Text>
@@ -420,10 +443,17 @@ export default function HistoryScreen() {
                     </TouchableOpacity>
                     <View style={styles.footerDivider} />
                     {item.status === 'cancelled' || item.status === 'pending' ? (
-                      <TouchableOpacity style={styles.footerBtn} onPress={() => handleCariLagi(item.id, item.status)}>
-                        <Search size={14} color={PURPLE} />
-                        <Text style={styles.footerBtnText}>Cari Lagi</Text>
-                      </TouchableOpacity>
+                      item.scheduled_at ? (
+                        <TouchableOpacity style={styles.footerBtn} onPress={() => handleChatPress(item.therapist_id)}>
+                          <MessageSquare size={14} color={PURPLE} />
+                          <Text style={styles.footerBtnText}>Tanya CS</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity style={styles.footerBtn} onPress={() => handleCariLagi(item.id, item.status)}>
+                          <Search size={14} color={PURPLE} />
+                          <Text style={styles.footerBtnText}>Cari Lagi</Text>
+                        </TouchableOpacity>
+                      )
                     ) : item.status === 'completed' ? (
                       <TouchableOpacity style={styles.footerBtn} onPress={() => handleFavoritePress(item.therapist_id)}>
                         <Heart size={14} color="#EF4444" />
@@ -441,7 +471,9 @@ export default function HistoryScreen() {
             })
           ) : (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Belum ada riwayat pesanan</Text>
+              <Text style={styles.emptyText}>
+                {activeTab === 'riwayat' ? 'Belum ada riwayat pesanan' : 'Belum ada jadwal pesanan mendatang'}
+              </Text>
             </View>
           )
         ) : (

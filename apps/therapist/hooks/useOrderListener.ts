@@ -70,7 +70,7 @@ export const useOrderListener = () => {
                .from('orders')
                .select('*', { count: 'exact', head: true })
                .eq('therapist_id', profile.id)
-               .in('status', ['accepted', 'on_site', 'in_progress']);
+               .in('status', ['accepted', 'on_the_way', 'arrived', 'in_progress']);
 
              if (activeCount && activeCount > 0) {
                console.log('[DEBUG OrderListener] GAGAL: Terapis sedang sibuk memiliki pesanan aktif.');

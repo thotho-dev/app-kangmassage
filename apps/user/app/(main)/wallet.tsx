@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   ChevronLeft, 
@@ -90,7 +91,7 @@ export default function WalletScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: BG }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: BG }]} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Header */}
@@ -137,12 +138,12 @@ export default function WalletScreen() {
 
             {/* Action Buttons */}
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.actionBtn}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(main)/topup')}>
                 <Plus size={16} color={GOLD} />
                 <Text style={styles.actionLabel}>Isi Saldo</Text>
               </TouchableOpacity>
               <View style={styles.actionDivider} />
-              <TouchableOpacity style={styles.actionBtn}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(main)/withdraw')}>
                 <TrendingUp size={16} color={GOLD} />
                 <Text style={styles.actionLabel}>Tarik Tunai</Text>
               </TouchableOpacity>
@@ -218,7 +219,7 @@ export default function WalletScreen() {
         </View>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 15,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',

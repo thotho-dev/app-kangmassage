@@ -16,6 +16,7 @@ import { useThemeStore, useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { calculateDistance } from '@/lib/utils';
+import { getTierDetails } from '@/lib/tierLogic';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: '#F97316',
@@ -158,11 +159,15 @@ export default function DashboardScreen() {
       const completedToday = todayData ? todayData.filter(o => o.status === 'completed') : [];
       
       // Calculate NET earnings (Subtract service_fee first, then apply commission)
+      const currentTier = profile.tier || 'Bronze';
+      const tierInfo = getTierDetails(currentTier);
+      const commissionRate = tierInfo.komisi; // e.g. 27%
+      const therapistRate = 100 - commissionRate; // e.g. 73%
+      
       const earnings = completedToday.reduce((sum, o) => {
-        const rate = profile.commission_rate || 80;
         // Therapist commission is based on Normal Price (service_price)
         const servicePrice = Number(o.service_price) || (Number(o.total_price) - (Number(o.service_fee) || 0));
-        const share = (servicePrice * rate) / 100;
+        const share = (servicePrice * therapistRate) / 100;
         return sum + share;
       }, 0);
 
@@ -373,7 +378,11 @@ export default function DashboardScreen() {
               <View style={styles.orderMeta}>
                 <View style={styles.orderMetaItem}>
                   <Ionicons name="location-outline" size={14} color={t.textMuted} />
-                  <Text style={styles.orderMetaText} numberOfLines={1}>{order.address || 'Alamat tidak tersedia'}</Text>
+                  <Text style={styles.orderMetaText} numberOfLines={1}>
+                    {(order.status === 'completed' || order.status === 'cancelled')
+                      ? 'Alamat disembunyikan'
+                      : (order.address || 'Alamat tidak tersedia')}
+                  </Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.md }}>
                   <View style={styles.orderMetaItem}>

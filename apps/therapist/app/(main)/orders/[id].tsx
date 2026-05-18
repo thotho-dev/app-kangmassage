@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Animated, PanResponder, Dimensions, Linking, Platform, StatusBar, Modal
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  ActivityIndicator, Animated, PanResponder, Dimensions, Linking, Platform, StatusBar, Modal, Image
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
+import { getTierDetails, calculateTier } from '@/lib/tierLogic';
 import { useAlert } from '@/components/CustomAlert';
 import { useTherapistStore } from '@/store/therapistStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -79,7 +80,7 @@ function Accordion({ title, icon, color, children, t }: any) {
 }
 
 // ─── Swipe Button ──────────────────────────────────────────────────────────────
-function SwipeButton({ label, onSwipe, t }: { label: string; onSwipe: () => void; t: any }) {
+function SwipeButton({ label, onSwipe, t, disabled = false }: { label: string; onSwipe: () => void; t: any; disabled?: boolean }) {
   const pan = useRef(new Animated.Value(0)).current;
   const [done, setDone] = useState(false);
   const thumbW = 56;
@@ -87,8 +88,8 @@ function SwipeButton({ label, onSwipe, t }: { label: string; onSwipe: () => void
   const maxDrag = trackW - thumbW - 8;
 
   const responder = PanResponder.create({
-    onStartShouldSetPanResponder: () => !done,
-    onMoveShouldSetPanResponder: () => !done,
+    onStartShouldSetPanResponder: () => !done && !disabled,
+    onMoveShouldSetPanResponder: () => !done && !disabled,
     onPanResponderMove: (_, g) => {
       pan.setValue(Math.max(0, Math.min(g.dx, maxDrag)));
     },
@@ -118,7 +119,7 @@ function SwipeButton({ label, onSwipe, t }: { label: string; onSwipe: () => void
         <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: t.secondary, opacity: bgOpacity }]} />
         <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]}>
           <Text style={{ ...TYPOGRAPHY.body, color: done ? '#fff' : t.textMuted, fontFamily: 'Inter_700Bold', opacity: 0.9 }}>
-            {done ? `✓ ${label}` : `Geser untuk ${label}`}
+            {done ? `✓ ${label}` : disabled ? `Jadwal belum dimulai` : `Geser untuk ${label}`}
           </Text>
         </View>
         {!done && (
@@ -170,8 +171,46 @@ export default function OrderDetailScreen() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [calculatedDistance, setCalculatedDistance] = useState<string | null>(null);
   const [isMapFull, setIsMapFull] = useState(false);
+  const [qrisModalVisible, setQrisModalVisible] = useState(false);
+  const [checkingQris, setCheckingQris] = useState(false);
+  const [remainingTime, setRemainingTime] = useState<string>('');
 
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Helper: check if a scheduled order's time has passed
+  const isScheduleActive = (order: any) => {
+    if (!order?.scheduled_at) return false;
+    const now = new Date();
+    const scheduled = new Date(order.scheduled_at);
+    return now >= scheduled;
+  };
+
+  // Effect: update countdown every second while order is scheduled and not active
+  useEffect(() => {
+    if (!order?.scheduled_at) {
+      setRemainingTime('');
+      return;
+    }
+    const update = () => {
+      const now = new Date();
+      const scheduled = new Date(order.scheduled_at);
+      const diff = scheduled.getTime() - now.getTime();
+      if (diff <= 0) {
+        setRemainingTime('');
+        return;
+      }
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      const formatted = `${hrs.toString().padStart(2, '0')}:${mins
+        .toString()
+        .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      setRemainingTime(formatted);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [order]);
 
   const fetchOrder = useCallback(async () => {
     if (!id || typeof id !== 'string') {
@@ -404,7 +443,7 @@ export default function OrderDetailScreen() {
           console.log('[DEBUG Earnings] Processing therapist:', targetTherapistId);
           const { data: therapistData, error: tFetchErr } = await supabase
             .from('therapists')
-            .select('wallet_balance, commission_rate, total_orders')
+            .select('wallet_balance, commission_rate, total_orders, tier')
             .eq('id', targetTherapistId)
             .single();
           
@@ -424,8 +463,11 @@ export default function OrderDetailScreen() {
             const servicePrice = Number(freshOrder.service_price) || calculatedServicePrice;
 
             const cashCollected = totalPrice;
-            const rate = Number(therapistData.commission_rate) || 80; 
-            const commissionRate = 100 - rate;
+            // Get dynamic commission based on tier
+            const currentTier = therapistData.tier || 'Bronze';
+            const tierInfo = getTierDetails(currentTier);
+            const commissionRate = tierInfo.komisi; // Platform cut, e.g. 27%
+            
             const commissionAmount = (servicePrice * commissionRate) / 100;
             const therapistShare = servicePrice - commissionAmount;
             
@@ -510,10 +552,78 @@ export default function OrderDetailScreen() {
               txsToInsert.push(commTx);
             }
 
-            // Update Therapist Table
+            // --- 3. REWARD / TIER TARGET LOGIC & AUTO PROMOTION ---
+            const now = new Date();
+            const isDiamond = currentTier.toLowerCase() === 'diamond';
+            let startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            
+            if (isDiamond) {
+               // Reset Juli & Januari (0 = Jan, 6 = Jul)
+               const startMonth = now.getMonth() >= 6 ? 6 : 0; 
+               startDate = new Date(now.getFullYear(), startMonth, 1);
+            }
+
+            const { data: periodOrders } = await supabase
+              .from('orders')
+              .select('id, total_price, service_price, service_fee')
+              .eq('therapist_id', targetTherapistId)
+              .eq('status', 'completed')
+              .gte('created_at', startDate.toISOString());
+              
+            const periodOrderCount = (periodOrders?.length || 0) + 1; // includes current
+            const periodOrderAmount = (periodOrders?.reduce((sum, o) => {
+               const price = Number(o.service_price) || (Number(o.total_price) - (Number(o.service_fee) || 0));
+               return sum + price;
+            }, 0) || 0) + servicePrice; // includes current
+            
+            // Auto promotion logic based on target completion in current period
+            const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
+            const calculatedTierName = calculateTier(periodOrderCount, periodOrderAmount);
+            const calculatedTierIdx = TIER_ORDER.indexOf(calculatedTierName.toLowerCase());
+            const currentTierIdx = TIER_ORDER.indexOf(currentTier.toLowerCase());
+            
+            let finalTier = currentTier;
+            let earnedRewardTier = currentTier;
+            
+            if (calculatedTierIdx > currentTierIdx) {
+              // Upgraded! Promote immediately
+              finalTier = calculatedTierName;
+              earnedRewardTier = calculatedTierName;
+              console.log(`[DEBUG Earnings] Therapist promoted! Old tier: ${currentTier}, New tier: ${finalTier}`);
+            }
+            
+            const rewardTierInfo = getTierDetails(earnedRewardTier);
+            
+            if ((rewardTierInfo.orderUnit === 0 || periodOrderCount >= rewardTierInfo.orderUnit) && periodOrderAmount >= rewardTierInfo.orderAmount) {
+                // Check if already rewarded this period for this tier
+                const rewardDescription = `Reward Pencapaian Target ${rewardTierInfo.tier} - ${startDate.getFullYear()}-${startDate.getMonth()+1}`;
+                const { data: existingReward } = await supabase
+                  .from('transactions')
+                  .select('id')
+                  .eq('therapist_id', targetTherapistId)
+                  .eq('description', rewardDescription)
+                  .maybeSingle();
+                  
+                if (!existingReward && rewardTierInfo.reward > 0) {
+                    const rewardTx = {
+                        therapist_id: targetTherapistId,
+                        order_id: freshOrder.id,
+                        type: 'credit',
+                        amount: rewardTierInfo.reward,
+                        balance_before: balanceCounter,
+                        balance_after: balanceCounter + rewardTierInfo.reward,
+                        description: rewardDescription
+                    };
+                    balanceCounter += rewardTierInfo.reward;
+                    txsToInsert.push(rewardTx);
+                }
+            }
+
+            // Update Therapist Table (includes wallet balance, total orders, and new tier)
             const { error: tUpdateErr } = await supabase.from('therapists').update({
               wallet_balance: balanceCounter,
-              total_orders: (Number(therapistData.total_orders) || 0) + 1
+              total_orders: (Number(therapistData.total_orders) || 0) + 1,
+              tier: finalTier.toLowerCase() // Save as lowercase enum ('bronze', 'silver', 'gold', 'platinum', 'diamond')
             }).eq('id', targetTherapistId);
 
             if (tUpdateErr) {
@@ -623,6 +733,15 @@ export default function OrderDetailScreen() {
         </View>
       )}
 
+      {order.scheduled_at && !isMapFull && (
+        <View style={{ backgroundColor: '#8B5CF615', borderBottomWidth: 1, borderBottomColor: '#8B5CF625', paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="calendar" size={16} color="#8B5CF6" />
+          <Text style={{ fontSize: 12, color: '#5B21B6', fontFamily: 'Inter_700Bold' }}>
+            Jadwal Reservasi: {new Date(order.scheduled_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {new Date(order.scheduled_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </Text>
+        </View>
+      )}
+
       {order.status === 'cancelled' && (
         <View style={styles.cancelledOverlay}>
           <View style={[styles.cancelledBox, { backgroundColor: t.surface }]}>
@@ -645,7 +764,7 @@ export default function OrderDetailScreen() {
         contentContainerStyle={isMapFull ? { flex: 1 } : styles.scroll} 
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
       >
-        {order.status !== 'completed' && (
+        {order.status !== 'completed' && order.status !== 'cancelled' && (
           <Animated.View style={[
             styles.mapContainer, 
             isMapFull ? { height: Dimensions.get('window').height * 0.9, marginHorizontal: 0, marginTop: 0, borderRadius: 0 } : { borderRadius: RADIUS.xl, marginHorizontal: SPACING.lg, marginTop: SPACING.sm, overflow: 'hidden', backgroundColor: t.border },
@@ -743,7 +862,28 @@ export default function OrderDetailScreen() {
                             
                             const distance = (data.routes[0].distance / 1000).toFixed(1);
                             window.ReactNativeWebView.postMessage(distance);
+                          } else {
+                            throw new Error('No route found in response');
                           }
+                        })
+                        .catch(err => {
+                          console.warn('OSRM routing failed, using geodesic line fallback:', err);
+                          // Geodesic line fallback
+                          L.polyline([therapist, customer], { color: '#EA580C', weight: 4, dashArray: '5, 10', opacity: 0.8 }).addTo(map);
+                          
+                          const bounds = L.latLngBounds([therapist, customer]);
+                          map.fitBounds(bounds, { padding: [50, 50] });
+                          
+                          // Haversine formula for distance fallback
+                          const R = 6371; // Earth radius in km
+                          const dLat = (customer[0] - therapist[0]) * Math.PI / 180;
+                          const dLon = (customer[1] - therapist[1]) * Math.PI / 180;
+                          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                    Math.cos(therapist[0] * Math.PI / 180) * Math.cos(customer[0] * Math.PI / 180) * 
+                                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                          const distance = (R * c).toFixed(1);
+                          window.ReactNativeWebView.postMessage(distance);
                         });
                     </script>
                   </body>
@@ -839,6 +979,23 @@ export default function OrderDetailScreen() {
 
                 <View style={styles.accDividerSmall} />
 
+                {order.scheduled_at && (
+                  <>
+                    <View style={styles.detailItemLong}>
+                      <View style={[styles.detailIcon, { backgroundColor: '#8B5CF615' }]}>
+                        <Ionicons name="alarm" size={16} color="#8B5CF6" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.detailLabel, { color: '#8B5CF6' }]}>JADWAL RESERVASI</Text>
+                        <Text style={[styles.detailValue, { color: '#5B21B6', fontFamily: 'Inter_700Bold' }]}>
+                          {new Date(order.scheduled_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {new Date(order.scheduled_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.accDividerSmall} />
+                  </>
+                )}
+
                 {/* Waktu */}
                 <View style={styles.detailItemLong}>
                   <View style={[styles.detailIcon, { backgroundColor: t.success + '15' }]}>
@@ -874,7 +1031,11 @@ export default function OrderDetailScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.detailLabel}>ALAMAT CUSTOMER</Text>
-                    <Text style={styles.detailValue}>{order.address}</Text>
+                    <Text style={styles.detailValue}>
+                      {(order.status === 'completed' || order.status === 'cancelled')
+                        ? 'Alamat disembunyikan'
+                        : order.address}
+                    </Text>
                     <Text style={[styles.detailValue, { color: t.textSecondary, fontSize: 11, marginTop: 2 }]}>Estimasi jarak ± {calculatedDistance || order.distance || '0'} KM</Text>
                   </View>
                 </View>
@@ -885,7 +1046,11 @@ export default function OrderDetailScreen() {
                     <Ionicons name="map-outline" size={20} color={t.primary} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.detailLabel, { color: t.primary }]}>PETUNJUK LOKASI</Text>
-                      <Text style={[styles.detailValue, { color: t.text }]}>{order.location_notes}</Text>
+                      <Text style={[styles.detailValue, { color: t.text }]}>
+                        {(order.status === 'completed' || order.status === 'cancelled')
+                          ? 'Detail disembunyikan'
+                          : order.location_notes}
+                      </Text>
                     </View>
                   </View>
                 )}
@@ -945,6 +1110,17 @@ export default function OrderDetailScreen() {
                       *Jangan khawatir, kompensasi selisih diskon akan otomatis ditambahkan ke saldo dompet Anda saat pesanan selesai.
                     </Text>
                   )}
+
+                  {order.payment_method !== 'midtrans' && (order.status === 'accepted' || order.status === 'on_site' || order.status === 'in_progress') && (
+                    <TouchableOpacity 
+                      style={[styles.qrisBtn, { backgroundColor: t.primary }]}
+                      onPress={() => setQrisModalVisible(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="qr-code-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.qrisBtnText}>Tampilkan QRIS Pembayaran</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {order.status === 'accepted' && (
@@ -964,7 +1140,7 @@ export default function OrderDetailScreen() {
                   const logTime = log ? new Date(log.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : null;
 
                   return (
-                    <View key={step.key} style={styles.step}>
+                  <View key={step.key} style={styles.step}>
                       <View style={[styles.stepIcon, i <= currentStepIndex ? styles.stepDone : styles.stepPending]}>
                         <Ionicons name={step.icon as any} size={14} color="#fff" />
                       </View>
@@ -980,16 +1156,155 @@ export default function OrderDetailScreen() {
               </View>
             </View>
 
-            {nextAction && <SwipeButton  key={nextAction.status} label={nextAction.label} onSwipe={advanceStatus} t={t} />}
+            {nextAction && !isMapFull && (
+              <View>
+                {remainingTime && (
+                  <View style={{ alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={{ color: t.textMuted, fontFamily: 'Inter_500Medium' }}>
+                      Mulai dalam {remainingTime}
+                    </Text>
+                  </View>
+                )}
+                <SwipeButton
+                  key={nextAction.status}
+                  label={nextAction.label}
+                  onSwipe={advanceStatus}
+                  t={t}
+                  disabled={order?.scheduled_at && !isScheduleActive(order)}
+                />
+              </View>
+            )}
           </>
         )}
 
         {isMapFull && nextAction && (
           <View style={{ marginTop: 10 }}>
-            <SwipeButton key={nextAction.status + '_full'} label={nextAction.label} onSwipe={advanceStatus} t={t} />
+            {remainingTime && (
+              <View style={{ alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ color: t.textMuted, fontFamily: 'Inter_500Medium' }}>
+                  Mulai dalam {remainingTime}
+                </Text>
+              </View>
+            )}
+            <SwipeButton
+              key={nextAction.status + '_full'}
+              label={nextAction.label}
+              onSwipe={advanceStatus}
+              t={t}
+              disabled={order?.scheduled_at && !isScheduleActive(order)}
+            />
           </View>
         )}
       </Animated.ScrollView>
+
+      {/* QRIS PAYMENT MODAL */}
+      <Modal
+        visible={qrisModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setQrisModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: t.surface }]}>
+            {/* Top Close Indicator */}
+            <View style={styles.modalDragHandle} />
+
+            {/* Header */}
+            <View style={styles.qrisModalHeader}>
+              <Text style={[styles.qrisModalTitle, { color: t.text }]}>QRIS Pembayaran Mitra</Text>
+              <TouchableOpacity 
+                style={[styles.modalCloseBtn, { backgroundColor: t.border }]}
+                onPress={() => setQrisModalVisible(false)}
+              >
+                <Ionicons name="close" size={20} color={t.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}
+            >
+              {/* QRIS Standard Slip Header */}
+              <View style={styles.qrisReceiptHeader}>
+                <View style={styles.qrisReceiptLogoRow}>
+                  {/* Left GPN Eagle Emblem Logo */}
+                  <View style={styles.gpnEmblem}>
+                    <Ionicons name="shield" size={12} color="#0E7490" style={{ marginRight: 2 }} />
+                    <Text style={styles.gpnEmblemText}>GPN</Text>
+                  </View>
+                  
+                  {/* Right QRIS standard Logo */}
+                  <View style={styles.qrisStandardLogo}>
+                    <Text style={[styles.qrisLogoTxtPart, { color: '#019FD9' }]}>QR</Text>
+                    <Text style={[styles.qrisLogoTxtPart, { color: '#ED2C24' }]}>IS</Text>
+                  </View>
+                </View>
+                <Text style={[styles.receiptMerchantName, { color: t.text }]}>KANG MASSAGE MITRA</Text>
+                <Text style={styles.receiptMerchantNmid}>NMID : ID10260518992</Text>
+              </View>
+
+              {/* Order Amount Info */}
+              <View style={styles.receiptAmountCard}>
+                <Text style={styles.amountLabel}>TOTAL BILL / TAGIHAN</Text>
+                <Text style={[styles.amountValue, { color: t.text }]}>
+                  Rp {(order?.total_price || 0).toLocaleString('id-ID')}
+                </Text>
+                <Text style={styles.receiptOrderNumber}>Order No: {order?.order_number || 'KM-ORDER'}</Text>
+              </View>
+
+              {/* QRIS Code Image */}
+              <View style={[styles.qrisCodeBorder, { borderColor: t.border }]}>
+                <Image
+                  source={{ 
+                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021226590016ID.CO.KANGMASSAGE.WWW0118936001230000000002030035204651153033605802ID5920Kang%20Massage%20Mitra6007Jakarta61051234562070703A016304CA1F`
+                  }}
+                  style={styles.qrisImage}
+                />
+                
+                {/* QRIS corner markings decoration */}
+                <View style={[styles.qrisCorner, styles.cornerTL]} />
+                <View style={[styles.qrisCorner, styles.cornerTR]} />
+                <View style={[styles.qrisCorner, styles.cornerBL]} />
+                <View style={[styles.qrisCorner, styles.cornerBR]} />
+              </View>
+
+              <Text style={[styles.scanHintText, { color: t.textSecondary }]}>
+                Arahkan aplikasi pemindai E-Wallet atau M-Banking Anda ke kode QR di atas untuk menyelesaikan transaksi.
+              </Text>
+
+              {/* Status Action Buttons */}
+              <View style={{ width: '100%', paddingHorizontal: SPACING.md, marginTop: SPACING.md }}>
+                <TouchableOpacity 
+                  style={[styles.qrisCheckBtn, { backgroundColor: t.success }]}
+                  onPress={async () => {
+                    setCheckingQris(true);
+                    setTimeout(() => {
+                      setCheckingQris(false);
+                      setQrisModalVisible(false);
+                      showAlert(
+                        'success',
+                        'Pembayaran Berhasil',
+                        'Pembayaran QRIS sebesar Rp ' + (order?.total_price || 0).toLocaleString('id-ID') + ' telah sukses terdeteksi! Silakan geser tombol konfirmasi untuk menyelesaikan pesanan.'
+                      );
+                    }, 1500);
+                  }}
+                  disabled={checkingQris}
+                  activeOpacity={0.8}
+                >
+                  {checkingQris ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="sync-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.qrisCheckBtnText}>Cek Status Pembayaran</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1108,6 +1423,211 @@ function getStyles(t: any) {
   },
   cancelledText: { fontSize: 22, fontFamily: 'Inter_700Bold' },
   cancelledSub: { fontSize: 14, textAlign: 'center', opacity: 0.7, marginBottom: 20 },
-    backBtn: { width: '100%', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  backBtn: { width: '100%', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  qrisBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: RADIUS.lg,
+  },
+  qrisBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '90%',
+  },
+  modalDragHandle: {
+    width: 36,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  qrisModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+  },
+  qrisModalTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+  },
+  modalCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrisReceiptHeader: {
+    alignItems: 'center',
+    width: '90%',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+    marginBottom: 12,
+  },
+  qrisReceiptLogoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  gpnEmblem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0E749020',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  gpnEmblemText: {
+    fontSize: 10,
+    fontFamily: 'Inter_900Black',
+    color: '#0E7490',
+  },
+  qrisStandardLogo: {
+    flexDirection: 'row',
+  },
+  qrisLogoTxtPart: {
+    fontSize: 14,
+    fontFamily: 'Inter_900Black',
+    letterSpacing: -1,
+  },
+  receiptMerchantName: {
+    fontSize: 13,
+    fontFamily: 'Inter_800ExtraBold',
+    letterSpacing: 0.5,
+  },
+  receiptMerchantNmid: {
+    fontSize: 10,
+    color: '#64748B',
+    fontFamily: 'Inter_500Medium',
+    marginTop: 2,
+  },
+  receiptAmountCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 16,
+    width: '90%',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  amountLabel: {
+    fontSize: 9,
+    color: '#64748B',
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 0.5,
+  },
+  amountValue: {
+    fontSize: 22,
+    fontFamily: 'Inter_800ExtraBold',
+    marginVertical: 4,
+  },
+  receiptOrderNumber: {
+    fontSize: 10,
+    color: '#64748B',
+    fontFamily: 'Inter_500Medium',
+  },
+  qrisCodeBorder: {
+    width: 250,
+    height: 250,
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  qrisImage: {
+    width: 220,
+    height: 220,
+  },
+  qrisCorner: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: '#0F172A',
+  },
+  cornerTL: {
+    top: -1,
+    left: -1,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 12,
+  },
+  cornerTR: {
+    top: -1,
+    right: -1,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 12,
+  },
+  cornerBL: {
+    bottom: -1,
+    left: -1,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 12,
+  },
+  cornerBR: {
+    bottom: -1,
+    right: -1,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 12,
+  },
+  scanHintText: {
+    width: '85%',
+    textAlign: 'center',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 14,
+    fontStyle: 'italic',
+  },
+  qrisCheckBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: RADIUS.full,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  qrisCheckBtnText: {
+    color: '#FFFFFF',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+  },
   });
 }

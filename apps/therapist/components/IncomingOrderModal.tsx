@@ -160,18 +160,22 @@ export default function IncomingOrderModal() {
             }] 
           }
         ]}>
-          <View style={[styles.header, { backgroundColor: t.primary }]}>
+          <View style={[styles.header, { backgroundColor: incomingOrder.scheduled_at ? '#8B5CF6' : t.primary }]}>
             <View style={styles.iconWrap}>
-              <Ionicons name="notifications" size={32} color="#FFFFFF" />
+              <Ionicons name={incomingOrder.scheduled_at ? "calendar" : "notifications"} size={32} color="#FFFFFF" />
             </View>
-            <Text style={styles.headerTitle}>Pesanan Baru Masuk!</Text>
-            <Text style={styles.headerSub}>Seseorang membutuhkan jasa Anda</Text>
+            <Text style={styles.headerTitle}>
+              {incomingOrder.scheduled_at ? 'Booking Terjadwal!' : 'Pesanan Baru Masuk!'}
+            </Text>
+            <Text style={styles.headerSub}>
+              {incomingOrder.scheduled_at ? 'Pesanan untuk waktu mendatang' : 'Seseorang membutuhkan jasa Anda'}
+            </Text>
           </View>
 
           <View style={styles.content}>
             <View style={styles.customerRow}>
-              <View style={[styles.avatar, { backgroundColor: t.primary + '20' }]}>
-                <Text style={[styles.avatarText, { color: t.primary }]}>
+              <View style={[styles.avatar, { backgroundColor: (incomingOrder.scheduled_at ? '#8B5CF6' : t.primary) + '20' }]}>
+                <Text style={[styles.avatarText, { color: incomingOrder.scheduled_at ? '#8B5CF6' : t.primary }]}>
                   {incomingOrder.users?.full_name?.charAt(0) || 'P'}
                 </Text>
               </View>
@@ -187,6 +191,18 @@ export default function IncomingOrderModal() {
                 </View>
               </View>
             </View>
+
+            {incomingOrder.scheduled_at && (
+              <View style={[styles.scheduleBox, { backgroundColor: '#F5F3FF', borderColor: '#E9D5FF' }]}>
+                <Ionicons name="calendar-outline" size={18} color="#8B5CF6" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 9, color: '#7C3AED', fontFamily: 'Inter_700Bold', letterSpacing: 0.5 }}>WAKTU RESERVASI</Text>
+                  <Text style={{ fontSize: 12, color: '#5B21B6', fontFamily: 'Inter_700Bold', marginTop: 1 }}>
+                    {new Date(incomingOrder.scheduled_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {new Date(incomingOrder.scheduled_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </Text>
+                </View>
+              </View>
+            )}
 
             <View style={styles.infoGrid}>
               <View style={[styles.infoBox, { backgroundColor: t.background, borderColor: t.border }]}>
@@ -221,11 +237,11 @@ export default function IncomingOrderModal() {
                 <Text style={[styles.rejectText, { color: t.danger }]}>Tolak</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.acceptBtn, { backgroundColor: t.secondary }]} 
+                style={[styles.acceptBtn, { backgroundColor: incomingOrder.scheduled_at ? '#8B5CF6' : t.secondary }]} 
                 onPress={handleAccept} 
                 disabled={loading}
               >
-                <Text style={styles.acceptText}>{loading ? 'Memproses...' : 'Terima Sekarang'}</Text>
+                <Text style={styles.acceptText}>{loading ? 'Memproses...' : incomingOrder.scheduled_at ? 'Terima Jadwal' : 'Terima Sekarang'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -266,6 +282,7 @@ const styles = StyleSheet.create({
   serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   serviceText: { ...TYPOGRAPHY.caption, fontFamily: 'Inter_600SemiBold', fontSize: 11 },
   durationText: { ...TYPOGRAPHY.caption, fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  scheduleBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1 },
   infoGrid: { flexDirection: 'row', gap: 10 },
   infoBox: { flex: 1, borderRadius: 16, padding: 10, alignItems: 'center', gap: 2, borderWidth: 1 },
   infoValue: { ...TYPOGRAPHY.bodySmall, fontSize: 13, fontFamily: 'Inter_700Bold' },

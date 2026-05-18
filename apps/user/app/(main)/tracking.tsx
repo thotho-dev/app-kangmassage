@@ -39,6 +39,59 @@ export default function TrackingScreen() {
   const [hasRated, setHasRated] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  
+  // Map View Reference and Bounds Auto-fit
+  const mapRef = useRef<MapView>(null);
+
+  // Custom Alert Modal State
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons: { text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: []
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    buttons?: { text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }[]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: buttons || [{ text: 'OK', style: 'default' }]
+    });
+  };
+
+  useEffect(() => {
+    if (order?.latitude && order?.longitude && mapRef.current) {
+      const coords = [
+        { latitude: order.latitude, longitude: order.longitude }
+      ];
+      
+      if (order.therapist?.latitude && order.therapist?.longitude) {
+        coords.push({
+          latitude: order.therapist.latitude,
+          longitude: order.therapist.longitude
+        });
+      }
+      
+      const timer = setTimeout(() => {
+        mapRef.current?.fitToCoordinates(coords, {
+          edgePadding: { top: 120, right: 60, bottom: 420, left: 60 },
+          animated: true
+        });
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [order?.latitude, order?.longitude, order?.therapist?.latitude, order?.therapist?.longitude]);
 
   useEffect(() => {
     fetchOrder();
@@ -178,6 +231,20 @@ export default function TrackingScreen() {
         throw error;
       }
       
+      // Fetch initial therapist location from therapist_locations table
+      if (data && data.therapist_id) {
+        const { data: locData } = await supabase
+          .from('therapist_locations')
+          .select('latitude, longitude')
+          .eq('therapist_id', data.therapist_id)
+          .single();
+        
+        if (locData && data.therapist) {
+          data.therapist.latitude = locData.latitude;
+          data.therapist.longitude = locData.longitude;
+        }
+      }
+
       console.log('[DEBUG Tracking User] Order Fetched:', data?.status);
       setOrder(data);
       
@@ -194,7 +261,7 @@ export default function TrackingScreen() {
 
   const submitRating = async () => {
     if (rating === 0) {
-      Alert.alert('Peringatan', 'Silakan pilih bintang terlebih dahulu.');
+      showAlert('Peringatan', 'Silakan pilih bintang terlebih dahulu.');
       return;
     }
 
@@ -266,10 +333,10 @@ export default function TrackingScreen() {
       }
       
       setHasRated(true);
-      Alert.alert('Terima Kasih', 'Rating dan ulasan Anda telah kami terima.');
+      showAlert('Terima Kasih', 'Rating dan ulasan Anda telah kami terima.');
     } catch (err) {
       console.error('Error submitting rating:', err);
-      Alert.alert('Gagal', 'Gagal mengirim rating. Silakan coba lagi.');
+      showAlert('Gagal', 'Gagal mengirim rating. Silakan coba lagi.');
     } finally {
       setIsSubmittingRating(false);
     }
@@ -278,11 +345,11 @@ export default function TrackingScreen() {
   const handleCancel = () => {
     // Disable jika sudah jalan ke lokasi
     if (order?.status === 'on_the_way' || order?.status === 'arrived' || order?.status === 'in_progress') {
-      Alert.alert('Gagal', 'Pesanan tidak bisa dibatalkan karena terapis sudah menuju lokasi atau sedang melayani.');
+      showAlert('Gagal', 'Pesanan tidak bisa dibatalkan karena terapis sudah menuju lokasi atau sedang melayani.');
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Batalkan Pesanan?',
       'Apakah Anda yakin ingin membatalkan pesanan ini?',
       [
@@ -335,13 +402,13 @@ export default function TrackingScreen() {
                   status: 'cancelled',
                   note: 'Dibatalkan oleh anda'
                 });
-                Alert.alert('Berhasil', 'Pesanan Anda telah dibatalkan.');
+                showAlert('Berhasil', 'Pesanan Anda telah dibatalkan.');
               }
 
               router.replace('/(main)/home');
             } catch (err) {
               console.error('Cancel order error:', err);
-              Alert.alert('Error', 'Gagal membatalkan pesanan.');
+              showAlert('Error', 'Gagal membatalkan pesanan.');
             }
           }
         }
@@ -351,19 +418,19 @@ export default function TrackingScreen() {
 
   const handleCall = () => {
     if (order?.status === 'completed' || order?.status === 'cancelled') {
-      Alert.alert('Selesai', 'Anda tidak dapat menghubungi terapis untuk pesanan yang sudah selesai atau dibatalkan.');
+      showAlert('Selesai', 'Anda tidak dapat menghubungi terapis untuk pesanan yang sudah selesai atau dibatalkan.');
       return;
     }
     if (order?.therapist?.phone) {
       Linking.openURL(`tel:${order.therapist.phone}`);
     } else {
-      Alert.alert('Info', 'Nomor telepon terapis tidak tersedia.');
+      showAlert('Info', 'Nomor telepon terapis tidak tersedia.');
     }
   };
 
   const handleChat = async () => {
     if (order?.status === 'completed' || order?.status === 'cancelled') {
-      Alert.alert('Selesai', 'Fitur chat dinonaktifkan untuk pesanan yang sudah selesai atau dibatalkan.');
+      showAlert('Selesai', 'Fitur chat dinonaktifkan untuk pesanan yang sudah selesai atau dibatalkan.');
       return;
     }
     if (!order?.therapist_id || !order?.user_id) return;
@@ -400,7 +467,7 @@ export default function TrackingScreen() {
       }
     } catch (err) {
       console.error('Handle chat error:', err);
-      Alert.alert('Error', 'Gagal membuka percakapan.');
+      showAlert('Error', 'Gagal membuka percakapan.');
     } finally {
       setLoading(false);
     }
@@ -474,8 +541,9 @@ export default function TrackingScreen() {
       {order?.status !== 'completed' && (
         <View style={styles.mapContainer}>
           <MapView
+            ref={mapRef}
             style={styles.map}
-            region={{
+            initialRegion={{
               latitude: order?.latitude || -6.2020,
               longitude: order?.longitude || 106.8250,
               latitudeDelta: 0.015,
@@ -516,26 +584,57 @@ export default function TrackingScreen() {
               </Marker>
             )}
 
-            {/* Rute Mengikuti Jalan (OSRM) */}
+            {/* Rute Mengikuti Jalan (OSRM) - Premium Gojek Glowing Style */}
             {routeCoords.length > 0 ? (
-              <Polyline
-                coordinates={routeCoords}
-                strokeColor={COLORS.primary[500] || '#240080'}
-                strokeWidth={4}
-              />
+              <>
+                {/* Glow Outer Line */}
+                <Polyline
+                  coordinates={routeCoords}
+                  strokeColor="rgba(0, 177, 79, 0.25)"
+                  strokeWidth={10}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+                {/* Solid Inner Line */}
+                <Polyline
+                  coordinates={routeCoords}
+                  strokeColor="#00B14F"
+                  strokeWidth={5}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              </>
             ) : order?.latitude && order?.therapist && (
-              <Polyline
-                coordinates={[
-                  { latitude: order.latitude, longitude: order.longitude },
-                  { 
-                    latitude: order.therapist.latitude || (order.latitude + 0.005), 
-                    longitude: order.therapist.longitude || (order.longitude + 0.005) 
-                  }
-                ]}
-                strokeColor={COLORS.primary[500] || '#240080'}
-                strokeWidth={3}
-                lineDashPattern={[6, 6]}
-              />
+              <>
+                {/* Fallback Glow Outer Line */}
+                <Polyline
+                  coordinates={[
+                    { latitude: order.latitude, longitude: order.longitude },
+                    { 
+                      latitude: order.therapist.latitude || (order.latitude + 0.005), 
+                      longitude: order.therapist.longitude || (order.longitude + 0.005) 
+                    }
+                  ]}
+                  strokeColor="rgba(0, 177, 79, 0.25)"
+                  strokeWidth={10}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+                {/* Fallback Solid Inner Line */}
+                <Polyline
+                  coordinates={[
+                    { latitude: order.latitude, longitude: order.longitude },
+                    { 
+                      latitude: order.therapist.latitude || (order.latitude + 0.005), 
+                      longitude: order.therapist.longitude || (order.longitude + 0.005) 
+                    }
+                  ]}
+                  strokeColor="#00B14F"
+                  strokeWidth={5}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              </>
             )}
           </MapView>
           <LinearGradient
@@ -634,7 +733,7 @@ export default function TrackingScreen() {
          
          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
             {/* ETA Section - Only show if therapist is on the way or pending */}
-            {(order?.status === 'pending' || order?.status === 'accepted' || order?.status === 'on_the_way') && (
+            {(((order?.status === 'pending' && !order?.scheduled_at) || order?.status === 'accepted' || order?.status === 'on_the_way')) && (
               <View style={styles.etaContainer}>
                  <View>
                     <Text style={[styles.etaLabel, { color: theme.textSecondary }]}>Perkiraan Tiba</Text>
@@ -772,10 +871,10 @@ export default function TrackingScreen() {
                       <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Harga Layanan</Text>
                       <Text style={[styles.priceValueSmall, { color: theme.text }]}>Rp {(order?.service_price || 0).toLocaleString('id-ID')}</Text>
                    </View>
-                   <View style={styles.priceRow}>
-                      <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Biaya Layanan</Text>
-                      <Text style={[styles.priceValueSmall, { color: theme.text }]}>Rp 2.000</Text>
-                   </View>
+                    <View style={styles.priceRow}>
+                       <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Biaya Layanan</Text>
+                       <Text style={[styles.priceValueSmall, { color: theme.text }]}>Rp {(order?.service_fee || 0).toLocaleString('id-ID')}</Text>
+                    </View>
                    {order?.discount_amount > 0 && (
                      <View style={styles.priceRow}>
                         <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Diskon Voucher</Text>
@@ -957,6 +1056,73 @@ export default function TrackingScreen() {
             </ScrollView>
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Premium Custom Alert Modal */}
+      <Modal
+        visible={alertConfig.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={StyleSheet.absoluteFill} 
+            onPress={() => {
+              if (alertConfig.buttons.length <= 1) {
+                setAlertConfig(prev => ({ ...prev, visible: false }));
+              }
+            }} 
+          />
+          <Animated.View style={[styles.alertContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={[
+              styles.alertAccent, 
+              { 
+                backgroundColor: alertConfig.title.toLowerCase().includes('gagal') || alertConfig.title.toLowerCase().includes('error') 
+                  ? COLORS.error 
+                  : alertConfig.title.toLowerCase().includes('berhasil') || alertConfig.title.toLowerCase().includes('terima') 
+                    ? COLORS.success 
+                    : PURPLE 
+              }
+            ]} />
+            
+            <View style={styles.alertContent}>
+              <Text style={[styles.alertTitle, { color: theme.text }]}>{alertConfig.title}</Text>
+              <Text style={[styles.alertMessage, { color: theme.textSecondary }]}>{alertConfig.message}</Text>
+            </View>
+
+            <View style={styles.alertButtonsRow}>
+              {alertConfig.buttons.map((btn, idx) => {
+                const isDestructive = btn.style === 'destructive';
+                const isCancel = btn.style === 'cancel';
+                
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.alertBtn,
+                      isDestructive ? styles.btnDestructive : isCancel ? [styles.btnCancel, { borderColor: theme.border }] : styles.btnPrimary,
+                      alertConfig.buttons.length > 1 && { flex: 1 }
+                    ]}
+                    onPress={() => {
+                      setAlertConfig(prev => ({ ...prev, visible: false }));
+                      if (btn.onPress) {
+                        setTimeout(() => btn.onPress?.(), 100);
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.alertBtnText,
+                      isDestructive ? styles.txtDestructive : isCancel ? { color: theme.textSecondary } : styles.txtPrimary
+                    ]}>
+                      {btn.text}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Animated.View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1530,5 +1696,78 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium', 
     fontStyle: 'italic', 
     lineHeight: 20 
+  },
+  alertContainer: {
+    width: width - 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    padding: 24,
+    alignSelf: 'center',
+    marginBottom: 'auto',
+    marginTop: 'auto',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  alertAccent: {
+    height: 6,
+    width: '120%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  alertContent: {
+    marginTop: 8,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  alertMessage: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  alertButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  alertBtn: {
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnPrimary: {
+    backgroundColor: '#240080',
+    paddingHorizontal: 28,
+  },
+  btnCancel: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  btnDestructive: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 24,
+  },
+  alertBtnText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+  },
+  txtPrimary: {
+    color: '#FFFFFF',
+  },
+  txtDestructive: {
+    color: '#FFFFFF',
   },
 });

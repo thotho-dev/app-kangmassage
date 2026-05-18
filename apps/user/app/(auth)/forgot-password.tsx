@@ -17,22 +17,23 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useAlert } from '../../context/AlertContext';
 
 const { width, height } = Dimensions.get('window');
 
 import { supabase } from '../../lib/supabase';
-import { Alert } from 'react-native';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
   const handleReset = async () => {
     if (!email) {
-      Alert.alert('Error', 'Silakan masukkan email Anda');
+      showAlert('Error', 'Silakan masukkan email Anda');
       return;
     }
 
@@ -44,7 +45,7 @@ export default function ForgotPasswordScreen() {
       if (error) throw error;
       setIsSent(true);
     } catch (error: any) {
-      Alert.alert('Gagal', error.message);
+      showAlert('Gagal', error.message);
     } finally {
       setLoading(false);
     }

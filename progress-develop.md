@@ -1,6 +1,36 @@
 # Progress Development - App Kang Massage
 
+## [2026-05-18] - Stabilisasi Sistem Tier, Bug Fix Enum & Promosi Otomatis
+
+### 🏆 Penyempurnaan & Stabilisasi Sistem Tier
+- **Resolusi Bug Enum 'Platinum' Database**: Membuat migrasi SQL `20260518_add_platinum_to_tier_enum.sql` untuk menyisipkan nilai `'platinum'` pada tipe enum database `therapist_tier`. Ini menghindarkan sistem dari crash database `22P02` ketika seorang terapis dipromosikan ke tingkat Platinum.
+- **Logika Promosi Otomatis Real-Time (Auto-Promotion)**: Menambahkan integrasi dinamis `calculateTier` ke dalam modul penyelesaian order di `[id].tsx`. Terapis kini langsung dideteksi prestasinya (akumulasi pesanan & omset bulanan), dinaikkan levelnya secara otomatis di database, dan langsung menikmati bagi hasil yang disesuaikan saat itu juga tanpa menunggu reset manual.
+- **Proteksi Degradasi Mid-Month**: Mengimplementasikan validasi perbandingan indeks tier. Kenaikan tier hanya terjadi ke arah tingkat yang lebih tinggi selama bulan berjalan, sehingga reset akumulator di awal bulan baru tidak akan menurunkan level terapis secara instan pada orderan pertama mereka.
+- **Registrasi Route Layout**: Mendaftarkan screen `profile/tier-info` secara formal ke dalam `apps/therapist/app/(main)/_layout.tsx` untuk menghadirkan animasi transisi navigasi (slide dari kanan) yang konsisten dan premium.
+- **Koreksi Target Progress Pencapaian**: Memperbaiki perhitungan progress target di [`tier-info.tsx`](file:///d:/PERSONAL%20FILE/App%20Pijat%20On-Demand/apps/therapist/app/(main)/profile/tier-info.tsx). Sebelumnya, sistem secara buta menambahkan `+ 1` pada index tier saat ini untuk menentukan target berikutnya. Hal ini membuat terapis baru dengan 0 pesanan di bulan berjalan langsung ditargetkan ke target Silver, bukan menyelesaikan target Bronze terlebih dahulu. Kini, sistem mengevaluasi pencapaian aktual bulan berjalan terlebih dahulu: jika target bulan berjalan dari tier saat ini belum terpenuhi, progress tracker akan memandu terapis menyelesaikan target tier-nya sendiri sebelum lanjut ke tier berikutnya.
+
+### ⭐ Integrasi Ulasan & Rating Pelanggan (Roadmap)
+- **Layar Ulasan Pelanggan Premium**: Mengembangkan halaman [`reviews.tsx`](file:///d:/PERSONAL%20FILE/App%20Pijat%20On-Demand/apps/therapist/app/(main)/profile/reviews.tsx) khusus yang menampilkan ringkasan rating rata-rata, **Star Distribution Analytics** (visualisasi diagram batang jumlah bintang 5 hingga 1), catatan kebijakan pelindungan rating (Bayesian Bumper), dan riwayat ulasan terperinci dari pelanggan.
+- **Privacy Shield & Transparansi Layanan**: Mengimplementasikan logika pemotongan/penyamaran nama pelanggan (*Privacy Shield*) pada daftar ulasan (misal: "Andi M." atau "T***") serta tag jenis layanan terkait (misalnya "Swedish Massage") agar terapis tahu performa layanan spesifik mereka tanpa melanggar privasi pelanggan.
+- **Interaktivitas Header & Menu Profil**: Memodifikasi tab [`profile.tsx`](file:///d:/PERSONAL%20FILE/App%20Pijat%20On-Demand/apps/therapist/app/(tabs)/profile.tsx) agar stat block **Rating** dan **Level** di bagian atas profil kini bersifat interaktif (*clickable*) menuju masing-masing halaman detilnya (`reviews` & `tier-info`), ditambah dengan pendaftaran menu navigasi formal "Ulasan Pelanggan" di menu Akun.
+- **Registrasi Route Layout**: Mendaftarkan screen `profile/reviews` di layout router utama untuk memastikan kelancaran transisi layar.
+
+### 💳 Penerimaan Pembayaran QRIS pada Pesanan Tunai (Roadmap)
+- **Tombol Tampilkan QRIS Kontekstual**: Menambahkan tombol **Tampilkan QRIS Pembayaran** di dalam kartu ringkasan pembayaran di [`[id].tsx`](file:///d:/PERSONAL%20FILE/App%20Pijat%20On-Demand/apps/therapist/app/(main)/orders/[id].tsx). Tombol ini hanya muncul secara dinamis jika metode pembayaran pesanan adalah tunai (*cash*) dan status pesanan sedang aktif (`accepted`, `on_site`, `in_progress`).
+- **Modal QRIS Slip Standar Nasional**: Mendesain Modal slide-up interaktif yang menyerupai struk cetakan QRIS resmi. Dilengkapi lambang **GPN** (Garuda Perisai Biru) dan logo **QRIS** standar nasional, nama merchant "KANG MASSAGE MITRA", nomor NMID unik, nilai tagihan pesanan dinamis, serta nomor referensi pesanan.
+- **Mockup QR Code Dinamis**: Menyematkan generator gambar kode QR dinamis yang ditarik secara instan melalui API QR Server dengan payload data QRIS standar nasional (`000201...`) yang merepresentasikan detail pesanan secara sangat realistis.
+- **Simulator Pengecek Status Pembayaran**: Menyediakan tombol **Cek Status Pembayaran** dengan animasi pemuatan (*activity loader*) selama 1,5 detik untuk mensimulasikan verifikasi transaksi perbankan. Setelah selesai, modal ditutup secara otomatis dan memicu Custom Alert notifikasi sukses bahwa dana QRIS telah masuk, sehingga terapis dapat langsung menggeser tombol penyelesaian pesanan.
+
 ## [2026-05-17] - Optimasi Skema Pendapatan, Algoritma Rating & UI Terapis
+
+### 🏆 Sistem Tier & Reward Otomatis (Terapis)
+- **Komisi Dinamis Berbasis Tier**: Meninggalkan sistem komisi flat 80%, kini bagi hasil dihitung otomatis berdasarkan tingkatan *Tier* terapis (Bronze hingga Diamond). Persentase potongan platform dan pendapatan bersih dieksekusi secara *real-time* sesuai tingkatan.
+- **Auto-Reward Pencapaian Target**: Implementasi fungsi pintar pada setiap penyelesaian order. Sistem mendeteksi jumlah (`Order Unit`) dan nominal pendapatan (`Order Amount`) di bulan tersebut. Jika mencapai target, *Reward* (insentif tunai) akan otomatis masuk ke dompet terapis tanpa proses klaim manual.
+- **UI Tier Interaktif (Slide & Progress)**: Merombak halaman Informasi Tier dari tabel padat menjadi kartu slide (Carousel) per-tier yang *sleek*. Dilengkapi dengan indikator **Progress Bar Real-Time** agar terapis bisa memantau jarak capaian mereka menuju reward selanjutnya.
+
+### 🔒 Privasi Data Pengguna (Privacy Shield)
+- **Auto-Hide Alamat Selesai/Batal**: Menyembunyikan alamat lengkap pengguna dan mengubahnya menjadi tulisan "Alamat disembunyikan" pada daftar riwayat dan halaman detail terapis, seketika setelah status order berubah menjadi *Completed* atau *Cancelled*.
+- **Map & Location Notes Removal**: Peta (titik pin lokasi GPS) dan kolom "Petunjuk Lokasi" juga akan otomatis ditarik/dihilangkan dari layar terapis setelah pesanan tidak lagi berstatus aktif. Mencegah penyalahgunaan pelacakan lokasi di luar konteks layanan.
 
 ### 💰 Pembaruan Skema Pendapatan & Komisi Terapis
 - **Transparansi Riwayat Dompet**: Memisahkan kalkulasi pembayaran ke dalam 2 nota terpisah yang sangat jelas bagi terapis: (1) Pendapatan Layanan Penuh, (2) Potongan Komisi Aplikasi. Ini mencegah kesalahpahaman nominal yang membingungkan.

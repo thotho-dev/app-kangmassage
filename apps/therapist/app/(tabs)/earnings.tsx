@@ -1,12 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
 import { useTherapistStore } from '@/store/therapistStore';
+import { getTierDetails } from '@/lib/tierLogic';
 import { startOfDay, startOfWeek, startOfMonth, isWithinInterval, endOfDay } from 'date-fns';
 
 const SUMMARY_PERIODS = ['Hari Ini', 'Minggu Ini', 'Bulan Ini', 'Semua'];
@@ -101,8 +103,9 @@ export default function EarningsScreen() {
     });
 
     // Komisi (Potongan Platform)
-    const therapistRate = profile?.commission_rate || 80;
-    const commissionRate = (100 - therapistRate) / 100;
+    const currentTier = profile?.tier || 'Bronze';
+    const tierInfo = getTierDetails(currentTier);
+    const commissionRate = tierInfo.komisi / 100;
     const commission = gross * commissionRate;
     const net = gross - commission;
 
@@ -131,7 +134,7 @@ export default function EarningsScreen() {
 
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <Text style={[styles.title, { color: t.text }]}>Pendapatan</Text>
 
@@ -229,14 +232,14 @@ export default function EarningsScreen() {
           })
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
-    paddingHorizontal: SPACING.lg, paddingTop: 40, paddingBottom: SPACING.xl, gap: SPACING.md,
+    paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.xl, gap: SPACING.md,
   },
   title: { ...TYPOGRAPHY.h2 },
   periods: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: RADIUS.full, padding: 4 },

@@ -22,10 +22,14 @@ import {
   ChevronRight,
   Star,
   Scissors,
+  X,
+  Clock,
 } from 'lucide-react-native';
 import { useServices } from '@/hooks/useServices';
 import { useLocation } from '@/context/LocationContext';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -183,16 +187,175 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { theme, isDark } = useTheme();
   const { isAuthenticated, user, profile, refreshProfile } = useAuth();
   const { data: services, isLoading } = useServices();
   const { address, isLoading: isLocLoading, refreshLocation } = useLocation();
+
+  const [floatingOrder, setFloatingOrder] = useState<any>(null);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  const fetchFloatingOrder = async () => {
+    if (!profile?.id) {
+      setFloatingOrder(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          service:services(*),
+          therapist:therapists(*)
+        `)
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      const found = data?.find((order: any) => {
+        const isOngoing = order.status !== 'completed' && order.status !== 'cancelled';
+        const isUnrated = order.status === 'completed' && !order.rating;
+        return isOngoing || isUnrated;
+      });
+      
+      setFloatingOrder((prev: any) => {
+        if (prev?.id !== found?.id || prev?.status !== found?.status) {
+          setIsDismissed(false);
+        }
+        return found || null;
+      });
+    } catch (e) {
+      console.error('Error fetching floating order:', e);
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
       refreshProfile();
       refreshLocation();
-    }, [])
+      if (profile?.id) {
+        fetchFloatingOrder();
+      }
+    }, [profile?.id])
   );
+
+  useEffect(() => {
+    if (!profile?.id) {
+      setFloatingOrder(null);
+      return;
+    }
+    
+    fetchFloatingOrder();
+
+    const uniqueChannelId = `user_orders_home_${profile.id}_${Math.random().toString(36).substring(7)}`;
+    const channel = supabase
+      .channel(uniqueChannelId)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `user_id=eq.${profile.id}`
+      }, () => {
+        console.log('[DEBUG Home] Order changed, refetching floating order...');
+        fetchFloatingOrder();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id]);
+
+  const getFloatingStatusInfo = (ord: any) => {
+    if (ord.status === 'completed' && !ord.rating) {
+      return {
+        title: 'Pesanan Selesai!',
+        subtitle: 'Bagaimana pijatan terapis? Berikan rating & ulasan Anda.',
+        actionText: 'Beri Nilai',
+        color: '#00A896',
+        isUnrated: true,
+      };
+    }
+    
+    let title = 'Pesanan Aktif';
+    let subtitle = 'Ketuk untuk detail pelacakan.';
+    let color = '#240080';
+    
+    switch (ord.status) {
+      case 'pending':
+        if (ord.scheduled_at) {
+          const dateObj = new Date(ord.scheduled_at);
+          const timeString = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+          const dateString = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+          title = 'Pijat Terjadwal';
+          subtitle = `Jadwal untuk ${dateString} pukul ${timeString}`;
+          color = '#8B5CF6';
+        } else if (ord.payment_status !== 'paid' && ord.payment_method !== 'tunai' && ord.payment_data) {
+          title = 'Menunggu Pembayaran';
+          subtitle = 'Selesaikan pembayaran untuk memproses pesanan Anda.';
+          color = '#FDB927';
+        } else {
+          title = 'Mencari Terapis';
+          subtitle = 'Sedang mencarikan terapis terbaik untuk Anda.';
+          color = '#FDB927';
+        }
+        break;
+      case 'accepted':
+        title = 'Pesanan Diterima';
+        subtitle = ord.therapist?.full_name ? `Terapis: ${ord.therapist.full_name}` : 'Terapis telah ditugaskan.';
+        color = '#240080';
+        break;
+      case 'on_the_way':
+      case 'on_way':
+        title = 'Terapis Menuju Lokasi';
+        subtitle = ord.therapist?.full_name ? `${ord.therapist.full_name} sedang dalam perjalanan.` : 'Terapis sedang menuju ke lokasi Anda.';
+        color = '#240080';
+        break;
+      case 'arrived':
+        title = 'Terapis Tiba';
+        subtitle = ord.therapist?.full_name ? `${ord.therapist.full_name} sudah sampai di lokasi.` : 'Terapis telah sampai di lokasi Anda.';
+        color = '#00A896';
+        break;
+      case 'in_progress':
+      case 'processing':
+        title = 'Sedang Terapi';
+        subtitle = 'Sesi pijat sedang berlangsung. Nikmati relaksasi Anda.';
+        color = '#00A896';
+        break;
+    }
+    
+    return {
+      title,
+      subtitle,
+      actionText: 'Lacak',
+      color,
+      isUnrated: false,
+    };
+  };
+
+  const handleFloatingCardPress = (ord: any) => {
+    if (ord.status === 'completed' && !ord.rating) {
+      router.push({ pathname: '/(main)/tracking', params: { id: ord.id } });
+      return;
+    }
+    
+    if (ord.status === 'pending') {
+      if (ord.scheduled_at) {
+        router.push({ pathname: '/(main)/tracking', params: { id: ord.id } });
+      } else if (ord.payment_status !== 'paid' && ord.payment_method !== 'tunai' && ord.payment_data) {
+        router.push({
+          pathname: '/(main)/payment-details',
+          params: { data: JSON.stringify(ord.payment_data), order_id: ord.id }
+        });
+      } else {
+        router.push({ pathname: '/(main)/searching-therapist', params: { id: ord.id } });
+      }
+    } else {
+      router.push({ pathname: '/(main)/tracking', params: { id: ord.id } });
+    }
+  };
 
   const handleProtectedAction = (pathname: string, params?: any) => {
     if (!isAuthenticated) {
@@ -367,6 +530,50 @@ export default function HomeScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* Floating Order / Review Card */}
+      {floatingOrder && !isDismissed && (
+        <View style={[styles.floatingCard, isDark && styles.floatingCardDark]}>
+          <TouchableOpacity 
+            style={[styles.floatingCloseBtn, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.08)' }]} 
+            onPress={() => setIsDismissed(true)}
+            activeOpacity={0.8}
+          >
+            <X size={14} color={isDark ? '#FFFFFF' : '#6B7280'} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+            onPress={() => handleFloatingCardPress(floatingOrder)}
+            activeOpacity={0.9}
+          >
+            <View style={[styles.floatingLeft, { backgroundColor: getFloatingStatusInfo(floatingOrder).color + '15' }]}>
+              {getFloatingStatusInfo(floatingOrder).isUnrated ? (
+                <Star size={24} color={getFloatingStatusInfo(floatingOrder).color} fill={getFloatingStatusInfo(floatingOrder).color} />
+              ) : (
+                <Clock size={24} color={getFloatingStatusInfo(floatingOrder).color} />
+              )}
+            </View>
+            
+            <View style={styles.floatingCenter}>
+              <Text style={[styles.floatingTitle, isDark && { color: '#FFFFFF' }]} numberOfLines={1}>
+                {getFloatingStatusInfo(floatingOrder).title}
+              </Text>
+              <Text style={[styles.floatingSubtitle, isDark && { color: 'rgba(255,255,255,0.6)' }]} numberOfLines={2}>
+                {getFloatingStatusInfo(floatingOrder).subtitle}
+              </Text>
+            </View>
+            
+            <View style={styles.floatingRight}>
+              <View style={[styles.floatingBtn, { backgroundColor: getFloatingStatusInfo(floatingOrder).color }]}>
+                <Text style={styles.floatingBtnText}>
+                  {getFloatingStatusInfo(floatingOrder).actionText}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -754,5 +961,89 @@ const styles = StyleSheet.create({
     color: PURPLE,
     fontFamily: 'Inter-Bold',
     fontSize: 13,
+  },
+
+  // Floating Order Card
+  floatingCard: {
+    position: 'absolute',
+    bottom: 150,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    zIndex: 999,
+  },
+  floatingCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  floatingLeft: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(36, 0, 128, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  floatingCenter: {
+    flex: 1,
+    marginRight: 10,
+  },
+  floatingTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Bold',
+    color: '#1A1A2E',
+    marginBottom: 2,
+  },
+  floatingSubtitle: {
+    fontSize: 11,
+    fontFamily: 'Inter-Medium',
+    color: '#6B7280',
+  },
+  floatingRight: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#240080',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'Inter-Bold',
+  },
+  floatingCloseBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
   },
 });

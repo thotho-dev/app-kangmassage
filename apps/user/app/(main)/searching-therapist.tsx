@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Alert, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/context/AlertContext';
 
 const PURPLE = '#240080';
 const BG = '#F8F9FE';
@@ -10,6 +12,7 @@ const BG = '#F8F9FE';
 export default function SearchingTherapistScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { showAlert } = useAlert();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -125,7 +128,7 @@ export default function SearchingTherapistScreen() {
   const handleRetry = async () => {
     if (retryCount >= 2) {
       // Jika sudah klik 3x (0, 1, 2), maka batalkan otomatis
-      Alert.alert(
+      showAlert(
         'Batas Pencarian Tercapai',
         'Maaf, sepertinya belum ada terapis yang tersedia saat ini. Silakan coba lagi beberapa saat lagi.',
         [{ text: 'OK', onPress: handleCancelAction }]
@@ -156,6 +159,11 @@ export default function SearchingTherapistScreen() {
       setOrder(data);
       // Jika ternyata sudah di-accept
       if (data.status === 'accepted') {
+        stopTimer();
+        router.replace({ pathname: '/(main)/tracking', params: { id } });
+      } else if (data.scheduled_at) {
+        // Jika pesanan terjadwal, arahkan langsung ke pelacakan (jangan tunggu countdown)
+        stopTimer();
         router.replace({ pathname: '/(main)/tracking', params: { id } });
       } else {
         // Broadcast mode: Pesanan akan muncul di semua HP terapis terdekat secara otomatis
@@ -255,12 +263,15 @@ export default function SearchingTherapistScreen() {
         const requiredSkills = orderData.service?.category_slug || [orderData.service?.name];
         
         if (t.specializations && Array.isArray(t.specializations)) {
+          const therapistSkills: string[] = t.specializations;
+          const checkSkill = (skill: string) => therapistSkills.some(ts => ts.toLowerCase() === skill.toLowerCase());
+          
           let hasSkill = false;
           // Cek irisan (apakah ada minimal 1 kategori yang cocok)
           if (Array.isArray(requiredSkills)) {
-            hasSkill = requiredSkills.some((skill: string) => t.specializations.includes(skill));
-          } else {
-            hasSkill = t.specializations.includes(requiredSkills);
+            hasSkill = requiredSkills.some((skill: string) => checkSkill(skill));
+          } else if (requiredSkills) {
+            hasSkill = checkSkill(requiredSkills);
           }
 
           if (!hasSkill) {
@@ -373,7 +384,7 @@ export default function SearchingTherapistScreen() {
   };
 
   const handleCancel = () => {
-    Alert.alert(
+    showAlert(
       'Batalkan Pencarian?',
       'Apakah Anda yakin ingin membatalkan pencarian terapis?',
       [
@@ -412,7 +423,7 @@ export default function SearchingTherapistScreen() {
   ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.content}>
         <View style={styles.animationContainer}>
           {/* Massage Ornaments */}
@@ -507,7 +518,7 @@ export default function SearchingTherapistScreen() {
           </View>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -516,8 +527,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG,
     justifyContent: 'space-between',
-    padding: 30,
-    paddingTop: 100,
+    paddingHorizontal: 30,
+    paddingVertical: 16,
   },
   content: {
     alignItems: 'center',

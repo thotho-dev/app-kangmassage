@@ -24,6 +24,9 @@ export default function MainLayout() {
         <Stack.Screen name="maps" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="wallet" />
+        <Stack.Screen name="topup" />
+        <Stack.Screen name="topup-payment" />
+        <Stack.Screen name="withdraw" />
         <Stack.Screen name="payment-details" />
       </Stack>
     </LocationProvider>

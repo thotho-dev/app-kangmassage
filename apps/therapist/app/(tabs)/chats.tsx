@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -105,7 +106,7 @@ export default function ChatsScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: t.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <View style={styles.headerTop}>
@@ -145,7 +146,7 @@ export default function ChatsScreen() {
           )
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 40,
+    paddingTop: SPACING.md,
     paddingHorizontal: SPACING.lg,
     paddingBottom: 24,
   },

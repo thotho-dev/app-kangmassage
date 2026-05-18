@@ -23,9 +23,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Handle TOPUP Logic
-    if (order_id.startsWith('TOPUP-')) {
+    if (order_id.startsWith('TOPUP-') || order_id.startsWith('UTOPUP-')) {
+      const isUser = order_id.startsWith('UTOPUP-');
+      const table = isUser ? 'user_topups' : 'therapist_topups';
+      
       const { data: topup, error: fetchError } = await supabase
-        .from('therapist_topups')
+        .from(table)
         .select('*')
         .eq('external_id', order_id)
         .single();
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Update Topup Status
-      const { error: updateTopupError } = await supabase.from('therapist_topups').update({ 
+      const { error: updateTopupError } = await supabase.from(table).update({ 
         status: paymentStatus === 'paid' ? 'paid' : paymentStatus === 'failed' ? 'failed' : 'pending' 
       }).eq('id', topup.id);
 
@@ -44,55 +47,107 @@ export async function POST(req: NextRequest) {
 
       // If Paid, Update Balance & Create Transaction
       if (paymentStatus === 'paid' && topup.status !== 'paid') {
-        const { data: therapist, error: therapistError } = await supabase.from('therapists').select('wallet_balance').eq('id', topup.therapist_id).single();
-        
-        if (therapistError) {
-          console.error('Webhook Error: Failed to fetch therapist balance', therapistError);
-        } else {
-          const newBalance = (therapist?.wallet_balance || 0) + topup.amount;
-          
-          const { error: balanceError } = await supabase.from('therapists').update({ wallet_balance: newBalance }).eq('id', topup.therapist_id);
-          if (balanceError) console.error('Webhook Error: Failed to update therapist balance', balanceError);
+        if (isUser) {
+          const { data: user, error: userError } = await supabase.from('users').select('wallet_balance').eq('id', topup.user_id).single();
+          if (userError) {
+            console.error('Webhook Error: Failed to fetch user balance', userError);
+          } else {
+            const newBalance = (user?.wallet_balance || 0) + topup.amount;
+            
+            const { error: balanceError } = await supabase.from('users').update({ wallet_balance: newBalance }).eq('id', topup.user_id);
+            if (balanceError) console.error('Webhook Error: Failed to update user balance', balanceError);
 
-          const { error: transError } = await supabase.from('transactions').insert({
-            therapist_id: topup.therapist_id,
-            type: 'credit',
-            amount: topup.amount,
-            balance_before: therapist?.wallet_balance || 0,
-            balance_after: newBalance,
-            description: `Topup Saldo via Midtrans`,
-            reference_id: body.transaction_id,
-          });
-          if (transError) console.error('Webhook Error: Failed to insert transaction record', transError);
+            const { error: transError } = await supabase.from('transactions').insert({
+              user_id: topup.user_id,
+              type: 'credit',
+              amount: topup.amount,
+              balance_before: user?.wallet_balance || 0,
+              balance_after: newBalance,
+              description: `Topup Saldo via Midtrans`,
+              reference_id: body.transaction_id,
+            });
+            if (transError) console.error('Webhook Error: Failed to insert transaction record', transError);
 
-          // 3. Send Push Notification
-          const { data: therapistData } = await supabase.from('therapists').select('push_token').eq('id', topup.therapist_id).single();
-          
-          if (therapistData?.push_token) {
-            try {
-              await fetch('https://exp.host/--/api/v2/push/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  to: therapistData.push_token,
-                  title: 'Top Up Berhasil! 🎉',
-                  body: `Saldo Rp ${topup.amount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
-                  data: { type: 'topup_success' },
-                  sound: 'default',
-                  priority: 'high',
-                }),
-              });
-            } catch (err) {
-              console.error('Failed to send push notification:', err);
+            // Send Push Notification
+            const { data: userData } = await supabase.from('users').select('push_token').eq('id', topup.user_id).single() as any;
+            
+            if (userData?.push_token) {
+              try {
+                await fetch('https://exp.host/--/api/v2/push/send', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: userData.push_token,
+                    title: 'Top Up Berhasil! 🎉',
+                    body: `Saldo Rp ${topup.amount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
+                    data: { type: 'topup_success' },
+                    sound: 'default',
+                    priority: 'high',
+                  }),
+                });
+              } catch (err) {
+                console.error('Failed to send push notification:', err);
+              }
             }
-          }
 
-          await supabase.from('notifications').insert({
-            therapist_id: topup.therapist_id,
-            title: 'Top Up Berhasil!',
-            body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
-            type: 'topup_success',
-          });
+            await supabase.from('notifications').insert({
+              user_id: topup.user_id,
+              title: 'Top Up Berhasil!',
+              body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
+              type: 'topup_success',
+            });
+          }
+        } else {
+          const { data: therapist, error: therapistError } = await supabase.from('therapists').select('wallet_balance').eq('id', topup.therapist_id).single();
+          
+          if (therapistError) {
+            console.error('Webhook Error: Failed to fetch therapist balance', therapistError);
+          } else {
+            const newBalance = (therapist?.wallet_balance || 0) + topup.amount;
+            
+            const { error: balanceError } = await supabase.from('therapists').update({ wallet_balance: newBalance }).eq('id', topup.therapist_id);
+            if (balanceError) console.error('Webhook Error: Failed to update therapist balance', balanceError);
+
+            const { error: transError } = await supabase.from('transactions').insert({
+              therapist_id: topup.therapist_id,
+              type: 'credit',
+              amount: topup.amount,
+              balance_before: therapist?.wallet_balance || 0,
+              balance_after: newBalance,
+              description: `Topup Saldo via Midtrans`,
+              reference_id: body.transaction_id,
+            });
+            if (transError) console.error('Webhook Error: Failed to insert transaction record', transError);
+
+            // Send Push Notification
+            const { data: therapistData } = await supabase.from('therapists').select('push_token').eq('id', topup.therapist_id).single();
+            
+            if (therapistData?.push_token) {
+              try {
+                await fetch('https://exp.host/--/api/v2/push/send', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: therapistData.push_token,
+                    title: 'Top Up Berhasil! 🎉',
+                    body: `Saldo Rp ${topup.amount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
+                    data: { type: 'topup_success' },
+                    sound: 'default',
+                    priority: 'high',
+                  }),
+                });
+              } catch (err) {
+                console.error('Failed to send push notification:', err);
+              }
+            }
+
+            await supabase.from('notifications').insert({
+              therapist_id: topup.therapist_id,
+              title: 'Top Up Berhasil!',
+              body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
+              type: 'topup_success',
+            });
+          }
         }
       }
       

@@ -1,8 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
@@ -12,6 +14,7 @@ const SUCCESS = '#10B981';
 
 export default function PaymentDetailsScreen() {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const params = useLocalSearchParams();
   const { profile } = useAuth();
   
@@ -20,7 +23,7 @@ export default function PaymentDetailsScreen() {
 
   const copyToClipboard = async (text: string) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert('Berhasil', 'Nomor berhasil disalin ke clipboard');
+    showAlert('Berhasil', 'Nomor berhasil disalin ke clipboard');
   };
 
   if (!paymentData) return (
@@ -98,7 +101,7 @@ export default function PaymentDetailsScreen() {
           }
         }
       } else {
-        Alert.alert('Belum Terdeteksi', 'Pembayaran Anda belum kami terima. Silakan tunggu sebentar atau selesaikan pembayaran Anda.');
+        showAlert('Belum Terdeteksi', 'Pembayaran Anda belum kami terima. Silakan tunggu sebentar atau selesaikan pembayaran Anda.');
       }
     } catch (error) {
       console.error('Error checking status:', error);
@@ -107,7 +110,7 @@ export default function PaymentDetailsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.replace('/(main)/history')} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={TEXT_DARK} />
@@ -157,7 +160,7 @@ export default function PaymentDetailsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -168,7 +171,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     justifyContent: 'space-between', 
     paddingHorizontal: 20, 
-    paddingTop: 60, 
+    paddingTop: 12, 
     paddingBottom: 20,
     backgroundColor: 'white'
   },

@@ -9,6 +9,7 @@ import {
   Dimensions,
   Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Clock, Star, MapPin } from 'lucide-react-native';
 import { SERVICES } from '@/constants/Services';
@@ -36,7 +37,7 @@ export default function ServicesScreen() {
   const displayServices = servicesData || SERVICES;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       {/* Header */}
@@ -125,7 +126,7 @@ export default function ServicesScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: 12,
     paddingBottom: 15,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',

@@ -9,9 +9,9 @@ import {
   ScrollView,
   Dimensions,
   StatusBar,
-  Alert,
   Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, ArrowRight } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
+import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
 
 const { width, height } = Dimensions.get('window');
@@ -31,13 +32,14 @@ WebBrowser.maybeCompleteAuthSession();
 export default function LoginScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Silakan masukkan email dan kata sandi');
+      showAlert('Error', 'Silakan masukkan email dan kata sandi');
       return;
     }
 
@@ -51,7 +53,7 @@ export default function LoginScreen() {
       if (error) throw error;
       router.replace('/(main)/home');
     } catch (error: any) {
-      Alert.alert('Login Gagal', error.message);
+      showAlert('Login Gagal', error.message);
     } finally {
       setLoading(false);
     }
@@ -104,14 +106,14 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Google Login Gagal', error.message);
+      showAlert('Google Login Gagal', error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <LinearGradient
         colors={isDark ? [COLORS.dark[900], COLORS.dark[950]] : [COLORS.white, COLORS.light[100]]}
@@ -206,7 +208,7 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -233,7 +235,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 32,
-    paddingTop: 80,
+    paddingTop: 24,
     paddingBottom: 40,
   },
   header: {

@@ -83,7 +83,7 @@ export async function PATCH(
       .select(`
         *,
         user:users(id, full_name, phone, avatar_url),
-        therapist:therapists(id, full_name, phone, avatar_url, rating),
+        therapist:therapists(id, full_name, phone, avatar_url, rating, tier),
         service:services(id, name, duration_min, base_price, image_url)
       `)
       .single();
@@ -128,7 +128,16 @@ export async function PATCH(
 
     // Update therapist earnings on completion
     if (status === 'completed' && data.therapist_id) {
-      const commission = (data.total_price * data.therapist.commission_rate) / 100;
+      // Dynamic commission based on tier
+      const tier = (data.therapist.tier || 'bronze').toLowerCase();
+      let platformCut = 27;
+      if (tier === 'silver') platformCut = 25;
+      if (tier === 'gold') platformCut = 23;
+      if (tier === 'platinum') platformCut = 21;
+      if (tier === 'diamond') platformCut = 20;
+      
+      const therapistRate = 100 - platformCut;
+      const commission = (data.total_price * therapistRate) / 100;
       const { data: therapist } = await supabase
         .from('therapists')
         .select('wallet_balance, total_orders')

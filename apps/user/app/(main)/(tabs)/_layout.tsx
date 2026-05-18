@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: Platform.OS === 'ios' ? 26 : 16,
+    bottom: Platform.OS === 'ios' ? 76 : 40,
     alignItems: 'center',
     paddingHorizontal: 16,
   },

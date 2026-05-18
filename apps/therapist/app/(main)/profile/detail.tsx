@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
@@ -25,7 +26,7 @@ export default function ProfileDetailScreen() {
   ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -130,7 +131,7 @@ export default function ProfileDetailScreen() {
           Perubahan data inti memerlukan verifikasi dari tim admin kami.
         </Text>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -138,7 +139,7 @@ const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   header: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
-    paddingHorizontal: SPACING.md, paddingTop: 30, paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.md,
     backgroundColor: t.background, borderBottomWidth: 1, borderBottomColor: t.border
   },
   backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },

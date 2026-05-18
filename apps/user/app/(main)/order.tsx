@@ -33,6 +33,7 @@ import { SERVICES, Service } from '@/constants/Services';
 import { useServices } from '@/hooks/useServices';
 import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
@@ -44,6 +45,7 @@ const BORDER = '#EFEFEF';
 export default function OrderScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const { showAlert } = useAlert();
   const { serviceId, therapistId, voucherCode: initialVoucherCode, from } = useLocalSearchParams();
   const { data: servicesData } = useServices();
   const [therapist, setTherapist] = useState<any>(null);
@@ -140,7 +142,7 @@ export default function OrderScreen() {
           : checkSkill(requiredSkill);
 
         if (!hasSkill) {
-          Alert.alert(
+          showAlert(
             'Keahlian Tidak Cocok',
             `Maaf, ${therapist.full_name} tidak memiliki keahlian untuk layanan "${initialService.name}".\n\nSilakan pilih layanan lain yang dikuasai terapis ini.`,
             [{ text: 'Kembali Pilih Layanan', onPress: () => router.replace({ pathname: '/(main)/services', params: { therapistId } }) }]
@@ -212,54 +214,48 @@ export default function OrderScreen() {
         .single();
 
       if (error || !data) {
-        if (!silent) Alert.alert('Voucher Tidak Valid', 'Kode voucher tidak ditemukan atau sudah tidak aktif.');
+        if (!silent) showAlert('Voucher Tidak Valid', 'Kode voucher tidak ditemukan atau sudah tidak aktif.');
         return;
       }
 
       // Validasi Masa Berlaku
       const now = new Date();
       if (new Date(data.valid_until) < now) {
-        if (!silent) Alert.alert('Voucher Kedaluwarsa', 'Masa berlaku voucher ini telah berakhir.');
+        if (!silent) showAlert('Voucher Kedaluwarsa', 'Masa berlaku voucher ini telah berakhir.');
         return;
       }
 
       // Validasi Min Order
       if (totalPrice < data.min_order_amount) {
-        if (!silent) Alert.alert('Minimal Order Belum Tercapai', `Voucher ini hanya berlaku untuk minimal pemesanan Rp ${data.min_order_amount.toLocaleString('id-ID')}`);
+        if (!silent) showAlert('Minimal Order Belum Tercapai', `Voucher ini hanya berlaku untuk minimal pemesanan Rp ${data.min_order_amount.toLocaleString('id-ID')}`);
         return;
       }
 
       // Validasi Usage Limit
       if (data.usage_limit && data.usage_count >= data.usage_limit) {
-        if (!silent) Alert.alert('Voucher Habis', 'Kuota penggunaan voucher ini telah habis.');
+        if (!silent) showAlert('Voucher Habis', 'Kuota penggunaan voucher ini telah habis.');
         return;
       }
 
       // Validasi Usage Limit Per User
       const limitPerUser = Number(data.user_limit) || 1;
-      console.log('[DEBUG Voucher] Checking manual usage for User:', profile?.id, 'Voucher ID:', data.id);
-
+      
       const { data: usageData, error: usageError } = await supabase
         .from('voucher_usages')
         .select('id')
         .eq('user_id', profile?.id)
         .eq('voucher_id', data.id);
 
-      if (usageError) {
-        console.error('[DEBUG Voucher] Manual Usage Query Error:', usageError.message);
-      }
-
       const userUsageCount = usageData?.length || 0;
-      console.log('[DEBUG Voucher] Manual usage count detected:', userUsageCount, 'Limit:', limitPerUser);
 
       if (userUsageCount >= limitPerUser) {
-        if (!silent) Alert.alert('Batas Penggunaan', `Voucher ini hanya dapat digunakan maksimal ${limitPerUser} kali per pengguna.`);
+        if (!silent) showAlert('Batas Penggunaan', `Voucher ini hanya dapat digunakan maksimal ${limitPerUser} kali per pengguna.`);
         return;
       }
 
       // Validasi Layanan Khusus
       if (data.category === 'service' && data.service_id && data.service_id !== serviceId) {
-        if (!silent) Alert.alert('Layanan Tidak Sesuai', 'Voucher ini hanya berlaku untuk layanan tertentu.');
+        if (!silent) showAlert('Layanan Tidak Sesuai', 'Voucher ini hanya berlaku untuk layanan tertentu.');
         return;
       }
 
@@ -275,7 +271,7 @@ export default function OrderScreen() {
         const endTime = endH * 60 + endM;
 
         if (currentTime < startTime || currentTime > endTime) {
-          if (!silent) Alert.alert('Belum Waktunya', `Voucher ini hanya berlaku pada jam ${data.start_time.substring(0, 5)} - ${data.end_time.substring(0, 5)}.`);
+          if (!silent) showAlert('Belum Waktunya', `Voucher ini hanya berlaku pada jam ${data.start_time.substring(0, 5)} - ${data.end_time.substring(0, 5)}.`);
           return;
         }
       }
@@ -297,7 +293,7 @@ export default function OrderScreen() {
         });
 
         if (!isCovered) {
-          if (!silent) Alert.alert('Area Tidak Sesuai', `Voucher ini hanya berlaku untuk wilayah: ${data.area_names.join(', ')}.`);
+          if (!silent) showAlert('Area Tidak Sesuai', `Voucher ini hanya berlaku untuk wilayah: ${data.area_names.join(', ')}.`);
           return;
         }
       }
@@ -306,7 +302,7 @@ export default function OrderScreen() {
       if (data.category === 'new_user') {
         const orderCount = profile?.total_orders || 0;
         if (orderCount > 0) {
-          if (!silent) Alert.alert('Khusus Pengguna Baru', 'Voucher ini hanya berlaku untuk pesanan pertama Anda.');
+          if (!silent) showAlert('Khusus Pengguna Baru', 'Voucher ini hanya berlaku untuk pesanan pertama Anda.');
           return;
         }
       }
@@ -315,7 +311,7 @@ export default function OrderScreen() {
       if (data.category === 'repeat_order') {
         const orderCount = profile?.total_orders || 0;
         if (orderCount < (data.min_order_count || 0)) {
-          if (!silent) Alert.alert('Syarat Tidak Terpenuhi', `Voucher ini hanya berlaku setelah Anda melakukan minimal ${data.min_order_count} pesanan.`);
+          if (!silent) showAlert('Syarat Tidak Terpenuhi', `Voucher ini hanya berlaku setelah Anda melakukan minimal ${data.min_order_count} pesanan.`);
           return;
         }
       }
@@ -334,11 +330,11 @@ export default function OrderScreen() {
       setAppliedVoucher(data);
       setDiscountAmount(discount);
       if (!codeOverride) {
-        Alert.alert('Berhasil', `Voucher "${data.code}" berhasil digunakan! Anda mendapatkan potongan Rp ${discount.toLocaleString('id-ID')}`);
+        showAlert('Berhasil', `Voucher "${data.code}" berhasil digunakan! Anda mendapatkan potongan Rp ${discount.toLocaleString('id-ID')}`);
       }
     } catch (error) {
       console.error('Check voucher error:', error);
-      Alert.alert('Error', 'Gagal memproses voucher.');
+      showAlert('Error', 'Gagal memproses voucher.');
     } finally {
       setLoading(false);
     }
@@ -416,22 +412,16 @@ export default function OrderScreen() {
         }
 
         // Check User Usage Limit for Auto-Apply
-        console.log('[DEBUG Voucher] Auto-checking usage for User:', profile?.id, 'Voucher:', v.code);
         const { data: usageData, error: usageError } = await supabase
           .from('voucher_usages')
           .select('id')
           .eq('voucher_id', v.id)
           .eq('user_id', profile?.id);
 
-        if (usageError) {
-          console.error('[DEBUG Voucher] Auto-Apply Usage Query Error:', usageError.message);
-        }
-
         const userUsageCount = usageData?.length || 0;
         const limitPerUser = Number(v.user_limit) || 1;
 
         if (userUsageCount >= limitPerUser) {
-          console.log('[DEBUG Voucher] User reached limit for:', v.code);
           continue;
         }
 
@@ -468,7 +458,7 @@ export default function OrderScreen() {
         setAppliedVoucher(null);
         setDiscountAmount(0);
         setVoucherCode('');
-        Alert.alert('Voucher Terlepas', 'Minimal order tidak tercapai untuk voucher ini.');
+        showAlert('Voucher Terlepas', 'Minimal order tidak tercapai untuk voucher ini.');
         return;
       }
 
@@ -534,12 +524,33 @@ export default function OrderScreen() {
 
   const handleOrder = async () => {
     if (!address) {
-      Alert.alert('Alamat Kosong', 'Silakan tentukan lokasi pengiriman terlebih dahulu.');
+      showAlert('Alamat Kosong', 'Silakan tentukan lokasi pengiriman terlebih dahulu.');
       return;
     }
 
+    if (bookingType === 'schedule') {
+      const now = new Date();
+      const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000); // 30 menit ke depan
+      
+      if (selectedDate < now) {
+        showAlert(
+          'Waktu Tidak Valid',
+          'Waktu reservasi terjadwal tidak boleh di masa lalu. Silakan pilih waktu yang akan datang.'
+        );
+        return;
+      }
+      
+      if (selectedDate < minBookingTime) {
+        showAlert(
+          'Waktu Terlalu Dekat',
+          'Untuk pesanan terjadwal, waktu reservasi minimal harus 30 menit dari sekarang agar terapis memiliki waktu persiapan dan perjalanan.'
+        );
+        return;
+      }
+    }
+
     if (paymentMethod === 'saldo' && (profile?.wallet_balance || 0) < finalPrice) {
-      Alert.alert('Saldo Kurang', 'Saldo Anda tidak mencukupi untuk melakukan pemesanan ini.');
+      showAlert('Saldo Kurang', 'Saldo Anda tidak mencukupi untuk melakukan pemesanan ini.');
       return;
     }
 
@@ -644,15 +655,19 @@ export default function OrderScreen() {
           description: `Pembayaran ${initialService.name}`,
         }]);
 
-        // Jika memesan dari terapis favorit, langsung tracking. Jika tidak, cari terapis.
-        if (therapistId) {
+        // Jika pemesanan terjadwal, langsung ke detail/tracking. Jika instan, cek terapis favorit.
+        if (bookingType === 'schedule') {
+          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+        } else if (therapistId) {
           router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
         } else {
           router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
         }
       } else if (paymentMethod === 'tunai') {
-        // Redirect ke halaman mencari terapis jika bukan dari favorit
-        if (therapistId) {
+        // Jika pemesanan terjadwal, langsung ke detail/tracking. Jika instan, cek terapis favorit.
+        if (bookingType === 'schedule') {
+          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+        } else if (therapistId) {
           router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
         } else {
           router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
@@ -683,7 +698,7 @@ export default function OrderScreen() {
 
     } catch (error: any) {
       console.error('Order error:', error);
-      Alert.alert('Gagal Memesan', error.message || 'Terjadi kesalahan saat memproses pesanan.');
+      showAlert('Gagal Memesan', error.message || 'Terjadi kesalahan saat memproses pesanan.');
     } finally {
       setLoading(false);
     }
@@ -1016,7 +1031,7 @@ export default function OrderScreen() {
                           style={[styles.paymentItem, isInsufficient && { opacity: 0.5 }]}
                           onPress={() => {
                             if (isInsufficient) {
-                              Alert.alert('Saldo Kurang', 'Saldo Anda tidak mencukupi. Silakan top up atau pilih metode lain.');
+                              showAlert('Saldo Kurang', 'Saldo Anda tidak mencukupi. Silakan top up atau pilih metode lain.');
                               return;
                             }
                             setPaymentMethod(method.id as any);

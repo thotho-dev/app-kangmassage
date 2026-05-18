@@ -243,8 +243,22 @@ export default function OrdersScreen() {
               <View style={styles.cardMeta}>
                 <View style={styles.metaItem}>
                   <Ionicons name="location-outline" size={14} color={t.textMuted} />
-                  <Text style={styles.metaText} numberOfLines={1}>{order.address || 'Alamat tidak tersedia'}</Text>
+                  <Text style={styles.metaText} numberOfLines={1}>
+                    {(order.status === 'completed' || order.status === 'cancelled') 
+                      ? 'Alamat disembunyikan (Pesanan ' + (order.status === 'completed' ? 'Selesai' : 'Batal') + ')'
+                      : (order.address || 'Alamat tidak tersedia')}
+                  </Text>
                 </View>
+
+                {order.scheduled_at && (
+                  <View style={[styles.metaItem, { marginTop: 4 }]}>
+                    <Ionicons name="calendar-outline" size={14} color="#8B5CF6" />
+                    <Text style={[styles.metaText, { color: '#8B5CF6', fontFamily: 'Inter_700Bold' }]}>
+                      Reservasi: {new Date(order.scheduled_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} · {new Date(order.scheduled_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.metaRow}>
                   <View style={styles.metaItem}>
                     <Ionicons name="navigate-outline" size={14} color={t.textMuted} />

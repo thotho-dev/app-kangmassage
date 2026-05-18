@@ -18,15 +18,15 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
+import { useAlert } from '@/context/AlertContext';
+import { supabase } from '@/lib/supabase';
 
 const { width, height } = Dimensions.get('window');
-
-import { supabase } from '@/lib/supabase';
-import { Alert } from 'react-native';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { showAlert } = useAlert();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -35,7 +35,7 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!email || !password || !fullName || !phone) {
-      Alert.alert('Error', 'Semua kolom wajib diisi');
+      showAlert('Error', 'Semua kolom wajib diisi');
       return;
     }
 
@@ -78,11 +78,11 @@ export default function RegisterScreen() {
         
         router.replace('/(main)/home');
       } else {
-        Alert.alert('Sukses', 'Silakan periksa email Anda untuk konfirmasi pendaftaran.');
+        showAlert('Sukses', 'Silakan periksa email Anda untuk konfirmasi pendaftaran.');
         router.back();
       }
     } catch (error: any) {
-      Alert.alert('Pendaftaran Gagal', error.message);
+      showAlert('Pendaftaran Gagal', error.message);
     } finally {
       setLoading(false);
     }
