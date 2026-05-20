@@ -6,11 +6,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Phone, Eye, EyeOff } from 'lucide-react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,6 +34,38 @@ export default function LoginScreen() {
     if (digits.startsWith('0')) return '+62' + digits.substring(1);
     if (digits.startsWith('62')) return '+' + digits;
     return '+62' + digits;
+  };
+
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const redirectTo = Linking.createURL('', { scheme: 'kangmassage' });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (error) throw error;
+
+      const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (res.type === 'success') {
+        const { url } = res;
+        const { queryParams } = Linking.parse(url);
+        const access_token = queryParams?.access_token as string;
+        const refresh_token = queryParams?.refresh_token as string;
+        if (access_token) {
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          if (error) throw error;
+          router.replace('/(main)/home');
+        } else {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session) router.replace('/(main)/home');
+        }
+      }
+    } catch (error: any) {
+      showAlert('Google Login Gagal', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -125,6 +162,22 @@ export default function LoginScreen() {
 
             <View style={styles.dividerContainer}>
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <Text style={[styles.dividerText, { color: theme.textSecondary }]}>ATAU</Text>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.googleButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}
+              onPress={signInWithGoogle}
+            >
+              <View style={styles.googleContent}>
+                <FontAwesome name="google" size={22} color="#DB4437" />
+                <Text style={[styles.googleText, { color: theme.text }]}>Lanjutkan dengan Google</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.dividerContainer}>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
               <Text style={[styles.dividerText, { color: theme.textSecondary }]}>BELUM PUNYA AKUN?</Text>
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
             </View>
@@ -189,4 +242,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10,
   },
   registerBtnText: { fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF' },
+  googleButton: {
+    height: 52, borderRadius: 16, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+  },
+  googleContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  googleText: { fontSize: 15, fontFamily: 'Inter-SemiBold' },
 });
