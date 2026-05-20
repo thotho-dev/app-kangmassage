@@ -4,9 +4,8 @@ import { createAdminClient } from '@/lib/supabase/server';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    console.log('Xendit Topup Webhook Received:', JSON.stringify(body, null, 2));
+    console.log('Xendit Webhook Received:', JSON.stringify(body, null, 2));
 
-    // Optional Verification Token check
     const callbackToken = req.headers.get('x-callback-token');
     const expectedToken = process.env.XENDIT_WEBHOOK_VERIFICATION_TOKEN;
     if (expectedToken && callbackToken !== expectedToken) {
@@ -22,7 +21,6 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Determine Status: PAID / SETTLED -> success, EXPIRED -> failed
     let paymentStatus: 'paid' | 'failed' | 'pending' = 'pending';
     if (status === 'PAID' || status === 'SETTLED') {
       paymentStatus = 'paid';
@@ -30,7 +28,7 @@ export async function POST(req: NextRequest) {
       paymentStatus = 'failed';
     }
 
-    // Process Therapist Top-Up
+    // 1. THERAPIST TOPUP (TOPUP- prefix)
     if (external_id.startsWith('TOPUP-')) {
       const { data: topup, error: fetchError } = await supabase
         .from('therapist_topups')
@@ -43,77 +41,52 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'ignored', message: 'Topup record not found' }, { status: 200 });
       }
 
-      // Prevent processing duplicate webhooks
       if (topup.status === 'paid') {
         return NextResponse.json({ status: 'success', message: 'Already processed' });
       }
 
-      // Update status
-      const { error: updateTopupError } = await supabase
-        .from('therapist_topups')
-        .update({ 
-          status: paymentStatus,
-          payment_data: body
-        })
-        .eq('id', topup.id);
+      await supabase.from('therapist_topups').update({
+        status: paymentStatus,
+        payment_data: body
+      }).eq('id', topup.id);
 
-      if (updateTopupError) console.error('Xendit Webhook Error: Failed to update topup status', updateTopupError);
-
-      // If PAID, Credit Balance, Transaction, Notification & Push Notifications
       if (paymentStatus === 'paid') {
-        const { data: therapist, error: therapistError } = await supabase
+        const { data: therapist } = await supabase
           .from('therapists')
           .select('wallet_balance, push_token')
           .eq('id', topup.therapist_id)
           .single();
 
-        if (therapistError || !therapist) {
-          console.error('Xendit Webhook Error: Failed to fetch therapist details', therapistError);
-        } else {
+        if (therapist) {
           const newBalance = (therapist.wallet_balance || 0) + topup.amount;
 
-          // Update therapist balance
-          const { error: balanceError } = await supabase
-            .from('therapists')
-            .update({ wallet_balance: newBalance })
-            .eq('id', topup.therapist_id);
+          await supabase.from('therapists').update({ wallet_balance: newBalance }).eq('id', topup.therapist_id);
 
-          if (balanceError) console.error('Xendit Webhook Error: Failed to update therapist balance', balanceError);
-
-          // Add transaction credit entry
-          const { error: transError } = await supabase.from('transactions').insert({
+          await supabase.from('transactions').insert({
             therapist_id: topup.therapist_id,
             type: 'credit',
             amount: topup.amount,
             balance_before: therapist.wallet_balance || 0,
             balance_after: newBalance,
-            description: `Topup Saldo via Xendit (${payment_channel || 'Invoice'})`,
+            description: `Top Up Saldo (${payment_channel || 'Transfer'})`,
             reference_id: invoice_id,
           });
 
-          if (transError) console.error('Xendit Webhook Error: Failed to insert transaction record', transError);
-
-          // Send Expo Push Notification
           if (therapist.push_token) {
-            try {
-              await fetch('https://exp.host/--/api/v2/push/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  to: therapist.push_token,
-                  title: 'Top Up Berhasil! 🎉',
-                  body: `Saldo Rp ${topup.amount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
-                  data: { type: 'topup_success' },
-                  sound: 'default',
-                  priority: 'high',
-                }),
-              });
-            } catch (err) {
-              console.error('Failed to send push notification:', err);
-            }
+            await fetch('https://exp.host/--/api/v2/push/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: therapist.push_token,
+                title: 'Top Up Berhasil!',
+                body: `Saldo Rp ${topup.amount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
+                data: { type: 'topup_success' },
+                sound: 'default',
+                priority: 'high',
+              }),
+            });
           }
 
-          // Create notification record
           await supabase.from('notifications').insert({
             therapist_id: topup.therapist_id,
             title: 'Top Up Berhasil!',
@@ -122,11 +95,116 @@ export async function POST(req: NextRequest) {
           });
         }
       }
+
+      return NextResponse.json({ status: 'ok', type: 'therapist_topup' });
     }
 
-    return NextResponse.json({ status: 'ok' });
+    // 2. USER TOPUP (UTOPUP- prefix)
+    if (external_id.startsWith('UTOPUP-')) {
+      const { data: topup, error: fetchError } = await supabase
+        .from('user_topups')
+        .select('*')
+        .eq('external_id', external_id)
+        .single();
+
+      if (fetchError || !topup) {
+        console.warn(`[Xendit Webhook] User topup not found for: ${external_id}`);
+        return NextResponse.json({ status: 'ignored', message: 'Topup record not found' }, { status: 200 });
+      }
+
+      if (topup.status === 'paid') {
+        return NextResponse.json({ status: 'success', message: 'Already processed' });
+      }
+
+      await supabase.from('user_topups').update({
+        status: paymentStatus,
+        payment_data: body
+      }).eq('id', topup.id);
+
+      if (paymentStatus === 'paid') {
+        const { data: user } = await supabase
+          .from('users')
+          .select('wallet_balance, push_token')
+          .eq('id', topup.user_id)
+          .single();
+
+        if (user) {
+          const newBalance = (user.wallet_balance || 0) + topup.amount;
+
+          await supabase.from('users').update({ wallet_balance: newBalance }).eq('id', topup.user_id);
+
+          await supabase.from('transactions').insert({
+            user_id: topup.user_id,
+            type: 'credit',
+            amount: topup.amount,
+            balance_before: user.wallet_balance || 0,
+            balance_after: newBalance,
+            description: `Top Up Saldo via ${payment_channel || 'Xendit'}`,
+            reference_id: invoice_id,
+          });
+
+          if (user.push_token) {
+            await fetch('https://exp.host/--/api/v2/push/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: user.push_token,
+                title: 'Top Up Berhasil!',
+                body: `Saldo Rp ${topup.amount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
+                data: { type: 'topup_success' },
+                sound: 'default',
+                priority: 'high',
+              }),
+            });
+          }
+
+          await supabase.from('notifications').insert({
+            user_id: topup.user_id,
+            title: 'Top Up Berhasil!',
+            body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
+            type: 'topup_success',
+          });
+        }
+      }
+
+      return NextResponse.json({ status: 'ok', type: 'user_topup' });
+    }
+
+    // 3. ORDER PAYMENT (no prefix — order_number based)
+    const { data: order } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('order_number', external_id)
+      .single();
+
+    if (!order) {
+      console.warn(`[Xendit Webhook] Order not found for external_id: ${external_id}`);
+      return NextResponse.json({ status: 'ignored', message: 'Order not found' }, { status: 200 });
+    }
+
+    const updateData: any = { payment_status: paymentStatus };
+    if (paymentStatus === 'failed') updateData.status = 'cancelled';
+
+    await supabase.from('orders').update(updateData).eq('id', order.id);
+
+    if (paymentStatus === 'paid') {
+      const { data: user } = await supabase.from('users').select('wallet_balance').eq('id', order.user_id).single();
+      await supabase.from('transactions').insert({
+        user_id: order.user_id,
+        order_id: order.id,
+        type: 'debit',
+        amount: order.total_price,
+        balance_before: user?.wallet_balance || 0,
+        balance_after: user?.wallet_balance || 0,
+        description: `Payment for order ${order.order_number}`,
+        reference_id: invoice_id,
+      });
+    }
+
+    return NextResponse.json({ status: 'ok', type: 'order' });
+
   } catch (error: any) {
-    console.error('Xendit Webhook Parsing Error:', error.message);
+    console.error('Xendit Webhook Error:', error.message);
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }

@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 
-const MIDTRANS_SERVER_KEY = process.env.MIDTRANS_SERVER_KEY;
-const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === 'true';
-const MIDTRANS_BASE_URL = MIDTRANS_IS_PRODUCTION 
-  ? 'https://api.midtrans.com/v2' 
-  : 'https://api.sandbox.midtrans.com/v2';
-
 export async function POST(req: NextRequest) {
   try {
     const { order_id, payment_method } = await req.json();
@@ -22,72 +16,94 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    const authString = Buffer.from(`${MIDTRANS_SERVER_KEY}:`).toString('base64');
-    
-    let payload: any = {
-      transaction_details: {
-        order_id: order.order_number,
-        gross_amount: order.total_price,
-      },
-      customer_details: {
-        first_name: order.user?.full_name || 'Guest',
-        email: order.user?.email || `${order.user?.phone}@pijat.com`,
-        phone: order.user?.phone,
-      },
-      item_details: [{
-        id: order.service_id,
-        price: order.total_price,
-        quantity: 1,
-        name: order.service?.name || 'Layanan Pijat',
-      }],
-    };
+    const external_id = order.order_number;
 
-    // Configure payload based on method
-    if (payment_method.includes('_va')) {
-      payload.payment_type = 'bank_transfer';
-      const bank = payment_method.split('_')[0];
-      payload.bank_transfer = { bank: bank };
-    } else if (payment_method === 'gopay') {
-      payload.payment_type = 'gopay';
-    } else if (payment_method === 'shopeepay') {
-      payload.payment_type = 'shopeepay';
-    } else if (payment_method === 'qris') {
-      payload.payment_type = 'qris';
-    } else {
-      // Default fallback
-      payload.payment_type = 'qris';
+    // Xendit Invoice Integration
+    const secretKey = process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
+
+    // INTERCEPT FOR LOCAL SANDBOX
+    if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
+      const url = new URL(req.url);
+      const origin = url.origin;
+      const redirectUrl = `${origin}/xendit-sandbox?id=${order_id}&amount=${order.total_price}&external_id=${external_id}&type=order`;
+
+      const mockData = {
+        invoice_url: redirectUrl,
+        id: `xendit-inv-${order_id.slice(0, 8)}`,
+        external_id,
+        status: 'PENDING',
+        amount: order.total_price,
+        order_id,
+      };
+
+      await supabase.from('orders').update({
+        payment_method,
+        payment_status: 'pending',
+        payment_data: mockData,
+      }).eq('id', order_id);
+
+      return NextResponse.json({ status: 'success', data: mockData });
     }
 
-    const response = await fetch(`${MIDTRANS_BASE_URL}/charge`, {
+    const paymentMethodsMap: Record<string, string[]> = {
+      'bca_va': ['BCA'],
+      'mandiri_va': ['MANDIRI'],
+      'bni_va': ['BNI'],
+      'bri_va': ['BRI'],
+      'gopay': ['QRIS'],
+      'qris': ['QRIS'],
+      'shopeepay': ['SHOPEEPAY'],
+    };
+
+    const preferredMethods = paymentMethodsMap[payment_method.toLowerCase()];
+
+    const xenditPayload: any = {
+      external_id,
+      amount: order.total_price,
+      description: `Pembayaran ${order.service?.name || 'Layanan Pijat'} - Kang Massage`,
+      customer: {
+        given_names: order.user?.full_name || 'Guest',
+        mobile_number: order.user?.phone,
+        email: order.user?.email || `${order.user?.phone}@pijat.com`,
+      },
+      success_redirect_url: 'kangmassage://history',
+      failure_redirect_url: 'kangmassage://order',
+    };
+
+    if (preferredMethods) {
+      xenditPayload.payment_methods = preferredMethods;
+    }
+
+    const response = await fetch('https://api.xendit.co/v2/invoices', {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${authString}`,
+        'Authorization': authHeader,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(xenditPayload),
     });
 
-    const midtransData = await response.json();
+    const xenditData = await response.json();
 
-    if (midtransData.status_code !== '201') {
-      console.error('Midtrans Charge Error:', midtransData);
-      return NextResponse.json({ error: midtransData.status_message || 'Midtrans error' }, { status: 400 });
+    if (response.status >= 300) {
+      console.error('Xendit Invoice Creation Error:', xenditData);
+      return NextResponse.json({ error: xenditData.message || 'Xendit error' }, { status: 400 });
     }
 
     // Update order with payment info
     await supabase.from('orders').update({
       payment_method,
       payment_status: 'pending',
-      payment_data: midtransData,
+      payment_data: xenditData,
     }).eq('id', order_id);
 
     return NextResponse.json({
       status: 'success',
-      data: midtransData,
+      data: { ...xenditData, order_id },
     });
   } catch (error: any) {
-    console.error('Midtrans Create Error:', error);
+    console.error('Payment Create Error:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }

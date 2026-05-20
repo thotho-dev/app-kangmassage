@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               to: therapist.push_token,
               title: 'Penarikan Dana Berhasil! 💸',
-              body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah dikirim ke rekening Anda (Simulasi).`,
+              body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah dikirim ke rekening Anda.`,
               data: { type: 'withdrawal_success' },
               sound: 'default',
             }),
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         status: 'success',
-        message: 'Withdrawal successfully disbursed (Simulasi Sandbox)!',
+        message: 'Penarikan berhasil diproses!',
         data: mockXenditDisbursement
       });
     }

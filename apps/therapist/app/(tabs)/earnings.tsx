@@ -198,34 +198,74 @@ export default function EarningsScreen() {
             const isDebit = item.type === 'debit' || (item.amount < 0);
             // Support both array and object response from Supabase joins
             const orderData = Array.isArray(item.orders) ? item.orders[0] : item.orders;
-            const customerName = orderData?.users?.full_name || 'Pelanggan';
-            const serviceName = orderData?.services?.name || 'Layanan Pijat';
-            const orderNum = orderData?.order_number?.slice(-6) || '---';
+
+            // Detect top-up and withdrawal transactions by reference_id or description
+            const isTopUp = item.reference_id?.startsWith('TOPUP-') || item.description?.toLowerCase().includes('top up') || item.description?.toLowerCase().includes('topup');
+            const isWithdrawal = item.reference_id?.startsWith('WD-') || item.description?.toLowerCase().includes('penarikan');
+
+            let transactionName: string;
+            let transactionDetail: string;
+            let iconName: string;
+            let iconColor: string;
+            let iconBg: string;
+
+            if (isTopUp) {
+              transactionName = 'Top Up Saldo';
+              transactionDetail = item.description || 'Top Up Wallet';
+              iconName = 'wallet';
+              iconColor = t.success;
+              iconBg = t.success + '15';
+            } else if (isWithdrawal) {
+              transactionName = 'Penarikan Saldo';
+              transactionDetail = item.description || 'Withdrawal';
+              iconName = 'arrow-down-circle';
+              iconColor = t.warning;
+              iconBg = t.warning + '15';
+            } else {
+              const customerName = orderData?.users?.full_name || 'Pelanggan';
+              const serviceName = orderData?.services?.name || 'Layanan Pijat';
+              const orderNum = orderData?.order_number?.slice(-6) || '---';
+              transactionName = isDebit ? (item.description || 'Potongan Komisi') : customerName;
+              transactionDetail = isDebit ? `Pesanan #${orderNum}` : serviceName;
+              iconName = isDebit ? 'remove-circle' : 'add-circle';
+              iconColor = isDebit ? t.danger : t.primary;
+              iconBg = isDebit ? t.danger + '15' : t.primary + '10';
+            }
 
             return (
               <View key={item.id} style={styles.historyCard}>
                 <View style={styles.historyLeft}>
-                  <View style={[styles.historyIcon, { backgroundColor: isDebit ? t.danger + '15' : t.primary + '10' }]}>
+                  <View style={[styles.historyIcon, { backgroundColor: iconBg }]}>
                     <Ionicons
-                      name={isDebit ? 'remove-circle' : 'add-circle'}
+                      name={iconName as any}
                       size={24}
-                      color={isDebit ? t.danger : t.primary}
+                      color={iconColor}
                     />
                   </View>
                   <View style={styles.historyInfo}>
                     <Text style={styles.historyName}>
-                      {isDebit ? (item.description || 'Potongan Komisi') : customerName}
+                      {transactionName}
                     </Text>
                     <Text style={styles.historyService}>
-                      {isDebit ? `Pesanan #${orderNum}` : serviceName}
+                      {transactionDetail}
                     </Text>
                     <Text style={styles.historyDate}>{new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
                   </View>
                 </View>
                 <View style={styles.historyRight}>
-                  <Text style={[styles.historyAmount, { color: isDebit ? t.danger : t.primary }]}>
-                    {isDebit ? '-' : '+'}Rp {Math.abs(Number(item.amount) || 0).toLocaleString('id-ID')}
+                  <Text style={[styles.historyAmount, { color: isTopUp ? t.success : isWithdrawal ? t.warning : isDebit ? t.danger : t.primary }]}>
+                    {isDebit || isWithdrawal ? '-' : '+'}
+                    Rp {isWithdrawal
+                      ? (Math.abs(Number(item.amount) || 0) - 5000).toLocaleString('id-ID')
+                      : Math.abs(Number(item.amount) || 0).toLocaleString('id-ID')
+                    }
                   </Text>
+                  {isTopUp && (
+                    <Text style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>Saldo masuk</Text>
+                  )}
+                  {isWithdrawal && (
+                    <Text style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>Dana diterima</Text>
+                  )}
                 </View>
               </View>
             );

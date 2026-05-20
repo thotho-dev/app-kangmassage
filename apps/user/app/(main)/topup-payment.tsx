@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, Linking } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator, Linking
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Copy, CheckCircle, Clock, ArrowRight } from 'lucide-react-native';
-import * as Clipboard from 'expo-clipboard';
+import { ChevronLeft, CheckCircle, Clock, ExternalLink } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
@@ -33,47 +34,30 @@ export default function TopupPaymentScreen() {
     </SafeAreaView>
   );
 
-  const { 
-    payment_type, va_numbers, permata_va_number,
-    bill_key, biller_code, actions, payment_code,
-    gross_amount, transaction_id, order_id
+  const {
+    invoice_url,
+    id: xendit_invoice_id,
+    external_id,
+    amount,
+    status,
+    topup_id,
   } = paymentData;
 
-  let code = '-';
-  let label = 'Nomor Bayar';
-  let qrUrl = '';
+  const invoiceAmount = amount ? parseInt(amount.toString().split('.')[0]) : 0;
+  const topupDbId = topup_id || paymentData.topup_id;
 
-  if (va_numbers && va_numbers.length > 0) {
-    code = va_numbers[0].va_number;
-    label = `Virtual Account ${va_numbers[0].bank.toUpperCase()}`;
-  } else if (permata_va_number) {
-    code = permata_va_number;
-    label = 'Virtual Account PERMATA';
-  } else if (bill_key && biller_code) {
-    code = `${biller_code}${bill_key}`;
-    label = 'Mandiri Bill Code';
-  } else if (payment_type === 'gopay' || payment_type === 'qris' || payment_type === 'dana') {
-    qrUrl = actions?.find((a: any) => a.name === 'generate-qr-code')?.url;
-    label = payment_type === 'dana' ? 'DANA Wallet' : (payment_type === 'gopay' ? 'GoPay / QRIS' : 'QRIS');
-  } else if (payment_code) {
-    code = payment_code;
-    label = 'Kode Pembayaran';
-  }
-
-  const redirectUrl = actions?.find((a: any) => a.name === 'deeplink-redirect')?.url;
-
-  const displayAmount = gross_amount ? parseInt(gross_amount.toString().split('.')[0]) : 0;
-
-  const copyToClipboard = async (text: string) => {
-    await Clipboard.setStringAsync(text);
-    showAlert('Berhasil', 'Nomor berhasil disalin ke clipboard');
+  const openPaymentUrl = () => {
+    if (invoice_url) {
+      Linking.openURL(invoice_url);
+    } else {
+      showAlert('Tautan Tidak Tersedia', 'Tautan pembayaran tidak ditemukan.');
+    }
   };
 
   const checkPaymentStatus = async () => {
     setChecking(true);
     try {
-      const topupId = paymentData.topup_id || paymentData.order_id;
-      if (!topupId) {
+      if (!topupDbId) {
         await refreshProfile();
         showAlert('Berhasil', 'Saldo Anda telah diperbarui!');
         router.replace('/(main)/wallet');
@@ -83,17 +67,17 @@ export default function TopupPaymentScreen() {
       const { data, error } = await supabase
         .from('user_topups')
         .select('status')
-        .eq('id', topupId)
+        .eq('id', topupDbId)
         .single();
 
       if (error) throw error;
 
-      if (data?.status === 'paid' || data?.status === 'settlement') {
+      if (data?.status === 'paid') {
         await refreshProfile();
         showAlert('Berhasil', 'Top up berhasil! Saldo Anda telah ditambahkan.');
         router.replace('/(main)/wallet');
       } else {
-        showAlert('Belum Terdeteksi', 'Pembayaran belum kami terima. Silakan tunggu atau selesaikan pembayaran.');
+        showAlert('Belum Terdeteksi', 'Pembayaran belum kami terima. Silakan selesaikan pembayaran terlebih dahulu.');
       }
     } catch (error) {
       console.error('Error checking topup status:', error);
@@ -107,7 +91,6 @@ export default function TopupPaymentScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.replace('/(main)/wallet')} style={styles.backButton}>
           <ChevronLeft size={24} color={TEXT_DARK} />
@@ -118,64 +101,50 @@ export default function TopupPaymentScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-        {/* Status Badge */}
         <View style={styles.statusBadge}>
           <Clock size={14} color={GOLD} />
           <Text style={styles.statusText}>Menunggu Pembayaran</Text>
         </View>
 
-        {/* Payment Method Label */}
-        <Text style={styles.paymentMethodLabel}>{label}</Text>
+        <Text style={styles.paymentMethodLabel}>Pembayaran</Text>
 
-        {/* QR, Code, or Deep Link */}
-        {redirectUrl ? (
-          <View style={styles.qrCard}>
-            <TouchableOpacity 
-              style={[styles.checkBtn, { backgroundColor: '#008CFF', shadowColor: '#008CFF', width: '100%', marginBottom: 8 }]} 
-              onPress={() => Linking.openURL(redirectUrl)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.checkBtnText}>Buka Aplikasi DANA</Text>
-            </TouchableOpacity>
-            <Text style={styles.qrHint}>
-              Ketuk tombol di atas untuk membuka aplikasi DANA dan menyelesaikan pembayaran Anda secara aman.
-            </Text>
+        {/* Pay Now Button */}
+        <View style={styles.invoiceCard}>
+          <View style={styles.invoiceIconBox}>
+            <ExternalLink size={32} color={PURPLE} />
           </View>
-        ) : qrUrl ? (
-          <View style={styles.qrCard}>
-            <Image source={{ uri: qrUrl }} style={styles.qrImage} />
-            <Text style={styles.qrHint}>
-              Scan QR di atas menggunakan aplikasi pembayaran Anda
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.codeCard}>
-            <Text style={styles.paymentCode}>{code}</Text>
-            <TouchableOpacity onPress={() => copyToClipboard(code)} style={styles.copyBtn}>
-              <Copy size={16} color={PURPLE} />
-              <Text style={styles.copyBtnText}>Salin Kode</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <Text style={styles.invoiceTitle}>Selesaikan Pembayaran</Text>
+          <Text style={styles.invoiceDesc}>
+            Ketuk tombol di bawah untuk membuka halaman pembayaran aman.
+          </Text>
 
-        {/* Amount & Instructions */}
+          <View style={styles.amountRow}>
+            <Text style={styles.amountLabel}>Jumlah yang Diterima</Text>
+            <Text style={styles.amountValue}>Rp {invoiceAmount.toLocaleString('id-ID')}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.payNowBtn}
+            onPress={openPaymentUrl}
+            activeOpacity={0.85}
+          >
+            <ExternalLink size={18} color="#FFFFFF" />
+            <Text style={styles.payNowBtnText}>Bayar Sekarang</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Instructions */}
         <View style={styles.instrCard}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Total Tagihan</Text>
-            <Text style={styles.detailValue}>Rp {displayAmount.toLocaleString('id-ID')}</Text>
-          </View>
-          <View style={styles.divider} />
           <Text style={styles.stepTitle}>Langkah Pembayaran:</Text>
-          <Text style={styles.instrStep}>1. Buka aplikasi perbankan atau e-wallet Anda</Text>
-          <Text style={styles.instrStep}>2. Pilih menu Bayar / Transfer</Text>
-          <Text style={styles.instrStep}>3. Masukkan nomor/kode di atas</Text>
-          <Text style={styles.instrStep}>4. Pastikan nominal pembayaran sesuai</Text>
-          <Text style={styles.instrStep}>5. Selesaikan transaksi Anda</Text>
+          <Text style={styles.instrStep}>1. Ketuk tombol "Bayar Sekarang" di atas</Text>
+          <Text style={styles.instrStep}>2. Pilih metode pembayaran Anda (VA, QRIS, E-Wallet, Retail)</Text>
+          <Text style={styles.instrStep}>3. Selesaikan transaksi di halaman Xendit</Text>
+          <Text style={styles.instrStep}>4. Kembali ke aplikasi dan ketuk "Cek Status"</Text>
         </View>
 
         {/* Check Status Button */}
-        <TouchableOpacity 
-          style={styles.checkBtn} 
+        <TouchableOpacity
+          style={styles.checkBtn}
           onPress={checkPaymentStatus}
           disabled={checking}
           activeOpacity={0.85}
@@ -190,9 +159,8 @@ export default function TopupPaymentScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Back to Wallet */}
-        <TouchableOpacity 
-          style={styles.backWalletBtn} 
+        <TouchableOpacity
+          style={styles.backWalletBtn}
           onPress={() => router.replace('/(main)/wallet')}
           activeOpacity={0.7}
         >
@@ -222,7 +190,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: { padding: 20, paddingBottom: 60 },
 
-  // Status
   statusBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     alignSelf: 'center', backgroundColor: '#FFFBEB',
@@ -238,48 +205,50 @@ const styles = StyleSheet.create({
     color: TEXT_MUTED, textAlign: 'center', marginBottom: 16,
   },
 
-  // QR
-  qrCard: {
-    alignItems: 'center', gap: 16, backgroundColor: '#FFFFFF',
-    padding: 24, borderRadius: 24,
-    borderWidth: 1, borderColor: BORDER, marginBottom: 16,
-  },
-  qrImage: { width: 240, height: 240 },
-  qrHint: {
-    fontSize: 12, fontFamily: 'Inter-Medium',
-    color: TEXT_MUTED, textAlign: 'center',
-  },
-
-  // Code
-  codeCard: {
-    backgroundColor: '#FFFFFF', padding: 28, borderRadius: 24,
+  invoiceCard: {
+    backgroundColor: '#FFFFFF', padding: 24, borderRadius: 24,
     alignItems: 'center', gap: 16,
     borderWidth: 1, borderColor: BORDER, marginBottom: 16,
   },
-  paymentCode: {
-    fontSize: 28, fontFamily: 'Inter-Bold',
-    color: PURPLE, letterSpacing: 2,
+  invoiceIconBox: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: `${PURPLE}10`,
+    alignItems: 'center', justifyContent: 'center',
   },
-  copyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 10,
-    backgroundColor: `${PURPLE}10`, borderRadius: 12,
+  invoiceTitle: {
+    fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK,
   },
-  copyBtnText: {
-    fontSize: 13, fontFamily: 'Inter-Bold', color: PURPLE,
+  invoiceDesc: {
+    fontSize: 13, fontFamily: 'Inter-Medium',
+    color: TEXT_MUTED, textAlign: 'center', lineHeight: 20,
+  },
+  amountRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', width: '100%',
+    backgroundColor: BG, padding: 16, borderRadius: 16,
+  },
+  amountLabel: {
+    fontSize: 14, fontFamily: 'Inter-Medium', color: TEXT_MUTED,
+  },
+  amountValue: {
+    fontSize: 20, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+  },
+  payNowBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, backgroundColor: PURPLE, paddingVertical: 16,
+    borderRadius: 16, width: '100%',
+    elevation: 4, shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2, shadowRadius: 8,
+  },
+  payNowBtnText: {
+    fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF',
   },
 
-  // Instructions
   instrCard: {
     backgroundColor: '#FFFFFF', padding: 20, borderRadius: 20,
     gap: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 20,
   },
-  detailRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  detailLabel: { fontSize: 14, fontFamily: 'Inter-Medium', color: TEXT_MUTED },
-  detailValue: { fontSize: 20, fontFamily: 'Inter-Bold', color: TEXT_DARK },
-  divider: { height: 1, backgroundColor: BORDER },
   stepTitle: {
     fontSize: 14, fontFamily: 'Inter-Bold', color: TEXT_DARK, marginBottom: 4,
   },
@@ -287,7 +256,6 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: 'Inter-Medium', color: TEXT_MUTED, lineHeight: 22,
   },
 
-  // Buttons
   checkBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, backgroundColor: PURPLE, paddingVertical: 16,
@@ -301,8 +269,7 @@ const styles = StyleSheet.create({
   },
   backWalletBtn: {
     alignItems: 'center', paddingVertical: 14,
-    borderRadius: 16, borderWidth: 1.5,
-    borderColor: BORDER,
+    borderRadius: 16, borderWidth: 1.5, borderColor: BORDER,
   },
   backWalletBtnText: {
     fontSize: 14, fontFamily: 'Inter-SemiBold', color: TEXT_MUTED,

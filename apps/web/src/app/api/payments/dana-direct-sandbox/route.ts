@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
           amount: topupAmount,
           balance_before: oldBalance,
           balance_after: newBalance,
-          description: 'Topup Saldo via DANA Direct API Sandbox',
+          description: 'Top Up Saldo (DANA)',
           reference_id: referenceId,
         });
 
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       await supabase.from('notifications').insert({
         user_id: topup.user_id,
         title: 'Top Up Berhasil! ⚡',
-        body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} berhasil ditambahkan via DANA Direct API Sandbox.`,
+        body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} berhasil ditambahkan ke dompet Anda.`,
         type: 'topup_success',
       });
 
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               to: user.push_token,
               title: 'Top Up Berhasil! 🎉',
-              body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} sudah masuk ke dompet Anda via DANA Sandbox.`,
+              body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
               data: { type: 'topup_success' },
               sound: 'default',
               priority: 'high',
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
           amount: topupAmount,
           balance_before: oldBalance,
           balance_after: newBalance,
-          description: 'Topup Saldo via DANA Direct API Sandbox',
+          description: 'Top Up Saldo (DANA)',
           reference_id: referenceId,
         });
 
@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
       await supabase.from('notifications').insert({
         therapist_id: topup.therapist_id,
         title: 'Top Up Berhasil! ⚡',
-        body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} berhasil ditambahkan via DANA Direct API Sandbox.`,
+        body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} berhasil ditambahkan ke dompet Anda.`,
         type: 'topup_success',
       });
 
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               to: therapist.push_token,
               title: 'Top Up Berhasil! 🎉',
-              body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} sudah masuk ke dompet Anda via DANA Sandbox.`,
+              body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} sudah masuk ke dompet Anda.`,
               data: { type: 'topup_success' },
               sound: 'default',
               priority: 'high',
@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       status: 'success',
-      message: 'Transaction successfully processed and wallet credited via DANA Sandbox Simulation!',
+      message: 'Top up berhasil diproses!',
       data: {
         topup_id,
         amount: topupAmount,

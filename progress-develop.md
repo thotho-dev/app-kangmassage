@@ -13,6 +13,11 @@
 - **Webhook Penarikan Dana (`apps/web/src/app/api/withdraw/xendit-webhook`)**: Handler webhook untuk callback status penarikan dana (COMPLETED / FAILED) dari Xendit Disbursements.
 - **Informasi Halaman Penarikan (`withdraw.tsx`)**: Memperbarui deskripsi informasi agar secara akurat mencerminkan pemrosesan dana otomatis menggunakan sistem Xendit.
 
+### 💳 Penyelarasan Alur Dompet User & Terapis (Wallet Sync)
+- **Migrasi Alur Top Up User (`topup.tsx`)**: Menyamakan alur dengan aplikasi terapis. Kini pengguna langsung diarahkan ke tautan Xendit Hosted Invoice (`Linking.openURL`) alih-alih layar instruksi pembayaran internal, lalu diteruskan ke riwayat top up.
+- **Riwayat Transaksi User Baru**: Membuat halaman `topup-history.tsx` dan `withdraw-history.tsx` khusus aplikasi User dengan visual yang disesuaikan (ikon Lucide, tema ungu). Mendukung pembatalan transaksi *pending*.
+- **Konfigurasi Lingkungan Dinamis (`API_URL`)**: Menambahkan `lib/config.ts` di aplikasi User untuk kemudahan *switching* URL backend antara Localhost (Android/iOS) dan Production Vercel, menyelesaikan bug URL *hardcode*.
+
 ### 🧪 Xendit Sandbox Simulator
 - **Simulator Checkout Glassmorphic (`apps/web/src/app/xendit-sandbox`)**: Membangun halaman sandbox kustom yang interaktif di localhost dengan visual premium mirip Xendit Checkout untuk mensimulasikan alur pembayaran sukses dan memicu callback webhook secara lokal tanpa ngrok.
 

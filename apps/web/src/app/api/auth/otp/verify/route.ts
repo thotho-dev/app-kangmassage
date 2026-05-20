@@ -1,96 +1,182 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 
-// POST /api/auth/otp/verify
 export async function POST(req: NextRequest) {
+  const requestId = Date.now().toString(36);
   try {
     const { phone, otp, full_name, role = 'user' } = await req.json();
+    console.log(`[${requestId}] OTP verify request - phone: ${phone}, role: ${role}`);
 
     if (!phone || !otp) {
       return NextResponse.json({ error: 'Phone and OTP required' }, { status: 400 });
     }
 
-    // Mock OTP verification (always accept "123456" in development)
-    const isValidOtp = process.env.NODE_ENV === 'development'
-      ? otp === '123456'
-      : false; // Replace with actual OTP verification
-
-    if (!isValidOtp) {
-      return NextResponse.json({ error: 'Invalid OTP' }, { status: 401 });
+    // Normalize phone
+    let normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '+62' + normalizedPhone.substring(1);
+    } else if (!normalizedPhone.startsWith('+')) {
+      normalizedPhone = '+' + normalizedPhone;
     }
+    console.log(`[${requestId}] Normalized phone: ${normalizedPhone}, OTP: ${otp}`);
 
     const supabase = createAdminClient();
 
-    // Find or create user
-    let profileData;
-    const table = role === 'therapist' ? 'therapists' : 'users';
+    // 1. Verify OTP from database
+    const now = new Date().toISOString();
+    const { data: otpRecord, error: otpFetchError } = await supabase
+      .from('otp_codes')
+      .select('*')
+      .eq('phone', normalizedPhone)
+      .eq('otp', otp)
+      .eq('is_used', false)
+      .gte('expires_at', now)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-    const { data: existing } = await supabase
+    if (otpFetchError || !otpRecord) {
+      console.error(`[${requestId}] OTP lookup failed:`, JSON.stringify(otpFetchError), 'now:', now);
+      return NextResponse.json({ error: 'Kode OTP tidak valid atau sudah kedaluwarsa' }, { status: 401 });
+    }
+    console.log(`[${requestId}] OTP match found: id=${otpRecord.id}, expires_at=${otpRecord.expires_at}`);
+
+    // 2. Mark OTP as used
+    await supabase.from('otp_codes').update({ is_used: true }).eq('id', otpRecord.id);
+    console.log(`[${requestId}] OTP marked as used`);
+
+    // 3. Find or create user profile
+    const table = role === 'therapist' ? 'therapists' : 'users';
+    let profileData: any;
+
+    const { data: existing, error: lookupError } = await supabase
       .from(table)
       .select('*')
-      .eq('phone', phone)
-      .single();
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    console.log(`[${requestId}] Profile lookup:`, existing ? `found id=${existing.id}` : 'not found', lookupError ? `error=${lookupError.message}` : '');
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const tempPassword = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
     if (existing) {
       profileData = existing;
-    } else {
-      // Create new user/therapist
-      // First create a Supabase auth user (mock email)
-      const mockEmail = `${phone.replace('+', '')}@pijat.app`;
-      const mockPassword = `pijat_${phone}_${Date.now()}`;
+
+      // Existing user: update their password so we can sign them in
+      if (existing.supabase_uid) {
+        const { error: updateError } = await supabase.auth.admin.updateUserById(
+          existing.supabase_uid,
+          { password: tempPassword }
+        );
+        if (updateError) {
+          console.error(`[${requestId}] Failed to update user password:`, updateError.message);
+        } else {
+          console.log(`[${requestId}] Password updated for auth user: ${existing.supabase_uid}`);
+        }
+      } else {
+        console.warn(`[${requestId}] Profile has no supabase_uid, creating auth user`);
+      }
+    }
+
+    if (!existing || !existing.supabase_uid) {
+      // Create Supabase auth user
+      const mockEmail = `${normalizedPhone.replace(/[^0-9]/g, '')}@user.pijat.app`;
 
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        phone: normalizedPhone,
         email: mockEmail,
-        password: mockPassword,
-        phone,
+        password: tempPassword,
         email_confirm: true,
         phone_confirm: true,
       });
 
       if (authError) {
-        // If user already exists in auth, get their data
-        if (!authError.message.includes('already exists')) {
+        console.error(`[${requestId}] Auth user creation error:`, authError.message);
+        if (!authError.message.toLowerCase().includes('already exist')) {
           return NextResponse.json({ error: authError.message }, { status: 500 });
         }
       }
 
       const supabaseUid = authData?.user?.id;
+      console.log(`[${requestId}] Auth user created/found: ${supabaseUid}`);
 
-      const { data: newProfile, error: profileError } = await supabase
-        .from(table)
-        .insert({
-          supabase_uid: supabaseUid,
-          full_name: full_name || `User ${phone.slice(-4)}`,
-          phone,
-          role: role === 'therapist' ? undefined : 'user',
-        })
-        .select()
-        .single();
+      if (!existing) {
+        const { data: newProfile, error: profileError } = await supabase
+          .from(table)
+          .insert({
+            supabase_uid: supabaseUid,
+            full_name: full_name || `User ${normalizedPhone.slice(-4)}`,
+            phone: normalizedPhone,
+            role: role === 'therapist' ? 'therapist' : 'user',
+            wallet_balance: 0,
+          })
+          .select()
+          .single();
 
-      if (profileError) {
-        return NextResponse.json({ error: profileError.message }, { status: 500 });
+        if (profileError) {
+          console.error(`[${requestId}] Profile creation error:`, JSON.stringify(profileError));
+          return NextResponse.json({ error: profileError.message }, { status: 500 });
+        }
+
+        profileData = newProfile;
+        console.log(`[${requestId}] New profile created: id=${newProfile.id}`);
+      } else {
+        // Update existing profile with supabase_uid
+        const { data: updated, error: updateProfileError } = await supabase
+          .from(table)
+          .update({ supabase_uid: supabaseUid })
+          .eq('id', existing.id)
+          .select()
+          .single();
+
+        if (updateProfileError) {
+          console.error(`[${requestId}] Profile update error:`, updateProfileError.message);
+        }
+        profileData = updated || existing;
       }
-
-      profileData = newProfile;
     }
 
-    // Create a session token (simplified JWT-like approach)
-    const token = Buffer.from(JSON.stringify({
-      id: profileData.id,
-      phone,
-      role,
-      exp: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
-    })).toString('base64');
+    // 4. Sign in using GoTrue REST API to get session
+    console.log(`[${requestId}] Signing in with phone: ${normalizedPhone}`);
+    let sessionData: any = null;
+    try {
+      const signInResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+        },
+        body: JSON.stringify({
+          phone: normalizedPhone,
+          password: tempPassword,
+        }),
+      });
+
+      sessionData = await signInResponse.json();
+      console.log(`[${requestId}] Sign-in response status: ${signInResponse.status}, has_token: ${!!sessionData?.access_token}`);
+
+      if (!signInResponse.ok) {
+        console.error(`[${requestId}] Sign-in failed:`, JSON.stringify(sessionData));
+      }
+    } catch (signInError: any) {
+      console.error(`[${requestId}] Sign-in error:`, signInError.message);
+    }
 
     return NextResponse.json({
       data: {
-        token,
         user: profileData,
         role,
+        session: sessionData?.access_token ? {
+          access_token: sessionData.access_token,
+          refresh_token: sessionData.refresh_token,
+          user: sessionData.user,
+        } : null,
       },
     });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err: any) {
+    console.error(`[${requestId}] OTP Verify Error:`, err.message, err.stack);
+    return NextResponse.json({ error: 'Internal server error', detail: err.message }, { status: 500 });
   }
 }

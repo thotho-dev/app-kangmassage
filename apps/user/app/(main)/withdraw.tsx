@@ -1,18 +1,19 @@
 import React, { useState, useCallback } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, 
-  StatusBar 
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
+  StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { 
-  ChevronLeft, Wallet, ArrowRight, Building2, 
-  AlertCircle, CheckCircle2 
+import {
+  ChevronLeft, Wallet, ArrowRight, Building2,
+  AlertCircle, CheckCircle2, Receipt
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
+import { API_URL } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
@@ -79,13 +80,13 @@ export default function WithdrawScreen() {
   const isFormValid = isAmountValid && isBalanceSufficient && selectedBank && accountNumber.length >= 8 && accountName.length >= 3;
 
   const selectedBankName = BANK_LIST.find(b => b.id === selectedBank)?.name || '-';
+  const selectedBankCode = BANK_LIST.find(b => b.id === selectedBank)?.code || '';
 
   const handleWithdraw = async () => {
     if (!isFormValid) return;
 
     setLoading(true);
     try {
-      // Check pending withdrawal
       const { data: pendingWd } = await supabase
         .from('user_withdrawals')
         .select('id')
@@ -101,40 +102,25 @@ export default function WithdrawScreen() {
 
       const rawAmount = getRawAmount();
 
-      // Insert withdrawal request
-      const { error: wdError } = await supabase
-        .from('user_withdrawals')
-        .insert({
+      const response = await fetch(`${API_URL}/api/withdraw/user-create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           user_id: profile?.id,
           amount: rawAmount,
-          admin_fee: ADMIN_FEE,
           bank_name: selectedBankName,
-          bank_code: BANK_LIST.find(b => b.id === selectedBank)?.code,
+          bank_code: selectedBankCode,
           account_number: accountNumber,
           account_name: accountName,
-          status: 'pending',
-        });
-
-      if (wdError) throw wdError;
-
-      // Deduct balance
-      const { error: balError } = await supabase
-        .from('users')
-        .update({ wallet_balance: balance - rawAmount - ADMIN_FEE })
-        .eq('id', profile?.id);
-
-      if (balError) throw balError;
-
-      // Log transaction
-      await supabase.from('transactions').insert({
-        user_id: profile?.id,
-        type: 'withdrawal',
-        amount: rawAmount + ADMIN_FEE,
-        description: `Penarikan ke ${selectedBankName} ${accountNumber}`,
+        }),
       });
 
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+
       await refreshProfile();
-      setSuccess(true);
+      showAlert('Penarikan Berhasil', 'Permintaan penarikan Anda sedang diproses. Dana akan masuk ke rekening dalam 1-3 hari kerja.');
+      router.replace('/(main)/withdraw-history');
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -162,8 +148,8 @@ export default function WithdrawScreen() {
             Dana akan masuk ke rekening Anda dalam 1-3 hari kerja.
           </Text>
 
-          <TouchableOpacity 
-            style={styles.backToWalletBtn} 
+          <TouchableOpacity
+            style={styles.backToWalletBtn}
             onPress={() => router.replace('/(main)/wallet')}
             activeOpacity={0.85}
           >
@@ -186,21 +172,21 @@ export default function WithdrawScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tarik Saldo</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => router.push('/(main)/withdraw-history')} style={styles.backButton}>
+          <Receipt size={24} color={TEXT_DARK} />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
+        <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Balance Info */}
           <LinearGradient
             colors={[PURPLE, PURPLE_DARK]}
             start={{ x: 0, y: 0 }}
@@ -220,22 +206,21 @@ export default function WithdrawScreen() {
             </View>
           </LinearGradient>
 
-          {/* Amount Input */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Jumlah Penarikan</Text>
             <View style={[
-              styles.inputCard, 
+              styles.inputCard,
               (!isAmountValid && displayAmount !== '') && styles.inputCardError,
               (!isBalanceSufficient && displayAmount !== '') && styles.inputCardError
             ]}>
               <Text style={styles.currency}>Rp</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="0" 
-                placeholderTextColor={TEXT_MUTED} 
-                keyboardType="number-pad" 
-                value={displayAmount} 
-                onChangeText={handleAmountChange} 
+              <TextInput
+                style={styles.input}
+                placeholder="0"
+                placeholderTextColor={TEXT_MUTED}
+                keyboardType="number-pad"
+                value={displayAmount}
+                onChangeText={handleAmountChange}
               />
             </View>
             {!isAmountValid && displayAmount !== '' ? (
@@ -256,12 +241,11 @@ export default function WithdrawScreen() {
               </Text>
             )}
 
-            {/* Preset */}
             <View style={styles.presetGrid}>
               {PRESETS.filter(p => p + ADMIN_FEE <= balance).map(p => (
-                <TouchableOpacity 
-                  key={p} 
-                  style={[styles.presetBtn, getRawAmount() === p && styles.presetBtnActive]} 
+                <TouchableOpacity
+                  key={p}
+                  style={[styles.presetBtn, getRawAmount() === p && styles.presetBtnActive]}
                   onPress={() => handleAmountChange(p.toString())}
                 >
                   <Text style={[styles.presetText, getRawAmount() === p && styles.presetTextActive]}>
@@ -270,8 +254,8 @@ export default function WithdrawScreen() {
                 </TouchableOpacity>
               ))}
               {balance - ADMIN_FEE >= MIN_WITHDRAW && (
-                <TouchableOpacity 
-                  style={[styles.presetBtn, getRawAmount() === balance - ADMIN_FEE && styles.presetBtnActive]} 
+                <TouchableOpacity
+                  style={[styles.presetBtn, getRawAmount() === balance - ADMIN_FEE && styles.presetBtnActive]}
                   onPress={() => handleAmountChange((balance - ADMIN_FEE).toString())}
                 >
                   <Text style={[styles.presetText, getRawAmount() === balance - ADMIN_FEE && styles.presetTextActive]}>
@@ -282,19 +266,18 @@ export default function WithdrawScreen() {
             </View>
           </View>
 
-          {/* Bank Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Pilih Bank Tujuan</Text>
             <View style={styles.bankGrid}>
               {BANK_LIST.map(bank => (
-                <TouchableOpacity 
-                  key={bank.id} 
+                <TouchableOpacity
+                  key={bank.id}
                   style={[styles.bankBtn, selectedBank === bank.id && styles.bankBtnActive]}
                   onPress={() => setSelectedBank(bank.id)}
                 >
                   <Building2 size={16} color={selectedBank === bank.id ? PURPLE : TEXT_MUTED} />
                   <Text style={[
-                    styles.bankBtnText, 
+                    styles.bankBtnText,
                     selectedBank === bank.id && styles.bankBtnTextActive
                   ]}>
                     {bank.name}
@@ -304,12 +287,11 @@ export default function WithdrawScreen() {
             </View>
           </View>
 
-          {/* Account Details */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{selectedBank === 'dana' ? 'Detail Akun DANA' : 'Detail Rekening'}</Text>
             <View style={styles.fieldCard}>
               <Text style={styles.fieldLabel}>{selectedBank === 'dana' ? 'Nomor HP DANA' : 'Nomor Rekening'}</Text>
-              <TextInput 
+              <TextInput
                 style={styles.fieldInput}
                 placeholder={selectedBank === 'dana' ? 'Contoh: 08xxxxxxxxxx' : 'Masukkan nomor rekening'}
                 placeholderTextColor={TEXT_MUTED}
@@ -320,7 +302,7 @@ export default function WithdrawScreen() {
             </View>
             <View style={[styles.fieldCard, { marginTop: 10 }]}>
               <Text style={styles.fieldLabel}>{selectedBank === 'dana' ? 'Nama Akun DANA' : 'Nama Pemilik Rekening'}</Text>
-              <TextInput 
+              <TextInput
                 style={styles.fieldInput}
                 placeholder={selectedBank === 'dana' ? 'Masukkan nama terdaftar di DANA' : 'Masukkan nama sesuai rekening'}
                 placeholderTextColor={TEXT_MUTED}
@@ -331,7 +313,6 @@ export default function WithdrawScreen() {
             </View>
           </View>
 
-          {/* Summary */}
           {isFormValid && (
             <View style={styles.summaryCard}>
               <Text style={styles.summaryTitle}>Ringkasan Penarikan</Text>
@@ -367,16 +348,15 @@ export default function WithdrawScreen() {
             </View>
           )}
 
-          {/* Submit */}
           <View style={{ marginTop: 20, paddingBottom: 60 }}>
-            <TouchableOpacity 
-              onPress={handleWithdraw} 
-              disabled={loading || !isFormValid} 
+            <TouchableOpacity
+              onPress={handleWithdraw}
+              disabled={loading || !isFormValid}
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={loading || !isFormValid 
-                  ? ['#E2E8F0', '#E2E8F0'] 
+                colors={loading || !isFormValid
+                  ? ['#E2E8F0', '#E2E8F0']
                   : [PURPLE, PURPLE_DARK]
                 }
                 start={{ x: 0, y: 0 }}
@@ -388,14 +368,14 @@ export default function WithdrawScreen() {
                 ) : (
                   <>
                     <Text style={[
-                      styles.submitBtnText, 
+                      styles.submitBtnText,
                       (!isFormValid) && { color: TEXT_MUTED }
                     ]}>
                       Ajukan Penarikan
                     </Text>
-                    <ArrowRight 
-                      size={20} 
-                      color={!isFormValid ? TEXT_MUTED : '#FFFFFF'} 
+                    <ArrowRight
+                      size={20}
+                      color={!isFormValid ? TEXT_MUTED : '#FFFFFF'}
                     />
                   </>
                 )}
@@ -426,7 +406,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
-  // Balance Card
   balanceCard: {
     borderRadius: 20, padding: 20, overflow: 'hidden',
     position: 'relative', marginTop: 20, marginBottom: 24,
@@ -459,14 +438,12 @@ const styles = StyleSheet.create({
     fontSize: 22, fontFamily: 'Inter-Bold', color: '#FFFFFF',
   },
 
-  // Section
   section: { marginBottom: 24 },
   sectionTitle: {
     fontSize: 13, fontFamily: 'Inter-SemiBold',
     color: TEXT_MUTED, marginBottom: 12,
   },
 
-  // Input
   inputCard: {
     backgroundColor: '#FFFFFF', borderRadius: 16,
     paddingHorizontal: 20, paddingVertical: 16,
@@ -491,7 +468,6 @@ const styles = StyleSheet.create({
     fontSize: 11, fontFamily: 'Inter-Medium', color: ERROR,
   },
 
-  // Preset
   presetGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12,
   },
@@ -508,7 +484,6 @@ const styles = StyleSheet.create({
   },
   presetTextActive: { color: PURPLE },
 
-  // Bank
   bankGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8,
   },
@@ -526,7 +501,6 @@ const styles = StyleSheet.create({
   },
   bankBtnTextActive: { color: PURPLE },
 
-  // Field
   fieldCard: {
     backgroundColor: '#FFFFFF', borderRadius: 16,
     padding: 16, borderWidth: 1, borderColor: BORDER,
@@ -541,7 +515,6 @@ const styles = StyleSheet.create({
     padding: 0,
   },
 
-  // Summary
   summaryCard: {
     backgroundColor: '#FFFFFF', borderRadius: 20,
     padding: 20, borderWidth: 1, borderColor: `${PURPLE}20`,
@@ -565,7 +538,6 @@ const styles = StyleSheet.create({
     height: 1, backgroundColor: BORDER, marginVertical: 12,
   },
 
-  // Submit
   submitBtn: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'center', gap: 10,
@@ -578,7 +550,6 @@ const styles = StyleSheet.create({
     fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF',
   },
 
-  // Success
   successContainer: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 32,

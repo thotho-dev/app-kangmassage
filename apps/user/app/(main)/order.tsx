@@ -35,6 +35,7 @@ import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -673,8 +674,8 @@ export default function OrderScreen() {
           router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
         }
       } else {
-        // MIDTRANS CORE API CALL
-        const response = await fetch('https://app-kangmassage-web.vercel.app/api/payments/create', {
+        // XENDIT INVOICE API CALL
+        const response = await fetch(`${API_URL}/api/payments/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -130,7 +130,7 @@ export default function TopupHistoryScreen() {
                     <Ionicons name="wallet-outline" size={20} color={t.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.amount}>+ Rp {item.amount.toLocaleString('id-ID')}</Text>
+                    <Text style={styles.amount}>+ Rp {(item.amount || 0).toLocaleString('id-ID')}</Text>
                     <Text style={styles.date}>
                       {format(new Date(item.created_at), 'dd MMM yyyy, HH:mm', { locale: localeId })}
                     </Text>
@@ -142,8 +142,18 @@ export default function TopupHistoryScreen() {
                 
                 <View style={styles.cardBottom}>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>ID Transaksi</Text>
+                    <Text style={styles.detailLabel}>ID Top‑Up</Text>
                     <Text style={styles.detailValue}>{item.external_id?.split('-')[1] || item.id.slice(0,8)}</Text>
+                  </View>
+                  {item.fee > 0 && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Biaya Admin</Text>
+                      <Text style={[styles.detailValue, { color: t.danger }]}>- Rp {item.fee.toLocaleString('id-ID')}</Text>
+                    </View>
+                  )}
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Masuk ke Saldo</Text>
+                    <Text style={[styles.detailValue, { color: t.success }]}>Rp {item.amount.toLocaleString('id-ID')}</Text>
                   </View>
                   {item.payment_method && (
                     <View style={styles.detailRow}>

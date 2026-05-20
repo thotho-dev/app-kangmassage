@@ -1,39 +1,104 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 
-// POST /api/auth/otp/send
 export async function POST(req: NextRequest) {
+  const requestId = Date.now().toString(36);
   try {
-    const { phone } = await req.json();
+    const { phone, role = 'user' } = await req.json();
+    console.log(`[${requestId}] OTP send request for phone: ${phone}, role: ${role}`);
 
     if (!phone) {
       return NextResponse.json({ error: 'Phone number required' }, { status: 400 });
     }
 
-    // Mock OTP - In production, use Supabase phone OTP or WhatsApp API
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    let normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '+62' + normalizedPhone.substring(1);
+    } else if (!normalizedPhone.startsWith('+')) {
+      normalizedPhone = '+' + normalizedPhone;
+    }
+    console.log(`[${requestId}] Normalized phone: ${normalizedPhone}`);
 
-    // Store OTP in DB temporarily (using a simple approach)
-    // In production: use Supabase auth.signInWithOtp({ phone })
     const supabase = createAdminClient();
 
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`[${requestId}] Generated OTP: ${otp}`);
+
+    // Store OTP in database with 5-minute expiry
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const { error: otpError } = await supabase
+      .from('otp_codes')
+      .insert({
+        phone: normalizedPhone,
+        otp,
+        role,
+        expires_at: expiresAt,
+      });
+
+    if (otpError) {
+      console.error(`[${requestId}] Failed to store OTP:`, JSON.stringify(otpError));
+      return NextResponse.json({ error: 'Gagal menyimpan OTP', detail: otpError.message }, { status: 500 });
+    }
+    console.log(`[${requestId}] OTP stored in database successfully`);
+
+    // Send OTP via Fonnte WhatsApp API
+    const fonnteToken = process.env.FONNTE_API_KEY;
+    console.log(`[${requestId}] FONNTE_API_KEY available: ${!!fonnteToken}`);
+
+    if (fonnteToken) {
+      // Fonnte dengan countryCode akan OTOMATIS prepend 62, jadi kirim tanpa 62
+      const localNumber = normalizedPhone.replace(/^\+62/, '').replace(/^62/, '');
+      const message = `*${otp}* adalah kode verifikasi Kang Massage Anda. Jangan bagikan kode ini kepada siapa pun.`;
+
+      console.log(`[${requestId}] Sending via Fonnte - local number: ${localNumber}`);
+
+      try {
+        const fonnteResponse = await fetch('https://api.fonnte.com/send', {
+          method: 'POST',
+          headers: {
+            'Authorization': fonnteToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            target: localNumber,
+            message,
+            countryCode: '62',
+          }),
+        });
+
+        const fonnteResult = await fonnteResponse.json();
+        console.log(`[${requestId}] Fonnte response status: ${fonnteResponse.status}, body:`, JSON.stringify(fonnteResult));
+
+        if (!fonnteResponse.ok) {
+          console.error(`[${requestId}] Fonnte API error:`, JSON.stringify(fonnteResult));
+          // Don't block response - OTP already stored
+        }
+      } catch (fetchError: any) {
+        console.error(`[${requestId}] Fonnte fetch error:`, fetchError.message);
+      }
+    } else {
+      console.log(`[${requestId}] FONNTE_API_KEY not set — dev fallback`);
+    }
+
     // Check if user exists
+    const table = role === 'therapist' ? 'therapists' : 'users';
     const { data: existingUser } = await supabase
-      .from('users')
+      .from(table)
       .select('id, full_name, phone')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .single();
 
-    // Mock: log OTP to console (replace with WhatsApp/SMS API)
-    console.log(`[MOCK OTP] Phone: ${phone}, OTP: ${otp}`);
+    const isDev = process.env.NODE_ENV === 'development';
 
     return NextResponse.json({
       message: 'OTP sent successfully',
-      // Return mock OTP for development
-      ...(process.env.NODE_ENV === 'development' && { mock_otp: otp }),
+      request_id: requestId,
+      ...(isDev && { mock_otp: otp }),
       is_new_user: !existingUser,
     });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (error: any) {
+    console.error(`[${requestId}] OTP Send Error:`, error.message, error.stack);
+    return NextResponse.json({ error: 'Internal server error', detail: error.message }, { status: 500 });
   }
 }

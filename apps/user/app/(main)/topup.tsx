@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, 
-  LayoutAnimation, Image, StatusBar 
+  LayoutAnimation, Image, StatusBar, Linking 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
+import { API_URL } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
@@ -120,7 +121,7 @@ export default function TopupScreen() {
         return;
       }
 
-      const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/user-create', {
+      const response = await fetch(`${API_URL}/api/topup/user-create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -133,7 +134,13 @@ export default function TopupScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      router.push({ pathname: '/(main)/topup-payment', params: { data: JSON.stringify(result.data) } });
+      if (result.data?.invoice_url) {
+        await Linking.openURL(result.data.invoice_url);
+        router.push('/(main)/topup-history');
+      } else {
+        console.log('Missing invoice_url in:', result);
+        throw new Error('Invoice URL tidak ditemukan. Respons: ' + JSON.stringify(result));
+      }
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -149,13 +156,14 @@ export default function TopupScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Isi Saldo</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => router.push('/(main)/topup-history')} style={styles.backButton}>
+          <Receipt size={24} color={TEXT_DARK} />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

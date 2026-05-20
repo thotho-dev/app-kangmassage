@@ -1,28 +1,54 @@
 import { useState, useRef } from 'react';
 import { useThemeColors } from '@/store/themeStore';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/components/CustomAlert';
+
+const API_BASE = 'https://app-kangmassage-web.vercel.app';
+
+function normalizePhone(p: string): string {
+  const d = p.replace(/\D/g, '');
+  if (d.startsWith('0')) return '+62' + d.substring(1);
+  if (d.startsWith('62')) return '+' + d;
+  return '+62' + d;
+}
 
 export default function OTPScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
-  
   const router = useRouter();
+  const { showAlert, AlertComponent } = useAlert();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
-  const [timer, setTimer] = useState(60);
+  const [timer, setTimer] = useState(0);
   const inputs = useRef<Array<TextInput | null>>([]);
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
+    if (phone.length < 9) return;
     setLoading(true);
-    setTimeout(() => { setLoading(false); setStep('otp'); startTimer(); }, 1200);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizePhone(phone), role: 'therapist' }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setStep('otp');
+      startTimer();
+    } catch (err: any) {
+      showAlert('error', 'Gagal', err.message || 'Gagal mengirim OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startTimer = () => {
@@ -38,13 +64,43 @@ export default function OTPScreen() {
     setOtp(newOtp);
     if (val && idx < 5) inputs.current[idx + 1]?.focus();
     if (newOtp.every(d => d !== '') && newOtp.join('').length === 6) {
-      setTimeout(() => router.replace('/(tabs)'), 300);
+      verifyOTP(newOtp.join(''));
+    }
+  };
+
+  const verifyOTP = async (otpCode: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizePhone(phone), otp: otpCode, role: 'therapist' }),
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+
+      const { session } = result.data;
+      if (session?.access_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (error) throw error;
+      }
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      showAlert('error', 'Verifikasi Gagal', err.message || 'Kode OTP tidak valid');
+      setOtp(['', '', '', '', '', '']);
+      inputs.current[0]?.focus();
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.container}>
+        {AlertComponent}
         <TouchableOpacity style={styles.backBtn} onPress={() => step === 'otp' ? setStep('phone') : router.back()}>
           <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
@@ -59,7 +115,7 @@ export default function OTPScreen() {
             <Text style={styles.subtitle}>
               {step === 'phone'
                 ? 'Kami akan kirim kode 6 digit ke nomor Anda'
-                : `Kode telah dikirim ke +62 ${phone.replace(/^0/, '')}`}
+                : `Kode telah dikirim ke ${normalizePhone(phone)}`}
             </Text>
 
             <View style={styles.card}>
@@ -80,7 +136,11 @@ export default function OTPScreen() {
                   </View>
                   <TouchableOpacity onPress={handleSendOTP} disabled={loading || phone.length < 9} activeOpacity={0.85}>
                     <LinearGradient colors={[t.secondary, '#EA580C']} style={styles.btn}>
-                      <Text style={[styles.btnText, { color: '#FFFFFF' }]}>{loading ? 'Mengirim...' : 'Kirim OTP'}</Text>
+                      {loading ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={[styles.btnText, { color: '#FFFFFF' }]}>Kirim OTP</Text>
+                      )}
                     </LinearGradient>
                   </TouchableOpacity>
                 </>
@@ -109,10 +169,17 @@ export default function OTPScreen() {
                     ))}
                   </View>
 
+                  {loading && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: SPACING.md }}>
+                      <ActivityIndicator color={t.primary} size="small" />
+                      <Text style={[styles.timerText, { color: t.textSecondary }]}>Memverifikasi...</Text>
+                    </View>
+                  )}
+
                   {timer > 0 ? (
                     <Text style={styles.timerText}>Kirim ulang dalam {timer} detik</Text>
                   ) : (
-                    <TouchableOpacity onPress={startTimer}>
+                    <TouchableOpacity onPress={handleSendOTP} disabled={loading}>
                       <Text style={styles.resendText}>Kirim ulang OTP</Text>
                     </TouchableOpacity>
                   )}
@@ -166,6 +233,6 @@ const getStyles = (t: any) => StyleSheet.create({
     ...TYPOGRAPHY.h3, color: t.text,
   },
   otpBoxFilled: { borderColor: t.primary, backgroundColor: t.primary + '05' },
-  timerText: { ...TYPOGRAPHY.bodySmall, color: t.textMuted, textAlign: 'center' },
+  timerText: { ...TYPOGRAPHY.bodySmall, color: t.textMuted, textAlign: 'center', marginBottom: SPACING.sm },
   resendText: { ...TYPOGRAPHY.bodySmall, color: t.primary, textAlign: 'center', fontFamily: 'Inter_700Bold' },
 });

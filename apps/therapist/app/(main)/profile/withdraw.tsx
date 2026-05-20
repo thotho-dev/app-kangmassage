@@ -214,7 +214,7 @@ export default function WithdrawScreen() {
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={16} color={t.textMuted} />
               <Text style={styles.infoText}>
-                Proses penarikan saldo diproses secara otomatis melalui sistem Xendit. Waktu masuk dana tergantung pada bank penerima.
+                Proses penarikan saldo diproses secara otomatis oleh sistem. Waktu masuk dana tergantung pada bank penerima.
               </Text>
             </View>
           </View>
