@@ -1,11 +1,21 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
-  Platform, ScrollView, Dimensions, StatusBar, Image, TextInput, ActivityIndicator
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Dimensions,
+  StatusBar,
+  Image,
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Phone, ChevronLeft, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowRight, ArrowLeft, Phone, ChevronLeft } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
@@ -20,18 +30,14 @@ const API_BASE = 'https://app-kangmassage-web.vercel.app';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type Step = 'phone' | 'otp' | 'password';
-
 export default function LoginScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
   const { showAlert } = useAlert();
 
-  const [step, setStep] = useState<Step>('phone');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [loginPassword, setLoginPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(0);
   const otpInputs = useRef<Array<TextInput | null>>([]);
@@ -50,6 +56,7 @@ export default function LoginScreen() {
       showAlert('Error', 'Masukkan nomor telepon yang valid');
       return;
     }
+
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/auth/otp/send`, {
@@ -57,23 +64,18 @@ export default function LoginScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: displayPhone, role: 'user' }),
       });
+
       const result = await response.json();
-
-      if (response.status === 409) {
-        setPhone('');
-        showAlert('Info', 'Nomor sudah terdaftar. Silakan login dengan kata sandi.');
-        return;
-      }
-
       if (result.error) throw new Error(result.error);
 
       setStep('otp');
       startTimer();
 
+      // Dev fallback: auto-fill OTP jika mock_otp dikembalikan
       if (result.mock_otp) {
         const digits = result.mock_otp.split('');
         setOtp(digits);
-        setTimeout(() => handleVerifyOTP(result.mock_otp), 500);
+        setTimeout(() => verifyOTP(result.mock_otp), 500);
       }
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Gagal mengirim OTP');
@@ -85,7 +87,10 @@ export default function LoginScreen() {
   const startTimer = () => {
     setTimer(60);
     const interval = setInterval(() => {
-      setTimer(t => { if (t <= 1) { clearInterval(interval); return 0; } return t - 1; });
+      setTimer(t => {
+        if (t <= 1) { clearInterval(interval); return 0; }
+        return t - 1;
+      });
     }, 1000);
   };
 
@@ -95,11 +100,11 @@ export default function LoginScreen() {
     setOtp(newOtp);
     if (val && idx < 5) otpInputs.current[idx + 1]?.focus();
     if (newOtp.every(d => d !== '') && newOtp.join('').length === 6) {
-      handleVerifyOTP(newOtp.join(''));
+      verifyOTP(newOtp.join(''));
     }
   };
 
-  const handleVerifyOTP = async (otpCode: string) => {
+  const verifyOTP = async (otpCode: string) => {
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/auth/otp/verify`, {
@@ -107,67 +112,27 @@ export default function LoginScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: displayPhone, otp: otpCode, role: 'user' }),
       });
+
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      if (result.is_new_user) {
-        // New user: go to registration
-        router.push({
-          pathname: '/(auth)/register',
-          params: { phone: result.phone, role: result.role },
+      const { session } = result.data;
+
+      if (session?.access_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
         });
+
+        if (error) throw error;
+        router.replace('/(main)/home');
       } else {
-        // Existing user: show error, go back
-        setStep('phone');
-        setOtp(['', '', '', '', '', '']);
-        setPhone('');
-        showAlert('Info', 'Nomor sudah terdaftar. Silakan login dengan kata sandi.');
+        router.replace('/(main)/home');
       }
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Kode OTP tidak valid');
       setOtp(['', '', '', '', '', '']);
       otpInputs.current[0]?.focus();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePasswordLogin = async () => {
-    if (!loginPassword) {
-      showAlert('Error', 'Masukkan kata sandi');
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        phone: displayPhone,
-        password: loginPassword,
-      });
-      if (error) throw error;
-      router.replace('/(main)/home');
-    } catch (error: any) {
-      showAlert('Gagal', error.message || 'Kata sandi salah');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendOTPForExisting = async () => {
-    if (phone.length < 9) {
-      showAlert('Error', 'Masukkan nomor telepon yang valid');
-      return;
-    }
-    setLoading(true);
-    try {
-      await fetch(`${API_BASE}/api/auth/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: displayPhone, role: 'user' }),
-      });
-      setStep('otp');
-      startTimer();
-    } catch (error: any) {
-      showAlert('Gagal', error.message);
     } finally {
       setLoading(false);
     }
@@ -179,38 +144,42 @@ export default function LoginScreen() {
       const redirectTo = Linking.createURL('', { scheme: 'kangmassage' });
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo, skipBrowserRedirect: true },
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
       });
+
       if (error) throw error;
 
       const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
       if (res.type === 'success') {
         const { url } = res;
         const { queryParams } = Linking.parse(url);
         const access_token = queryParams?.access_token as string;
         const refresh_token = queryParams?.refresh_token as string;
+
         if (access_token) {
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+          const { error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
           if (error) throw error;
           router.replace('/(main)/home');
         } else {
           const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData.session) router.replace('/(main)/home');
+          if (sessionData.session) {
+            router.replace('/(main)/home');
+          }
         }
       }
     } catch (error: any) {
+      console.error('Login error:', error);
       showAlert('Google Login Gagal', error.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const goToRegister = () => {
-    if (phone.length < 9) {
-      showAlert('Error', 'Masukkan nomor telepon yang valid');
-      return;
-    }
-    router.push({ pathname: '/(auth)/register', params: { phone: displayPhone } });
   };
 
   return (
@@ -220,32 +189,47 @@ export default function LoginScreen() {
         colors={isDark ? [COLORS.dark[900], COLORS.dark[950]] : [COLORS.white, COLORS.light[100]]}
         style={StyleSheet.absoluteFill as any}
       />
+
       <View style={[styles.circle1, { backgroundColor: isDark ? 'rgba(106, 13, 189, 0.15)' : 'rgba(106, 13, 189, 0.05)' }]} />
       <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(253, 185, 39, 0.05)' : 'rgba(253, 185, 39, 0.03)' }]} />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {step !== 'phone' && (
-            <TouchableOpacity style={styles.backBtn} onPress={() => { setStep('phone'); setOtp(['', '', '', '', '', '']); }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Back button for OTP step */}
+          {step === 'otp' && (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => { setStep('phone'); setOtp(['', '', '', '', '', '']); }}
+            >
               <ChevronLeft size={24} color={theme.text} />
             </TouchableOpacity>
           )}
 
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Image source={require('../../assets/logo-kang-massage.png')} style={styles.logoImage} />
+              <View style={styles.logoMark}>
+                <Image
+                  source={require('../../assets/logo-kang-massage.png')}
+                  style={styles.logoImage}
+                />
+              </View>
             </View>
             <Text style={[styles.title, { color: theme.text }]}>Kang Massage</Text>
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-              {step === 'phone' ? 'Masuk atau daftar akun baru' :
-               step === 'otp' ? `Kode OTP dikirim ke ${displayPhone}` :
-               'Masukkan kata sandi Anda'}
+              {step === 'phone'
+                ? 'Masuk dengan nomor telepon Anda'
+                : `Kode OTP telah dikirim ke ${displayPhone}`}
             </Text>
           </View>
 
           <View style={styles.form}>
-            {/* STEP: PHONE */}
-            {step === 'phone' && (
+            {step === 'phone' ? (
               <>
                 <View style={styles.phoneInputContainer}>
                   <View style={[styles.phonePrefix, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
@@ -265,7 +249,11 @@ export default function LoginScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity onPress={handleSendOTP} disabled={loading || phone.length < 9} activeOpacity={0.85}>
+                <TouchableOpacity
+                  onPress={handleSendOTP}
+                  disabled={loading || phone.length < 9}
+                  activeOpacity={0.85}
+                >
                   <LinearGradient
                     colors={loading || phone.length < 9 ? ['#E2E8F0', '#E2E8F0'] : [COLORS.primary[500], '#1E1B4B']}
                     style={styles.primaryBtn}
@@ -273,9 +261,12 @@ export default function LoginScreen() {
                     {loading ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                      <Text style={[styles.primaryBtnText, (loading || phone.length < 9) && { color: '#94A3B8' }]}>
-                        Daftar dengan OTP
-                      </Text>
+                      <>
+                        <Text style={[styles.primaryBtnText, (loading || phone.length < 9) && { color: '#94A3B8' }]}>
+                          Kirim Kode OTP
+                        </Text>
+                        <ArrowRight size={20} color={(loading || phone.length < 9) ? '#94A3B8' : '#FFFFFF'} />
+                      </>
                     )}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -286,43 +277,17 @@ export default function LoginScreen() {
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 </View>
 
-                {/* Login with phone + password */}
-                <Text style={[styles.label, { color: theme.textSecondary }]}>Sudah punya akun? Login</Text>
-                <View style={[styles.passwordInputWrap, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                  <TextInput
-                    style={[styles.passwordInput, { color: theme.text }]}
-                    placeholder="Kata sandi"
-                    placeholderTextColor={theme.textSecondary}
-                    secureTextEntry={!showPassword}
-                    value={loginPassword}
-                    onChangeText={setLoginPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff size={20} color={theme.textSecondary} /> : <Eye size={20} color={theme.textSecondary} />}
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity onPress={handlePasswordLogin} disabled={loading} activeOpacity={0.85}>
-                  <LinearGradient
-                    colors={loading ? ['#E2E8F0', '#E2E8F0'] : [COLORS.primary[500], '#1E1B4B']}
-                    style={styles.primaryBtn}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Text style={styles.primaryBtnText}>Masuk</Text>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={handleSendOTPForExisting} disabled={loading}>
-                  <Text style={[styles.forgotLink, { color: COLORS.primary[500] }]}>Lupa kata sandi?</Text>
+                <TouchableOpacity
+                  style={[styles.googleButton, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}
+                  onPress={signInWithGoogle}
+                >
+                  <View style={styles.googleContent}>
+                    <FontAwesome name="google" size={24} color="#DB4437" />
+                    <Text style={[styles.googleText, { color: theme.text }]}>Lanjutkan dengan Google</Text>
+                  </View>
                 </TouchableOpacity>
               </>
-            )}
-
-            {/* STEP: OTP */}
-            {step === 'otp' && (
+            ) : (
               <>
                 <Text style={[styles.otpLabel, { color: theme.textSecondary }]}>Masukkan Kode OTP</Text>
                 <View style={styles.otpRow}>
@@ -330,7 +295,10 @@ export default function LoginScreen() {
                     <TextInput
                       key={i}
                       ref={ref => { otpInputs.current[i] = ref; }}
-                      style={[styles.otpBox, { backgroundColor: theme.surfaceVariant, borderColor: digit ? COLORS.primary[500] : theme.border, color: theme.text }]}
+                      style={[
+                        styles.otpBox,
+                        { backgroundColor: theme.surfaceVariant, borderColor: digit ? COLORS.primary[500] : theme.border, color: theme.text }
+                      ]}
                       value={digit}
                       onChangeText={val => handleOTPChange(val.slice(-1), i)}
                       onKeyPress={({ nativeEvent }) => {
@@ -356,7 +324,9 @@ export default function LoginScreen() {
 
                 <View style={styles.timerContainer}>
                   {timer > 0 ? (
-                    <Text style={[styles.timerText, { color: theme.textSecondary }]}>Kirim ulang dalam {timer} detik</Text>
+                    <Text style={[styles.timerText, { color: theme.textSecondary }]}>
+                      Kirim ulang dalam {timer} detik
+                    </Text>
                   ) : (
                     <TouchableOpacity onPress={handleSendOTP} disabled={loading}>
                       <Text style={[styles.resendText, { color: COLORS.gold[500] }]}>Kirim Ulang OTP</Text>
@@ -365,6 +335,13 @@ export default function LoginScreen() {
                 </View>
               </>
             )}
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: theme.textSecondary }]}>Belum punya akun? </Text>
+            <TouchableOpacity onPress={() => router.push('/register')}>
+              <Text style={styles.signUpText}>Daftar</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -384,45 +361,61 @@ const styles = StyleSheet.create({
   },
   scrollContent: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 24, paddingBottom: 40 },
   backBtn: { marginBottom: 8, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  header: { marginBottom: 32, alignItems: 'center' },
-  logoContainer: { width: 90, height: 90, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
-  logoImage: { width: 80, height: 80, resizeMode: 'contain' },
-  title: { ...TYPOGRAPHY.h1, fontSize: 28, marginBottom: 8, textAlign: 'center' },
-  subtitle: { ...TYPOGRAPHY.body, textAlign: 'center', paddingHorizontal: 20, lineHeight: 22, fontSize: 14 },
+  header: { marginBottom: 40, alignItems: 'center' },
+  logoContainer: { width: 100, height: 100, marginBottom: 20, alignItems: 'center', justifyContent: 'center' },
+  logoMark: { alignItems: 'center', justifyContent: 'center' },
+  logoImage: { width: 90, height: 90, resizeMode: 'contain' },
+  title: { ...TYPOGRAPHY.h1, fontSize: 32, marginBottom: 12, textAlign: 'center' },
+  subtitle: { ...TYPOGRAPHY.body, textAlign: 'center', paddingHorizontal: 20, lineHeight: 22 },
   form: {},
-  label: { fontSize: 14, fontFamily: 'Inter-Medium', textAlign: 'center', marginBottom: 12 },
-  phoneInputContainer: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  phoneInputContainer: {
+    flexDirection: 'row', gap: 12, marginBottom: 24,
+  },
   phonePrefix: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, borderRadius: 16, borderWidth: 1.5, height: 56,
+    paddingHorizontal: 16, borderRadius: 16,
+    borderWidth: 1.5, height: 56,
   },
   prefixText: { fontSize: 16, fontFamily: 'Inter-SemiBold' },
-  phoneInputWrap: { flex: 1, borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 16, height: 56, justifyContent: 'center' },
-  phoneInput: { fontSize: 18, fontFamily: 'Inter-Medium' },
-  passwordInputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 16, height: 56, marginBottom: 16,
+  phoneInputWrap: {
+    flex: 1, borderRadius: 16, borderWidth: 1.5,
+    paddingHorizontal: 16, height: 56, justifyContent: 'center',
   },
-  passwordInput: { flex: 1, fontSize: 16, fontFamily: 'Inter-Medium' },
+  phoneInput: { fontSize: 18, fontFamily: 'Inter-Medium' },
   primaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    paddingVertical: 16, borderRadius: 28, marginBottom: 16,
+    paddingVertical: 16, borderRadius: 28, marginBottom: 32,
     elevation: 6, shadowColor: COLORS.primary[500],
     shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10,
   },
   primaryBtnText: { fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF' },
-  forgotLink: { fontSize: 14, fontFamily: 'Inter-SemiBold', textAlign: 'center', marginBottom: 24 },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
+  dividerContainer: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: 24,
+  },
   divider: { flex: 1, height: 1 },
   dividerText: { fontSize: 12, fontFamily: 'Inter-Bold', marginHorizontal: 16, letterSpacing: 1 },
+  googleButton: {
+    height: 56, borderRadius: 16, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+  },
+  googleContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  googleText: { fontSize: 16, fontFamily: 'Inter-SemiBold' },
 
   // OTP Step
   otpLabel: { fontSize: 14, fontFamily: 'Inter-Medium', textAlign: 'center', marginBottom: 24 },
   otpRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', marginBottom: 24 },
-  otpBox: { width: 44, height: 56, borderRadius: 14, borderWidth: 1.5, fontSize: 22, fontFamily: 'Inter-Bold' },
-  verifyingContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 16 },
+  otpBox: {
+    width: 44, height: 56, borderRadius: 14,
+    borderWidth: 1.5, fontSize: 22, fontFamily: 'Inter-Bold',
+  },
+  verifyingContainer: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 16,
+  },
   verifyingText: { fontSize: 14, fontFamily: 'Inter-Medium' },
   timerContainer: { alignItems: 'center', marginBottom: 32 },
   timerText: { fontSize: 13, fontFamily: 'Inter-Medium' },
   resendText: { fontSize: 14, fontFamily: 'Inter-Bold' },
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 48 },
+  footerText: { fontSize: 14, fontFamily: 'Inter-Medium' },
+  signUpText: { color: COLORS.gold[500], fontSize: 14, fontFamily: 'Inter-Bold' },
 });
