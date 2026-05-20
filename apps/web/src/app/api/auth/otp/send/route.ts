@@ -94,7 +94,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: 'OTP sent successfully',
       request_id: requestId,
-      ...(isDev && { mock_otp: otp }),
+      fonnte_configured: !!fonnteToken,
+      ...(isDev && !fonnteToken && { mock_otp: otp }),
       is_new_user: !existingUser,
     });
   } catch (error: any) {

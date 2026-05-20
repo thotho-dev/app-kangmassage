@@ -70,6 +70,13 @@ export default function LoginScreen() {
 
       setStep('otp');
       startTimer();
+
+      // Dev fallback: auto-fill OTP jika mock_otp dikembalikan
+      if (result.mock_otp) {
+        const digits = result.mock_otp.split('');
+        setOtp(digits);
+        setTimeout(() => verifyOTP(result.mock_otp), 500);
+      }
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Gagal mengirim OTP');
     } finally {
