@@ -21,6 +21,23 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // Check if phone already registered
+    const table = role === 'therapist' ? 'therapists' : 'users';
+    const { data: existing } = await supabase
+      .from(table)
+      .select('id')
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    if (existing) {
+      console.log(`[${requestId}] Phone already registered`);
+      return NextResponse.json({
+        error: 'Nomor sudah terdaftar. Silakan login.',
+        is_new_user: false,
+        request_id: requestId,
+      }, { status: 409 });
+    }
+
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[${requestId}] Generated OTP: ${otp}`);
@@ -47,10 +64,8 @@ export async function POST(req: NextRequest) {
     console.log(`[${requestId}] FONNTE_API_KEY available: ${!!fonnteToken}`);
 
     if (fonnteToken) {
-      // Fonnte dengan countryCode akan OTOMATIS prepend 62, jadi kirim tanpa 62
       const localNumber = normalizedPhone.replace(/^\+62/, '').replace(/^62/, '');
       const message = `*${otp}* adalah kode verifikasi Kang Massage Anda. Jangan bagikan kode ini kepada siapa pun.`;
-
       console.log(`[${requestId}] Sending via Fonnte - local number: ${localNumber}`);
 
       try {
@@ -72,7 +87,6 @@ export async function POST(req: NextRequest) {
 
         if (!fonnteResponse.ok) {
           console.error(`[${requestId}] Fonnte API error:`, JSON.stringify(fonnteResult));
-          // Don't block response - OTP already stored
         }
       } catch (fetchError: any) {
         console.error(`[${requestId}] Fonnte fetch error:`, fetchError.message);
@@ -81,14 +95,6 @@ export async function POST(req: NextRequest) {
       console.log(`[${requestId}] FONNTE_API_KEY not set — dev fallback`);
     }
 
-    // Check if user exists
-    const table = role === 'therapist' ? 'therapists' : 'users';
-    const { data: existingUser } = await supabase
-      .from(table)
-      .select('id, full_name, phone')
-      .eq('phone', normalizedPhone)
-      .single();
-
     const isDev = process.env.NODE_ENV === 'development';
 
     return NextResponse.json({
@@ -96,7 +102,7 @@ export async function POST(req: NextRequest) {
       request_id: requestId,
       fonnte_configured: !!fonnteToken,
       ...(isDev && !fonnteToken && { mock_otp: otp }),
-      is_new_user: !existingUser,
+      is_new_user: true,
     });
   } catch (error: any) {
     console.error(`[${requestId}] OTP Send Error:`, error.message, error.stack);
