@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useThemeColors } from '@/store/themeStore';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,25 @@ import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 import { useTherapistStore } from '@/store/therapistStore';
 import { useAlert } from '@/components/CustomAlert';
+
+const API_BASE = 'https://app-kangmassage-web.vercel.app';
+
+async function fetchJSON(url: string, opts: RequestInit) {
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Server error (${res.status})`);
+  }
+}
+
+function normalizePhone(p: string): string {
+  const d = p.replace(/\D/g, '');
+  if (d.startsWith('0')) return '+62' + d.substring(1);
+  if (d.startsWith('62')) return '+' + d;
+  return '+62' + d;
+}
 
 type Step = 'input' | 'verify' | 'done';
 
@@ -22,38 +41,58 @@ export default function ChangePhoneScreen() {
   const [newPhone, setNewPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
 
-  const handleNext = async () => {
-    if (step === 'input') {
-      if (!newPhone || newPhone.length < 9) {
-        showAlert('warning', 'Nomor Tidak Valid', 'Harap masukkan nomor telepon yang valid.');
-        return;
-      }
-      setLoading(true);
-      // Simulate sending OTP
-      setTimeout(() => {
-        setLoading(false);
-        setStep('verify');
-      }, 1000);
-    } else if (step === 'verify') {
-      if (otp.length < 6) {
-        showAlert('warning', 'OTP Tidak Lengkap', 'Harap masukkan 6 digit kode OTP.');
-        return;
-      }
-      
-      setLoading(true);
-      try {
-        // In a real app, you'd verify the OTP here. 
-        // For this demo/setup, we'll assume OTP is valid and update the profile.
-        const fullPhone = `+62${newPhone}`;
-        await updateProfile({ phone: fullPhone });
-        
-        setStep('done');
-      } catch (error: any) {
-        showAlert('error', 'Gagal Memperbarui', error.message || 'Terjadi kesalahan saat memperbarui nomor.');
-      } finally {
-        setLoading(false);
-      }
+  const startTimer = () => {
+    setTimer(60);
+    const interval = setInterval(() => {
+      setTimer(t => { if (t <= 1) { clearInterval(interval); return 0; } return t - 1; });
+    }, 1000);
+  };
+
+  const handleSendOTP = async () => {
+    if (!newPhone || newPhone.length < 9) {
+      showAlert('warning', 'Nomor Tidak Valid', 'Harap masukkan nomor telepon yang valid.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await fetchJSON(`${API_BASE}/api/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizePhone(newPhone), role: 'therapist', skip_check: true }),
+      });
+      if (data.error) throw new Error(data.error);
+      setStep('verify');
+      startTimer();
+    } catch (err: any) {
+      showAlert('error', 'Gagal Kirim OTP', err.message || 'Terjadi kesalahan saat mengirim OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length < 6) {
+      showAlert('warning', 'OTP Tidak Lengkap', 'Harap masukkan 6 digit kode OTP.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await fetchJSON(`${API_BASE}/api/auth/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizePhone(newPhone), otp, role: 'therapist' }),
+      });
+      if (result.error) throw new Error(result.error);
+
+      const fullPhone = normalizePhone(newPhone);
+      await updateProfile({ phone: fullPhone });
+      setStep('done');
+    } catch (err: any) {
+      showAlert('error', 'Verifikasi Gagal', err.message || 'Kode OTP tidak valid.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,15 +157,23 @@ export default function ChangePhoneScreen() {
                       maxLength={6}
                       textAlign="center"
                     />
-                    <TouchableOpacity style={styles.resendBtn}>
-                      <Text style={styles.resendText}>Kirim ulang OTP</Text>
-                    </TouchableOpacity>
+                    {timer > 0 ? (
+                      <Text style={styles.resendText}>Kirim ulang dalam {timer} detik</Text>
+                    ) : (
+                      <TouchableOpacity onPress={handleSendOTP} disabled={loading} style={styles.resendBtn}>
+                        <Text style={styles.resendText}>Kirim ulang OTP</Text>
+                      </TouchableOpacity>
+                    )}
                   </>
                 )}
 
-                <TouchableOpacity onPress={handleNext} disabled={loading} activeOpacity={0.85} style={{ marginTop: SPACING.md }}>
+                <TouchableOpacity onPress={step === 'input' ? handleSendOTP : handleVerifyOTP} disabled={loading} activeOpacity={0.85} style={{ marginTop: SPACING.md }}>
                   <LinearGradient colors={[t.secondary, '#EA580C']} style={styles.btn}>
-                    <Text style={[styles.btnText, { color: '#FFFFFF' }]}>{loading ? 'Memproses...' : step === 'input' ? 'Kirim OTP' : 'Verifikasi'}</Text>
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={[styles.btnText, { color: '#FFFFFF' }]}>{step === 'input' ? 'Kirim OTP' : 'Verifikasi'}</Text>
+                    )}
                   </LinearGradient>
                 </TouchableOpacity>
               </View>

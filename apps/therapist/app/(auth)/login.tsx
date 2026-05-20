@@ -15,6 +15,18 @@ import { useAlert } from '@/components/CustomAlert';
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 
+const API_BASE = 'https://app-kangmassage-web.vercel.app';
+
+async function fetchJSON(url: string, opts: RequestInit) {
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Server error (${res.status})`);
+  }
+}
+
 export default function LoginScreen() {
   const t = useThemeColors();
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -83,38 +95,33 @@ export default function LoginScreen() {
           normalizedPhone = '+' + normalizedPhone;
         }
         loginData.phone = normalizedPhone;
+        loginData.role = 'therapist';
       }
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword(loginData);
+      let authUser = null;
+      let session = null;
 
-      if (authError) {
-        let friendlyMessage = 'Email/Nomor HP atau kata sandi kamu salah nih. Coba cek lagi ya!';
-        
-        if (authError.message.includes('Invalid login credentials')) {
-          const newFailedAttempts = failedAttempts + 1;
-          setFailedAttempts(newFailedAttempts);
-          
-          if (newFailedAttempts >= 5) {
-            setLockoutTime(120); // 2 minutes
-            setFailedAttempts(0);
-            friendlyMessage = 'Kamu sudah salah 5 kali. Demi keamanan, akun kamu dikunci selama 2 menit ya!';
-          } else {
-            friendlyMessage = `Waduh, email/nomor HP atau kata sandi kamu salah. Sisa percobaan: ${5 - newFailedAttempts} kali lagi.`;
-          }
-        } else if (authError.message.includes('Email not confirmed')) {
-          friendlyMessage = 'Email kamu belum diverifikasi nih. Yuk, cek email kamu dulu!';
-        } else if (authError.message.includes('Too many requests')) {
-          friendlyMessage = 'Sabar ya, kamu lagi sering banget coba masuk. Istirahat bentar, trus coba lagi nanti!';
-        } else if (authError.message.includes('network')) {
-          friendlyMessage = 'Aduh, koneksi internet kamu lagi bermasalah nih. Coba cari sinyal yang lebih bagus ya!';
-        }
-
-        showAlert('error', 'Gagal Masuk', friendlyMessage);
-        setLoading(false);
-        return;
+      if (isEmail) {
+        const { data, error } = await supabase.auth.signInWithPassword(loginData);
+        if (error) throw error;
+        authUser = data.user;
+        session = data.session;
+      } else {
+        const result = await fetchJSON(`${API_BASE}/api/auth/phone-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginData),
+        });
+        if (result.error) throw new Error(result.error);
+        authUser = result.data.authUser;
+        session = result.data.session;
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
       }
 
-      if (authData.user) {
+      if (authUser) {
         setFailedAttempts(0); // Reset on success
         // Device Binding Logic
         const currentDeviceId = await getDeviceId();
@@ -122,7 +129,7 @@ export default function LoginScreen() {
         const { data: therapist, error: tError } = await supabase
           .from('therapists')
           .select('id, device_id')
-          .eq('supabase_uid', authData.user.id)
+          .eq('supabase_uid', authUser.id)
           .single();
 
         if (tError) throw tError;
@@ -150,8 +157,29 @@ export default function LoginScreen() {
         }
       }
     } catch (err: any) {
-      console.error(err);
-      showAlert('error', 'Error', 'Terjadi kesalahan teknis. Coba lagi nanti ya.');
+      let friendlyMessage = 'Email/Nomor HP atau kata sandi kamu salah nih. Coba cek lagi ya!';
+      const msg = err.message || '';
+
+      if (msg.includes('Invalid login credentials')) {
+        const newFailedAttempts = failedAttempts + 1;
+        setFailedAttempts(newFailedAttempts);
+
+        if (newFailedAttempts >= 5) {
+          setLockoutTime(120);
+          setFailedAttempts(0);
+          friendlyMessage = 'Kamu sudah salah 5 kali. Demi keamanan, akun kamu dikunci selama 2 menit ya!';
+        } else {
+          friendlyMessage = `Waduh, email/nomor HP atau kata sandi kamu salah. Sisa percobaan: ${5 - newFailedAttempts} kali lagi.`;
+        }
+      } else if (msg.includes('Email not confirmed')) {
+        friendlyMessage = 'Email kamu belum diverifikasi nih. Yuk, cek email kamu dulu!';
+      } else if (msg.includes('Too many requests')) {
+        friendlyMessage = 'Sabar ya, kamu lagi sering banget coba masuk. Istirahat bentar, trus coba lagi nanti!';
+      } else if (msg.includes('network')) {
+        friendlyMessage = 'Aduh, koneksi internet kamu lagi bermasalah nih. Coba cari sinyal yang lebih bagus ya!';
+      }
+
+      showAlert('error', 'Gagal Masuk', friendlyMessage);
     } finally {
       setLoading(false);
     }

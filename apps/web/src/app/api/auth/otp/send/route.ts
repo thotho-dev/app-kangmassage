@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 export async function POST(req: NextRequest) {
   const requestId = Date.now().toString(36);
   try {
-    const { phone, role = 'user' } = await req.json();
+    const { phone, role = 'user', skip_check } = await req.json();
     console.log(`[${requestId}] OTP send request for phone: ${phone}, role: ${role}`);
 
     if (!phone) {
@@ -21,21 +21,23 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Check if phone already registered
-    const table = role === 'therapist' ? 'therapists' : 'users';
-    const { data: existing } = await supabase
-      .from(table)
-      .select('id')
-      .eq('phone', normalizedPhone)
-      .maybeSingle();
+    // Check if phone already registered (skip for change-phone flow)
+    if (!skip_check) {
+      const table = role === 'therapist' ? 'therapists' : 'users';
+      const { data: existing } = await supabase
+        .from(table)
+        .select('id')
+        .eq('phone', normalizedPhone)
+        .maybeSingle();
 
-    if (existing) {
-      console.log(`[${requestId}] Phone already registered`);
-      return NextResponse.json({
-        error: 'Nomor sudah terdaftar. Silakan login.',
-        is_new_user: false,
-        request_id: requestId,
-      }, { status: 409 });
+      if (existing) {
+        console.log(`[${requestId}] Phone already registered`);
+        return NextResponse.json({
+          error: 'Nomor sudah terdaftar. Silakan login.',
+          is_new_user: false,
+          request_id: requestId,
+        }, { status: 409 });
+      }
     }
 
     // Generate 6-digit OTP

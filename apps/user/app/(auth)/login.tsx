@@ -15,6 +15,18 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
 
+const API_BASE = 'https://app-kangmassage-web.vercel.app';
+
+async function fetchJSON(url: string, opts: RequestInit) {
+  const res = await fetch(url, opts);
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Server error (${res.status})`);
+  }
+}
+
 WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
@@ -79,11 +91,21 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        phone: normalizedPhone(phone),
-        password,
+      const result = await fetchJSON(`${API_BASE}/api/auth/phone-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone(phone), password, role: 'user' }),
       });
-      if (error) throw error;
+      if (result.error) throw new Error(result.error);
+
+      const { session } = result.data;
+      if (session?.access_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (error) throw error;
+      }
       router.replace('/(main)/home');
     } catch (error: any) {
       showAlert('Login Gagal', error.message || 'Nomor atau kata sandi salah');
