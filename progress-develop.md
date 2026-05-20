@@ -1,13 +1,42 @@
 # Progress Development - App Kang Massage
 
-## [2026-05-18] - Stabilisasi Sistem Tier, Bug Fix Enum & Promosi Otomatis
+## [2026-05-20] - Migrasi Payment Gateway Ke Xendit (Fokus Aplikasi Terapis)
+
+### 💳 Integrasi Pembayaran Xendit (Top Up Terapis)
+- **API Endpoint Top-Up Baru (`apps/web/src/app/api/topup/create`)**: Migrasi endpoint dari Midtrans Core API ke Xendit Invoice API. Setiap pengisian saldo kini menghasilkan link pembayaran Xendit.
+- **Webhook Pembayaran Xendit (`apps/web/src/app/api/payments/xendit-webhook`)**: Handler webhook kustom untuk callback status PAID dari Xendit Invoice untuk mengkreditkan saldo secara otomatis dan mengirim push notification ke aplikasi terapis.
+- **Redireksi Link Pembayaran Langsung (`topup.tsx` & `topup-history.tsx`)**: Memperbarui layar top-up dan riwayat top-up pada aplikasi terapis. Tombol bayar kini membuka browser untuk bertransaksi langsung via invoice Xendit yang aman dan lengkap dengan instruksi QRIS/E-Wallet/VA.
+- **E-Wallet Tambahan**: Menambahkan opsi pembayaran DANA Wallet di dalam daftar grup E-Wallet pada screen top-up terapis.
+
+### 💸 Penarikan Saldo Otomatis Xendit (Withdrawal Terapis)
+- **API Endpoint Penarikan Saldo (`apps/web/src/app/api/withdraw/create`)**: Mengganti sistem Midtrans Iris dengan API Xendit Disbursements. Melakukan mapping nama bank otomatis ke kode bank standar Xendit dan pemrosesan dana instan.
+- **Webhook Penarikan Dana (`apps/web/src/app/api/withdraw/xendit-webhook`)**: Handler webhook untuk callback status penarikan dana (COMPLETED / FAILED) dari Xendit Disbursements.
+- **Informasi Halaman Penarikan (`withdraw.tsx`)**: Memperbarui deskripsi informasi agar secara akurat mencerminkan pemrosesan dana otomatis menggunakan sistem Xendit.
+
+### 🧪 Xendit Sandbox Simulator
+- **Simulator Checkout Glassmorphic (`apps/web/src/app/xendit-sandbox`)**: Membangun halaman sandbox kustom yang interaktif di localhost dengan visual premium mirip Xendit Checkout untuk mensimulasikan alur pembayaran sukses dan memicu callback webhook secara lokal tanpa ngrok.
+
+## [2026-05-18] - Stabilisasi Sistem Tier, Fitur Dompet User, & Restriksi Jadwal Terapis
+
+### 💳 Fitur Dompet User (Isi Saldo & Tarik Tunai)
+- **Screen Isi Saldo Premium (`topup.tsx`)**: Mengembangkan alur pengisian saldo user dengan pilihan nominal preset, integrasi visual logo bank & e-wallet kustom, ringkasan transaksi detail, dan pemanggilan Next.js API.
+- **Screen Instruksi Pembayaran (`topup-payment.tsx`)**: Menyediakan panduan langkah pembayaran (Virtual Account, QRIS, Retail) lengkap dengan fitur salin kode/nomor rekening, hitung mundur kedaluwarsa, dan auto-checking status real-time via Supabase.
+- **Screen Tarik Saldo Premium (`withdraw.tsx`)**: Mendesain sistem penarikan saldo instan ke berbagai pilihan bank terdaftar di Indonesia dengan validasi saldo, pemotongan biaya administrasi Rp 5.000 otomatis, dan halaman sukses interaktif.
+- **API Endpoint Topup User & Webhook Integration**: Membuat API route Next.js `/api/topup/user-create` dan memodifikasi webhook pembayaran Midtrans di backend (`apps/web`) untuk secara otomatis mengkreditkan saldo wallet user, mencatat transaksi credit, dan mengirimkan notifikasi push real-time setelah pembayaran sukses terverifikasi.
+- **Supabase Migration (`20260518_create_user_topups_and_withdrawals.sql`)**: Menyediakan skema database untuk tabel `user_topups` dan `user_withdrawals` lengkap dengan hak akses RLS (Row Level Security).
+- **Integrasi Navigasi Global**: Mendaftarkan layar `topup`, `topup-payment`, dan `withdraw` pada stack router utama user (`_layout.tsx`) dan menghubungkannya dengan tombol-tombol utama di `wallet.tsx`.
+
+### 📅 Restriksi & Countdown Jadwal Terapis (Schedule Orders)
+- **Constraint Transisi Status Terjadwal**: Melakukan penguncian visual dan programmatikal pada tombol `SwipeButton` di layar detail pesanan terjadwal (`orders/[id].tsx`). Terapis dilarang memulai atau mengubah status pesanan terjadwal sebelum waktu `scheduled_at` tercapai.
+- **Fitur Live Countdown Timer**: Menambahkan detektor sisa waktu dinamis (`HH:MM:SS`) di atas tombol swipe pesanan terjadwal yang memperbarui durasi hitung mundur setiap 1 detik. Tombol swipe secara otomatis aktif dan teks berubah dari "Jadwal belum dimulai" menjadi status awal mulai saat waktu hitung mundur habis.
+- **Status Aktivasi Jadwal (`isScheduleActive`)**: Mengembangkan utilitas pengecekan waktu presisi untuk membandingkan timestamp server dengan waktu pemesanan terjadwal pelanggan.
 
 ### 🏆 Penyempurnaan & Stabilisasi Sistem Tier
 - **Resolusi Bug Enum 'Platinum' Database**: Membuat migrasi SQL `20260518_add_platinum_to_tier_enum.sql` untuk menyisipkan nilai `'platinum'` pada tipe enum database `therapist_tier`. Ini menghindarkan sistem dari crash database `22P02` ketika seorang terapis dipromosikan ke tingkat Platinum.
 - **Logika Promosi Otomatis Real-Time (Auto-Promotion)**: Menambahkan integrasi dinamis `calculateTier` ke dalam modul penyelesaian order di `[id].tsx`. Terapis kini langsung dideteksi prestasinya (akumulasi pesanan & omset bulanan), dinaikkan levelnya secara otomatis di database, dan langsung menikmati bagi hasil yang disesuaikan saat itu juga tanpa menunggu reset manual.
 - **Proteksi Degradasi Mid-Month**: Mengimplementasikan validasi perbandingan indeks tier. Kenaikan tier hanya terjadi ke arah tingkat yang lebih tinggi selama bulan berjalan, sehingga reset akumulator di awal bulan baru tidak akan menurunkan level terapis secara instan pada orderan pertama mereka.
 - **Registrasi Route Layout**: Mendaftarkan screen `profile/tier-info` secara formal ke dalam `apps/therapist/app/(main)/_layout.tsx` untuk menghadirkan animasi transisi navigasi (slide dari kanan) yang konsisten dan premium.
-- **Koreksi Target Progress Pencapaian**: Memperbaiki perhitungan progress target di [`tier-info.tsx`](file:///d:/PERSONAL%20FILE/App%20Pijat%20On-Demand/apps/therapist/app/(main)/profile/tier-info.tsx). Sebelumnya, sistem secara buta menambahkan `+ 1` pada index tier saat ini untuk menentukan target berikutnya. Hal ini membuat terapis baru dengan 0 pesanan di bulan berjalan langsung ditargetkan ke target Silver, bukan menyelesaikan target Bronze terlebih dahulu. Kini, sistem mengevaluasi pencapaian aktual bulan berjalan terlebih dahulu: jika target bulan berjalan dari tier saat ini belum terpenuhi, progress tracker akan memandu terapis menyelesaikan target tier-nya sendiri sebelum lanjut ke tier berikutnya.
+- **Koreksi Target Progress Pencapaian**: Memperbaiki perhitungan progress target di [`tier-info.tsx`](file:///d:/PERSONAL FILE/App Pijat On-Demand/apps/therapist/app/(main)/profile/tier-info.tsx). Sebelumnya, sistem secara buta menambahkan `+ 1` pada index tier saat ini untuk menentukan target berikutnya. Hal ini membuat terapis baru dengan 0 pesanan di bulan berjalan langsung ditargetkan ke target Silver, bukan menyelesaikan target Bronze terlebih dahulu. Kini, sistem mengevaluasi pencapaian aktual bulan berjalan terlebih dahulu: jika target bulan berjalan dari tier saat ini belum terpenuhi, progress tracker akan memandu terapis menyelesaikan target tier-nya sendiri sebelum lanjut ke tier berikutnya.
 
 ### ⭐ Integrasi Ulasan & Rating Pelanggan (Roadmap)
 - **Layar Ulasan Pelanggan Premium**: Mengembangkan halaman [`reviews.tsx`](file:///d:/PERSONAL%20FILE/App%20Pijat%20On-Demand/apps/therapist/app/(main)/profile/reviews.tsx) khusus yang menampilkan ringkasan rating rata-rata, **Star Distribution Analytics** (visualisasi diagram batang jumlah bintang 5 hingga 1), catatan kebijakan pelindungan rating (Bayesian Bumper), dan riwayat ulasan terperinci dari pelanggan.

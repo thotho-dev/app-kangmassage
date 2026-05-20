@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Linking } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -165,11 +165,29 @@ export default function TopupHistoryScreen() {
                 {isPending && (
                   <View style={styles.actionRow}>
                     <TouchableOpacity 
+                      style={[styles.actionBtn, { borderColor: t.danger, backgroundColor: 'transparent', flex: 1, marginRight: 8 }]} 
+                      onPress={() => {
+                        showAlert('warning', 'Batalkan Transaksi', 'Apakah Anda yakin ingin membatalkan top up ini?', [
+                          { text: 'Kembali', style: 'cancel' },
+                          { text: 'Ya, Batalkan', style: 'destructive', onPress: () => markAsFailed(item.id) }
+                        ]);
+                      }}
+                    >
+                      <Text style={[styles.actionText, { color: t.danger }]}>Batalkan</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
                       style={[styles.actionBtn, { backgroundColor: t.secondary, borderColor: t.secondary, flex: 1 }]} 
-                      onPress={() => router.push({
-                        pathname: '/profile/payment-details',
-                        params: { data: JSON.stringify(item.payment_data) }
-                      })}
+                      onPress={async () => {
+                        if (item.payment_data?.invoice_url) {
+                          await Linking.openURL(item.payment_data.invoice_url);
+                        } else {
+                          router.push({
+                            pathname: '/profile/payment-details',
+                            params: { data: JSON.stringify(item.payment_data) }
+                          });
+                        }
+                      }}
                       disabled={!item.payment_data}
                     >
                       <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Lanjut Bayar</Text>

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation, Image, Linking } from 'react-native';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/components/CustomAlert';
+import { API_URL } from '@/lib/config';
 
 const PRESETS = [50000, 100000, 200000, 500000, 1000000];
 const MIN_TOPUP = 20000;
@@ -20,6 +21,7 @@ const PAYMENT_GROUPS = [
     icon: 'qr-code-outline',
     items: [
       { id: 'gopay', name: 'GoPay / QRIS', image: require('@/assets/Gopay.png') },
+      { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png') },
       { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png') },
     ]
   },
@@ -105,7 +107,7 @@ export default function TopupScreen() {
         return;
       }
 
-      const response = await fetch('https://app-kangmassage-web.vercel.app/api/topup/create', {
+      const response = await fetch(`${API_URL}/api/topup/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -115,11 +117,15 @@ export default function TopupScreen() {
         }),
       });
 
-      
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      router.push({ pathname: '/profile/payment-details', params: { data: JSON.stringify(result.data) } });
+      if (result.data?.invoice_url) {
+        await Linking.openURL(result.data.invoice_url);
+        router.push('/profile/topup-history');
+      } else {
+        throw new Error('Invoice URL tidak ditemukan');
+      }
     } catch (error: any) {
       showAlert('error', 'Gagal', error.message || 'Terjadi kesalahan sistem.');
     } finally {

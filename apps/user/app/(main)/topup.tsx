@@ -35,6 +35,7 @@ const PAYMENT_GROUPS = [
     title: 'E-Wallet & QRIS',
     icon: QrCode,
     items: [
+      { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png') },
       { id: 'gopay', name: 'GoPay / QRIS', image: require('@/assets/Gopay.png') },
       { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png') },
     ]
@@ -67,14 +68,14 @@ export default function TopupScreen() {
   const { showAlert } = useAlert();
 
   const [displayAmount, setDisplayAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState('');
+  const [selectedMethod, setSelectedMethod] = useState('dana');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       setDisplayAmount('');
-      setSelectedMethod('');
+      setSelectedMethod('dana');
       setExpandedGroup('ewallet');
     }, [])
   );

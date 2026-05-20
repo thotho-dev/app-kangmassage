@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Copy, CheckCircle, Clock, ArrowRight } from 'lucide-react-native';
@@ -52,13 +52,15 @@ export default function TopupPaymentScreen() {
   } else if (bill_key && biller_code) {
     code = `${biller_code}${bill_key}`;
     label = 'Mandiri Bill Code';
-  } else if (payment_type === 'gopay' || payment_type === 'qris') {
+  } else if (payment_type === 'gopay' || payment_type === 'qris' || payment_type === 'dana') {
     qrUrl = actions?.find((a: any) => a.name === 'generate-qr-code')?.url;
-    label = payment_type === 'gopay' ? 'GoPay / QRIS' : 'QRIS';
+    label = payment_type === 'dana' ? 'DANA Wallet' : (payment_type === 'gopay' ? 'GoPay / QRIS' : 'QRIS');
   } else if (payment_code) {
     code = payment_code;
     label = 'Kode Pembayaran';
   }
+
+  const redirectUrl = actions?.find((a: any) => a.name === 'deeplink-redirect')?.url;
 
   const displayAmount = gross_amount ? parseInt(gross_amount.toString().split('.')[0]) : 0;
 
@@ -125,8 +127,21 @@ export default function TopupPaymentScreen() {
         {/* Payment Method Label */}
         <Text style={styles.paymentMethodLabel}>{label}</Text>
 
-        {/* QR or Code */}
-        {qrUrl ? (
+        {/* QR, Code, or Deep Link */}
+        {redirectUrl ? (
+          <View style={styles.qrCard}>
+            <TouchableOpacity 
+              style={[styles.checkBtn, { backgroundColor: '#008CFF', shadowColor: '#008CFF', width: '100%', marginBottom: 8 }]} 
+              onPress={() => Linking.openURL(redirectUrl)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.checkBtnText}>Buka Aplikasi DANA</Text>
+            </TouchableOpacity>
+            <Text style={styles.qrHint}>
+              Ketuk tombol di atas untuk membuka aplikasi DANA dan menyelesaikan pembayaran Anda secara aman.
+            </Text>
+          </View>
+        ) : qrUrl ? (
           <View style={styles.qrCard}>
             <Image source={{ uri: qrUrl }} style={styles.qrImage} />
             <Text style={styles.qrHint}>

@@ -29,6 +29,7 @@ const MIN_WITHDRAW = 50000;
 const ADMIN_FEE = 5000;
 
 const BANK_LIST = [
+  { id: 'dana', name: 'DANA Wallet', code: 'DANA' },
   { id: 'bca', name: 'BCA', code: '014' },
   { id: 'bni', name: 'BNI', code: '009' },
   { id: 'bri', name: 'BRI', code: '002' },
@@ -47,7 +48,7 @@ export default function WithdrawScreen() {
   const { showAlert } = useAlert();
 
   const [displayAmount, setDisplayAmount] = useState('');
-  const [selectedBank, setSelectedBank] = useState('');
+  const [selectedBank, setSelectedBank] = useState('dana');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,7 +59,7 @@ export default function WithdrawScreen() {
   useFocusEffect(
     useCallback(() => {
       setDisplayAmount('');
-      setSelectedBank('');
+      setSelectedBank('dana');
       setAccountNumber('');
       setAccountName('');
       setSuccess(false);
@@ -305,12 +306,12 @@ export default function WithdrawScreen() {
 
           {/* Account Details */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Detail Rekening</Text>
+            <Text style={styles.sectionTitle}>{selectedBank === 'dana' ? 'Detail Akun DANA' : 'Detail Rekening'}</Text>
             <View style={styles.fieldCard}>
-              <Text style={styles.fieldLabel}>Nomor Rekening</Text>
+              <Text style={styles.fieldLabel}>{selectedBank === 'dana' ? 'Nomor HP DANA' : 'Nomor Rekening'}</Text>
               <TextInput 
                 style={styles.fieldInput}
-                placeholder="Masukkan nomor rekening"
+                placeholder={selectedBank === 'dana' ? 'Contoh: 08xxxxxxxxxx' : 'Masukkan nomor rekening'}
                 placeholderTextColor={TEXT_MUTED}
                 keyboardType="number-pad"
                 value={accountNumber}
@@ -318,10 +319,10 @@ export default function WithdrawScreen() {
               />
             </View>
             <View style={[styles.fieldCard, { marginTop: 10 }]}>
-              <Text style={styles.fieldLabel}>Nama Pemilik Rekening</Text>
+              <Text style={styles.fieldLabel}>{selectedBank === 'dana' ? 'Nama Akun DANA' : 'Nama Pemilik Rekening'}</Text>
               <TextInput 
                 style={styles.fieldInput}
-                placeholder="Masukkan nama sesuai rekening"
+                placeholder={selectedBank === 'dana' ? 'Masukkan nama terdaftar di DANA' : 'Masukkan nama sesuai rekening'}
                 placeholderTextColor={TEXT_MUTED}
                 value={accountName}
                 onChangeText={setAccountName}
@@ -343,11 +344,11 @@ export default function WithdrawScreen() {
                 <Text style={styles.summaryValue}>Rp {ADMIN_FEE.toLocaleString('id-ID')}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Bank Tujuan</Text>
+                <Text style={styles.summaryLabel}>{selectedBank === 'dana' ? 'Tujuan' : 'Bank Tujuan'}</Text>
                 <Text style={styles.summaryValue}>{selectedBankName}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>No. Rekening</Text>
+                <Text style={styles.summaryLabel}>{selectedBank === 'dana' ? 'No. Handphone DANA' : 'No. Rekening'}</Text>
                 <Text style={styles.summaryValue}>{accountNumber}</Text>
               </View>
               <View style={styles.summaryDivider} />

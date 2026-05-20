@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 
-const MIDTRANS_IRIS_API_KEY = process.env.MIDTRANS_IRIS_API_KEY || process.env.MIDTRANS_SERVER_KEY;
-const MIDTRANS_IS_PRODUCTION = process.env.MIDTRANS_IS_PRODUCTION === 'true';
-const IRIS_BASE_URL = MIDTRANS_IS_PRODUCTION 
-  ? 'https://app.midtrans.com/iris/api/v1' 
-  : 'https://app.sandbox.midtrans.com/iris/api/v1';
-
 export async function POST(req: NextRequest) {
   let debugStep = 'INIT';
   try {
@@ -106,79 +100,106 @@ export async function POST(req: NextRequest) {
 
     if (transError) console.error('[Withdraw Debug] Transaction Log Error:', transError);
 
-    debugStep = 'CHECK_WITHDRAW_MODE';
-    // Use manual mode if Iris key is missing or explicitly set to manual
-    const isManualMode = !process.env.MIDTRANS_IRIS_API_KEY || process.env.WITHDRAW_MODE === 'manual';
+    debugStep = 'PREPARE_XENDIT_PAYLOAD';
+    const secretKey = process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
-    if (isManualMode) {
-      console.log('[Withdraw Debug] Manual Mode Active: Skipping Midtrans Iris call.');
-      
+    const bankMapping: Record<string, string> = {
+      'bca': 'BCA',
+      'mandiri': 'MANDIRI',
+      'bni': 'BNI',
+      'bri': 'BRI',
+      'cimb': 'CIMB',
+      'permata': 'PERMATA',
+      'danamon': 'DANAMON',
+      'dana': 'DANA',
+      'dana wallet': 'DANA',
+    };
+    const bankCode = bankMapping[therapist.bank_name.toLowerCase()] || therapist.bank_name.toUpperCase();
+
+    // INTERCEPT FOR XENDIT DIRECT SANDBOX DISBURSEMENT / LOCAL TESTING
+    if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
+      const mockXenditDisbursement = {
+        id: `disb-sb-${withdrawal.id.slice(0, 8)}`,
+        external_id: external_id,
+        amount: payoutAmount,
+        status: 'COMPLETED',
+        bank_code: bankCode,
+        account_holder_name: therapist.bank_account_name || therapist.full_name,
+        account_number: therapist.bank_account_number,
+        created: new Date().toISOString(),
+        updated: new Date().toISOString()
+      };
+
       await supabase
         .from('therapist_withdrawals')
         .update({ 
-          payment_data: { mode: 'manual', note: 'Processed manually (Iris not active)' } 
+          status: 'completed', 
+          payment_data: mockXenditDisbursement
         })
         .eq('id', withdrawal.id);
 
-      return NextResponse.json({ 
+      // Send push notification instantly since sandbox is immediate
+      if (therapist.push_token) {
+        try {
+          await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: therapist.push_token,
+              title: 'Penarikan Dana Berhasil! 💸',
+              body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah dikirim ke rekening Anda (Simulasi).`,
+              data: { type: 'withdrawal_success' },
+              sound: 'default',
+            }),
+          });
+        } catch (e) {
+          console.error('Failed to send push notification:', e);
+        }
+      }
+
+      // Add success notification
+      await supabase.from('notifications').insert({
+        therapist_id: therapist.id,
+        title: 'Penarikan Dana Berhasil!',
+        body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah berhasil dicairkan ke rekening Anda.`,
+        type: 'withdrawal_success',
+      });
+
+      return NextResponse.json({
         status: 'success',
-        message: 'Permintaan penarikan telah diterima dan akan diproses secara manual oleh admin.',
-        mode: 'manual'
+        message: 'Withdrawal successfully disbursed (Simulasi Sandbox)!',
+        data: mockXenditDisbursement
       });
     }
 
-    debugStep = 'PREPARE_MIDTRANS_PAYLOAD';
-    // ... (rest of the Midtrans Iris logic)
-    const authString = Buffer.from(`${MIDTRANS_IRIS_API_KEY}:`).toString('base64');
-    
-    const bankMapping: Record<string, string> = {
-      'bca': 'bca',
-      'mandiri': 'mandiri',
-      'bni': 'bni',
-      'bri': 'bri',
-      'cimb': 'cimb',
-      'permata': 'permata',
-      'danamon': 'danamon',
-    };
-    const bankCode = bankMapping[therapist.bank_name.toLowerCase()] || therapist.bank_name.toLowerCase();
-
     const payload = {
-      payouts: [
-        {
-          beneficiary_name: therapist.bank_account_name || therapist.full_name,
-          beneficiary_account: therapist.bank_account_number,
-          beneficiary_bank: bankCode,
-          amount: payoutAmount.toString(),
-          notes: `Withdrawal PijatPro - ${therapist.full_name}`,
-        }
-      ]
+      external_id: external_id,
+      amount: payoutAmount,
+      bank_code: bankCode,
+      account_holder_name: therapist.bank_account_name || therapist.full_name,
+      account_number: therapist.bank_account_number,
+      description: `Penarikan Saldo Mitra Kang Massage - ${therapist.full_name}`
     };
 
-    debugStep = 'CALL_MIDTRANS_IRIS';
-    const response = await fetch(`${IRIS_BASE_URL}/payouts`, {
+    debugStep = 'CALL_XENDIT_DISBURSEMENTS';
+    const response = await fetch('https://api.xendit.co/disbursements', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${authString}`,
-        'X-Idempotency-Key': external_id
+        'Authorization': authHeader,
+        'x-idempotency-key': external_id
       },
       body: JSON.stringify(payload),
     });
 
-    let irisData;
-    const responseText = await response.text();
-    try {
-      irisData = JSON.parse(responseText);
-    } catch (e) {
-      console.error('[Withdraw Debug] Midtrans non-JSON response:', responseText);
-      irisData = { message: 'Failed to parse Midtrans response', raw: responseText.slice(0, 500) };
-    }
+    const xenditData = await response.json();
 
     if (response.status >= 300) {
-      console.error('[Withdraw Debug] Iris Payout Error:', irisData);
+      console.error('[Withdraw Debug] Xendit Payout Error:', xenditData);
       
-      debugStep = 'REVERT_BALANCE_ON_IRIS_FAILURE';
+      debugStep = 'REVERT_BALANCE_ON_XENDIT_FAILURE';
       await supabase
         .from('therapists')
         .update({ wallet_balance: therapist.wallet_balance })
@@ -186,26 +207,26 @@ export async function POST(req: NextRequest) {
       
       await supabase
         .from('therapist_withdrawals')
-        .update({ status: 'failed', payment_data: irisData })
+        .update({ status: 'failed', payment_data: xenditData })
         .eq('id', withdrawal.id);
 
       return NextResponse.json({ 
-        error: `Midtrans Error (${response.status}): ${irisData.errorMessage || irisData.message || 'Gagal memproses penarikan'}`,
+        error: `Xendit Error (${response.status}): ${xenditData.message || 'Gagal memproses penarikan'}`,
         debug_step: debugStep,
-        details: irisData
+        details: xenditData
       }, { status: 400 });
     }
 
-    debugStep = 'FINAL_UPDATE_WITH_IRIS_DATA';
+    debugStep = 'FINAL_UPDATE_WITH_XENDIT_DATA';
     await supabase
       .from('therapist_withdrawals')
-      .update({ payment_data: irisData })
+      .update({ payment_data: xenditData })
       .eq('id', withdrawal.id);
 
     return NextResponse.json({ 
       status: 'success',
       message: 'Penarikan sedang diproses',
-      data: irisData 
+      data: xenditData 
     });
 
   } catch (error: any) {

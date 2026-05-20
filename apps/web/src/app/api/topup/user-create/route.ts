@@ -46,6 +46,43 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
+    // INTERCEPT FOR DANA DIRECT SANDBOX
+    if (process.env.USE_DANA_DIRECT === 'true' && payment_method === 'dana') {
+      const url = new URL(req.url);
+      const origin = url.origin;
+      const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+      const redirectUrl = `${baseAppUrl}/dana-sandbox?id=${topup.id}&amount=${amount}&order_id=${order_id}`;
+
+      const directDanaData = {
+        status_code: '201',
+        status_message: 'Success, DANA Direct Sandbox transaction created',
+        payment_type: 'dana',
+        order_id: order_id,
+        gross_amount: amount.toString(),
+        actions: [
+          {
+            name: 'deeplink-redirect',
+            method: 'GET',
+            url: redirectUrl,
+          }
+        ],
+      };
+
+      // Update Topup Record with Payment Data
+      await supabase
+        .from('user_topups')
+        .update({ payment_data: directDanaData })
+        .eq('id', topup.id);
+
+      return NextResponse.json({
+        status: 'success',
+        data: {
+          ...directDanaData,
+          topup_id: topup.id,
+        }
+      });
+    }
+
     // 3. Call Midtrans Core API (Charge)
     const authString = Buffer.from(`${MIDTRANS_SERVER_KEY}:`).toString('base64');
     
@@ -67,6 +104,8 @@ export async function POST(req: NextRequest) {
       payload.payment_type = 'bank_transfer';
       const bank = payment_method.split('_')[0];
       payload.bank_transfer = { bank: bank };
+    } else if (payment_method === 'dana') {
+      payload.payment_type = 'dana';
     } else if (payment_method === 'gopay') {
       payload.payment_type = 'gopay';
     } else if (payment_method === 'shopeepay') {

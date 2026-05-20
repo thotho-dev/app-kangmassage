@@ -266,6 +266,43 @@ CREATE TABLE notifications (
 );
 
 -- ============================================================
+-- USER TOPUPS TABLE (Midtrans Transactions)
+-- ============================================================
+
+CREATE TABLE user_topups (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount          DECIMAL(12,2) NOT NULL,
+  fee             DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  status          VARCHAR(50) NOT NULL DEFAULT 'pending',
+  external_id     VARCHAR(255) UNIQUE NOT NULL,
+  payment_method  VARCHAR(100) NOT NULL,
+  payment_data    JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- USER WITHDRAWALS TABLE (Withdraw requests)
+-- ============================================================
+
+CREATE TABLE user_withdrawals (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount          DECIMAL(12,2) NOT NULL,
+  admin_fee       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  status          VARCHAR(50) NOT NULL DEFAULT 'pending',
+  external_id     VARCHAR(255) UNIQUE,
+  bank_name       VARCHAR(100) NOT NULL,
+  bank_code       VARCHAR(20),
+  account_number  VARCHAR(100) NOT NULL,
+  account_name    VARCHAR(255) NOT NULL,
+  payment_data    JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
 -- INDEXES
 -- ============================================================
 
@@ -314,6 +351,8 @@ CREATE TRIGGER update_therapists_updated_at BEFORE UPDATE ON therapists FOR EACH
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_services_updated_at BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_vouchers_updated_at BEFORE UPDATE ON vouchers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_topups_updated_at BEFORE UPDATE ON user_topups FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_withdrawals_updated_at BEFORE UPDATE ON user_withdrawals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Auto-generate order number
 CREATE OR REPLACE FUNCTION generate_order_number()
@@ -393,6 +432,8 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE voucher_usages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_topups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_withdrawals ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own data
 CREATE POLICY "users_own_data" ON users FOR ALL USING (supabase_uid = auth.uid());
@@ -424,6 +465,16 @@ CREATE POLICY "notifications_own" ON notifications FOR ALL USING (
 CREATE POLICY "transactions_own" ON transactions FOR SELECT USING (
   user_id IN (SELECT id FROM users WHERE supabase_uid = auth.uid())
   OR therapist_id IN (SELECT id FROM therapists WHERE supabase_uid = auth.uid())
+);
+
+-- User Topups own
+CREATE POLICY "user_topups_own" ON user_topups FOR ALL USING (
+  user_id IN (SELECT id FROM users WHERE supabase_uid = auth.uid())
+);
+
+-- User Withdrawals own
+CREATE POLICY "user_withdrawals_own" ON user_withdrawals FOR ALL USING (
+  user_id IN (SELECT id FROM users WHERE supabase_uid = auth.uid())
 );
 
 -- ============================================================

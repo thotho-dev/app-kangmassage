@@ -21,6 +21,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
+    "autocannon": "^8.0.0",
     "clsx": "^2.1.1",
     "expo-router": "^6.0.23",
     "lucide-react-native": "^1.14.0",

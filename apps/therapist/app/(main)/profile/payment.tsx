@@ -154,6 +154,9 @@ export default function PaymentMethodScreen() {
                     onChangeText={(text) => setForm({ ...form, number: text })}
                   />
                 </View>
+                <Text style={{ fontSize: 11, color: t.secondary, marginTop: 6, marginLeft: 4, lineHeight: 16 }}>
+                  💡 Tip: Untuk penarikan ke DANA, isi Nama Bank dengan DANA dan Nomor Rekening dengan nomor HP DANA Anda (Contoh: 08xxxxxxxxxx).
+                </Text>
               </View>
 
               <View style={styles.formActions}>

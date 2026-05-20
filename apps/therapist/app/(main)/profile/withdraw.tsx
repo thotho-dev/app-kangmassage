@@ -8,6 +8,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useAlert } from '@/components/CustomAlert';
+import { API_URL } from '@/lib/config';
 
 const MIN_WITHDRAW = 50000;
 const WITHDRAW_FEE = 5000;
@@ -61,7 +62,7 @@ export default function WithdrawScreen() {
     setLoading(true);
     try {
       // In production, use your actual domain
-      const response = await fetch('https://app-kangmassage-web.vercel.app/api/withdraw/create', {
+      const response = await fetch(`${API_URL}/api/withdraw/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -213,7 +214,7 @@ export default function WithdrawScreen() {
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={16} color={t.textMuted} />
               <Text style={styles.infoText}>
-                Proses penarikan saldo diproses secara otomatis melalui sistem Midtrans Iris. Waktu masuk dana tergantung pada bank penerima.
+                Proses penarikan saldo diproses secara otomatis melalui sistem Xendit. Waktu masuk dana tergantung pada bank penerima.
               </Text>
             </View>
           </View>
