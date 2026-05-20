@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
     if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
       const url = new URL(req.url);
       const origin = url.origin;
-      const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
-      const redirectUrl = `${baseAppUrl}/xendit-sandbox?id=${topup.id}&amount=${amount}&order_id=${order_id}`;
+      // Gunakan origin dinamis agar bisa diakses dari HP fisik (IP lokal), bukan memaksakan localhost
+      const redirectUrl = `${origin}/xendit-sandbox?id=${topup.id}&amount=${amount}&order_id=${order_id}`;
 
       const directXenditData = {
         invoice_url: redirectUrl,
