@@ -58,6 +58,13 @@ export default function LoginScreen() {
         body: JSON.stringify({ phone: displayPhone, role: 'user' }),
       });
       const result = await response.json();
+
+      if (response.status === 409) {
+        setPhone('');
+        showAlert('Info', 'Nomor sudah terdaftar. Silakan login dengan kata sandi.');
+        return;
+      }
+
       if (result.error) throw new Error(result.error);
 
       setStep('otp');

@@ -21,6 +21,23 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // Check if phone already registered
+    const table = role === 'therapist' ? 'therapists' : 'users';
+    const { data: existingUser } = await supabase
+      .from(table)
+      .select('id')
+      .eq('phone', normalizedPhone)
+      .maybeSingle();
+
+    if (existingUser) {
+      console.log(`[${requestId}] Phone already registered`);
+      return NextResponse.json({
+        error: 'Nomor sudah terdaftar. Silakan login dengan kata sandi.',
+        is_new_user: false,
+        request_id: requestId,
+      }, { status: 409 });
+    }
+
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[${requestId}] Generated OTP: ${otp}`);
@@ -81,14 +98,6 @@ export async function POST(req: NextRequest) {
       console.log(`[${requestId}] FONNTE_API_KEY not set — dev fallback`);
     }
 
-    // Check if user exists
-    const table = role === 'therapist' ? 'therapists' : 'users';
-    const { data: existingUser } = await supabase
-      .from(table)
-      .select('id, full_name, phone')
-      .eq('phone', normalizedPhone)
-      .single();
-
     const isDev = process.env.NODE_ENV === 'development';
 
     return NextResponse.json({
@@ -96,7 +105,7 @@ export async function POST(req: NextRequest) {
       request_id: requestId,
       fonnte_configured: !!fonnteToken,
       ...(isDev && !fonnteToken && { mock_otp: otp }),
-      is_new_user: !existingUser,
+      is_new_user: true,
     });
   } catch (error: any) {
     console.error(`[${requestId}] OTP Send Error:`, error.message, error.stack);
