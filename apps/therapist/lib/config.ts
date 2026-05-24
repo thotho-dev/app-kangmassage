@@ -7,13 +7,7 @@
 
 import { Platform } from 'react-native';
 
-const DEV_URL = Platform.select({
-  android: 'http://10.0.2.2:3000',
-  ios: 'http://localhost:3000',
-  default: 'http://localhost:3000',
-});
+// Pakai IP ini kalo testing dari HP fisik via Expo Go
+const LOCAL_IP = 'http://10.39.80.246:3000';
 
-// Ganti jadi false untuk pakai production
-const USE_LOCAL = false;
-
-export const WEB_API_URL = USE_LOCAL ? DEV_URL : 'https://kang-massage.vercel.app';
+export const WEB_API_URL = LOCAL_IP;
