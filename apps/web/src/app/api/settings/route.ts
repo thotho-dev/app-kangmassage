@@ -34,6 +34,8 @@ export async function GET() {
         order_admin_fee: 0,
         platform_name: 'Kang Massage',
         support_email: 'support@kangmassage.app',
+        support_whatsapp: '',
+        chat_link: '',
         logo_url: null,
       });
     }
@@ -57,6 +59,8 @@ export async function GET() {
       order_admin_fee: Number(data.order_admin_fee) ?? 0,
       platform_name: data.platform_name ?? 'Kang Massage',
       support_email: data.support_email ?? 'support@kangmassage.app',
+      support_whatsapp: data.support_whatsapp ?? '',
+      chat_link: data.chat_link ?? '',
       logo_url: data.logo_url ?? null,
     });
   } catch {
@@ -97,7 +101,7 @@ export async function PUT(req: NextRequest) {
       'topup_admin_fee', 'topup_min_amount', 'topup_max_amount',
       'withdraw_admin_fee', 'withdraw_min_amount', 'withdraw_max_amount',
       'order_service_fee', 'order_admin_fee',
-      'platform_name', 'support_email', 'logo_url',
+      'platform_name', 'support_email', 'support_whatsapp', 'chat_link', 'logo_url',
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -154,6 +158,8 @@ export async function PUT(req: NextRequest) {
       order_admin_fee: Number(data.order_admin_fee) ?? 0,
       platform_name: data.platform_name ?? 'Kang Massage',
       support_email: data.support_email ?? 'support@kangmassage.app',
+      support_whatsapp: data.support_whatsapp ?? '',
+      chat_link: data.chat_link ?? '',
       logo_url: data.logo_url ?? null,
     });
   } catch (err) {

@@ -39,11 +39,14 @@ interface TherapistState {
   isOnline: boolean;
   loading: boolean;
   incomingOrder: any | null;
+  welcomeMessage: string | null;
   setProfile: (profile: any) => void;
   setIsOnline: (isOnline: boolean) => void;
   setIncomingOrder: (order: any | null) => void;
+  setWelcomeMessage: (msg: string | null) => void;
   fetchProfile: () => Promise<void>;
   toggleOnline: () => Promise<void>;
+  setOffline: () => Promise<void>;
   updatePushToken: (token: string) => Promise<void>;
   updateProfile: (updates: Partial<TherapistProfile>) => Promise<void>;
 }
@@ -53,9 +56,11 @@ export const useTherapistStore = create<TherapistState>((set, get) => ({
   isOnline: false,
   loading: false,
   incomingOrder: null,
+  welcomeMessage: null,
   setProfile: (profile) => set({ profile, isOnline: profile?.status === 'online' }),
   setIsOnline: (isOnline) => set({ isOnline }),
   setIncomingOrder: (incomingOrder) => set({ incomingOrder }),
+  setWelcomeMessage: (welcomeMessage) => set({ welcomeMessage }),
   
   fetchProfile: async () => {
     set({ loading: true });
@@ -117,6 +122,23 @@ export const useTherapistStore = create<TherapistState>((set, get) => ({
       console.error('Error toggling therapist status:', error);
       throw error;
     }
+  },
+
+  setOffline: async () => {
+    const { profile } = get();
+    if (!profile) return;
+
+    const { error } = await supabase
+      .from('therapists')
+      .update({ status: 'offline' })
+      .eq('id', profile.id);
+
+    if (error) {
+      console.error('Error setting therapist offline:', error);
+      return;
+    }
+
+    set({ isOnline: false, profile: { ...profile, status: 'offline' } });
   },
 
   updateProfile: async (updates) => {

@@ -17,6 +17,7 @@ import { useTherapistStore } from '@/store/therapistStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { calculateDistance } from '@/lib/utils';
 import { getTierDetails } from '@/lib/tierLogic';
+import { getAppSettings, clearSettingsCache } from '@/lib/appSettings';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: '#F97316',
@@ -56,10 +57,15 @@ export default function DashboardScreen() {
     totalHours: 0
   });
   const { fetchProfile } = useTherapistStore();
-  
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const t = useThemeColors();
+
+  useEffect(() => {
+    clearSettingsCache();
+    getAppSettings().then(s => setLogoUrl(s.logo_url));
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -239,7 +245,7 @@ export default function DashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Image source={require('../../assets/logo-kang-massage.png')} style={styles.logo} />
+          <Image source={logoUrl ? { uri: logoUrl } : require('../../assets/logo-kang-massage.png')} style={styles.logo} />
           <Text style={styles.companyName}>Kang Massage</Text>
         </View>
         <View style={styles.headerRight}>

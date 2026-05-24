@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS app_settings (
   platform_name           VARCHAR(100) NOT NULL DEFAULT 'Kang Massage',
   support_email           VARCHAR(255) NOT NULL DEFAULT 'support@kangmassage.app',
 
+  -- === Contact Support ===
+  support_whatsapp        TEXT NOT NULL DEFAULT '',
+  chat_link               TEXT NOT NULL DEFAULT '',
+
   -- Metadata
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by              UUID REFERENCES users(id)

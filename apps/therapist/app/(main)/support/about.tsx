@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
+import { getAppSettings } from '@/lib/appSettings';
 
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +12,11 @@ import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 export default function AboutScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAppSettings().then(s => setLogoUrl(s.logo_url));
+  }, []);
   
   const router = useRouter();
 
@@ -26,7 +33,7 @@ export default function AboutScreen() {
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
             <Image 
-              source={require('@/assets/logo-kang-massage.png')} 
+              source={logoUrl ? { uri: logoUrl } : require('@/assets/logo-kang-massage.png')} 
               style={{ width: 100, height: 100, resizeMode: 'contain' }} 
             />
           </View>

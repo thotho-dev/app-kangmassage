@@ -449,6 +449,10 @@ CREATE TABLE app_settings (
   -- Branding Assets
   logo_url                TEXT,
 
+  -- Contact Support
+  support_whatsapp        TEXT NOT NULL DEFAULT '',
+  chat_link               TEXT NOT NULL DEFAULT '',
+
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by              UUID REFERENCES users(id)
 );

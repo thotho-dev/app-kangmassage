@@ -19,6 +19,8 @@ export type AppSettings = {
   order_admin_fee: number;
   platform_name: string;
   support_email: string;
+  support_whatsapp: string;
+  chat_link: string;
   logo_url: string | null;
 };
 
@@ -41,6 +43,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   order_admin_fee: 0,
   platform_name: 'Kang Massage',
   support_email: 'support@kangmassage.app',
+  support_whatsapp: '',
+  chat_link: '',
   logo_url: null,
 };
 
@@ -80,6 +84,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       order_admin_fee: Number(data.order_admin_fee) ?? DEFAULT_SETTINGS.order_admin_fee,
       platform_name: data.platform_name ?? DEFAULT_SETTINGS.platform_name,
       support_email: data.support_email ?? DEFAULT_SETTINGS.support_email,
+      support_whatsapp: data.support_whatsapp ?? DEFAULT_SETTINGS.support_whatsapp,
+      chat_link: data.chat_link ?? DEFAULT_SETTINGS.chat_link,
       logo_url: data.logo_url ?? null,
     };
 

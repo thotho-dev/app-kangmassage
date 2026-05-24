@@ -9,6 +9,7 @@ import { useTherapistStore } from '@/store/therapistStore';
 import { useLocationTracker } from '@/hooks/useLocationTracker';
 import { useOrderListener } from '@/hooks/useOrderListener';
 import IncomingOrderModal from '@/components/IncomingOrderModal';
+import { useAlert } from '@/components/CustomAlert';
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,7 +32,17 @@ export default function TabLayout() {
   const t = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, isOnline, fetchProfile, setIncomingOrder } = useTherapistStore();
+  const { profile, isOnline, fetchProfile, setIncomingOrder, welcomeMessage, setWelcomeMessage } = useTherapistStore();
+  const { showAlert, AlertComponent } = useAlert();
+
+  useEffect(() => {
+    if (welcomeMessage) {
+      showAlert('success', 'Selamat Datang!', welcomeMessage, [
+        { text: 'Siap!' },
+      ]);
+      setWelcomeMessage(null);
+    }
+  }, [welcomeMessage]);
 
   useEffect(() => {
     fetchProfile();
@@ -63,8 +74,7 @@ export default function TabLayout() {
   useOrderListener();
 
   return (
-    <>
-    <Tabs
+    <><Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: [
@@ -72,8 +82,8 @@ export default function TabLayout() {
           { 
             backgroundColor: t.surface, 
             borderTopColor: t.border,
-            height: 50 + insets.bottom,
-            paddingBottom: insets.bottom + 5
+            height: 55 + insets.bottom + 10,
+            paddingBottom: insets.bottom + 10
           }
         ],
         tabBarShowLabel: false, // Hidden because we render it inside TabIcon
@@ -123,6 +133,7 @@ export default function TabLayout() {
       />
     </Tabs>
     <IncomingOrderModal />
+    {AlertComponent}
     </>
   );
 }

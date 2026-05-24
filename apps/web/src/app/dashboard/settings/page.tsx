@@ -27,6 +27,8 @@ type AppSettings = {
   order_admin_fee: number;
   platform_name: string;
   support_email: string;
+  support_whatsapp: string;
+  chat_link: string;
   logo_url: string | null;
 };
 
@@ -49,6 +51,8 @@ const defaultSettings: AppSettings = {
   order_admin_fee: 0,
   platform_name: 'Kang Massage',
   support_email: 'support@kangmassage.app',
+  support_whatsapp: '',
+  chat_link: '',
   logo_url: null,
 };
 
@@ -232,6 +236,26 @@ export default function SettingsPage() {
                     value={settings.support_email}
                     onChange={e => updateField('support_email', e.target.value)}
                     className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">WhatsApp Support</label>
+                  <input
+                    type="text"
+                    value={settings.support_whatsapp}
+                    onChange={e => updateField('support_whatsapp', e.target.value)}
+                    className="input-field"
+                    placeholder="6281234567890"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Link Chat (Tawk.to / Live Chat)</label>
+                  <input
+                    type="text"
+                    value={settings.chat_link}
+                    onChange={e => updateField('chat_link', e.target.value)}
+                    className="input-field"
+                    placeholder="https://tawk.to/chat/..."
                   />
                 </div>
               </div>

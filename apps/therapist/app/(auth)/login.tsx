@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/components/CustomAlert';
+import { useTherapistStore } from '@/store/therapistStore';
+import { getAppSettings } from '@/lib/appSettings';
 
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
@@ -40,10 +42,32 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<'identifier' | 'password' | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAppSettings().then(s => setLogoUrl(s.logo_url));
+  }, []);
 
   // Security: Failed Attempts & Lockout
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState(0); // seconds remaining
+
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: therapist } = await supabase
+          .from('therapists')
+          .select('id')
+          .eq('supabase_uid', session.user.id)
+          .single();
+        if (therapist) {
+          await supabase.from('therapists').update({ status: 'offline' }).eq('id', therapist.id);
+        }
+        await supabase.auth.signOut();
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     let interval: any;
@@ -128,11 +152,16 @@ export default function LoginScreen() {
 
         const { data: therapist, error: tError } = await supabase
           .from('therapists')
-          .select('id, device_id')
+          .select('id, device_id, full_name')
           .eq('supabase_uid', authUser.id)
           .single();
 
         if (tError) throw tError;
+
+        await supabase.from('therapists').update({ status: 'online' }).eq('id', therapist.id);
+
+        const welcomeName = therapist.full_name?.split(' ')[0] || 'Terapis';
+        const setWelcomeMessage = useTherapistStore.getState().setWelcomeMessage;
 
         if (!therapist.device_id) {
           // First time login - Bind device
@@ -141,9 +170,11 @@ export default function LoginScreen() {
             .update({ device_id: currentDeviceId })
             .eq('id', therapist.id);
 
+          setWelcomeMessage(`Selamat Datang ${welcomeName}! Udah siap aktifitas lagi?`);
           router.replace('/(tabs)');
         } else if (therapist.device_id !== currentDeviceId) {
           // Device mismatch
+          await supabase.from('therapists').update({ status: 'offline' }).eq('id', therapist.id);
           await supabase.auth.signOut();
           showAlert(
             'error',
@@ -153,6 +184,7 @@ export default function LoginScreen() {
           );
         } else {
           // Success
+          setWelcomeMessage(`Selamat Datang ${welcomeName}! Udah siap aktifitas lagi?`);
           router.replace('/(tabs)');
         }
       }
@@ -204,7 +236,7 @@ export default function LoginScreen() {
             <View style={styles.logoContainer}>
               <View style={styles.logoMark}>
                 <Image
-                  source={require('../../assets/logo-kang-massage.png')}
+                  source={logoUrl ? { uri: logoUrl } : require('../../assets/logo-kang-massage.png')}
                   style={styles.logoImage}
                 />
               </View>

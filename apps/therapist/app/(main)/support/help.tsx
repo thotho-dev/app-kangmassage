@@ -1,21 +1,37 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Modal } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
+import { WebView } from 'react-native-webview';
 
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { getAppSettings } from '@/lib/appSettings';
 
 export default function HelpSupportScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
-  
   const router = useRouter();
+  const [settings, setSettings] = useState<{ support_whatsapp: string; support_email: string; chat_link: string }>({ support_whatsapp: '', support_email: '', chat_link: '' });
+  const [chatVisible, setChatVisible] = useState(false);
 
-  const handleContactSupport = (method: 'whatsapp' | 'email' | 'phone') => {
-    // Implement contact logic here
-    console.log(`Contact via ${method}`);
+  useEffect(() => {
+    getAppSettings().then(s => setSettings({ support_whatsapp: s.support_whatsapp, support_email: s.support_email, chat_link: s.chat_link }));
+  }, []);
+
+  const handleWhatsApp = () => {
+    const num = settings.support_whatsapp.replace(/[^0-9]/g, '');
+    if (num) Linking.openURL(`https://wa.me/${num}`);
+  };
+
+  const handleEmail = () => {
+    if (settings.support_email) Linking.openURL(`mailto:${settings.support_email}`);
+  };
+
+  const handleChat = () => {
+    if (settings.chat_link) setChatVisible(true);
   };
 
   return (
@@ -32,7 +48,7 @@ export default function HelpSupportScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Hubungi Kami</Text>
           
-          <TouchableOpacity style={styles.contactCard} onPress={() => handleContactSupport('whatsapp')}>
+          <TouchableOpacity style={styles.contactCard} onPress={handleWhatsApp}>
             <View style={[styles.iconWrap, { backgroundColor: '#25D366' + '20' }]}>
               <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
             </View>
@@ -43,24 +59,24 @@ export default function HelpSupportScreen() {
             <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.contactCard} onPress={() => handleContactSupport('email')}>
+          <TouchableOpacity style={styles.contactCard} onPress={handleEmail}>
             <View style={[styles.iconWrap, { backgroundColor: t.background + '20' }]}>
               <Ionicons name="mail" size={24} color={t.text} />
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactTitle}>Email</Text>
-              <Text style={styles.contactDesc}>support@pijatpro.id</Text>
+              <Text style={styles.contactDesc}>{settings.support_email || 'support@kangmassage.app'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.contactCard} onPress={() => handleContactSupport('phone')}>
-            <View style={[styles.iconWrap, { backgroundColor: t.background + '20' }]}>
-              <Ionicons name="call" size={24} color={t.text} />
+          <TouchableOpacity style={styles.contactCard} onPress={handleChat}>
+            <View style={[styles.iconWrap, { backgroundColor: t.primary + '20' }]}>
+              <Ionicons name="chatbubble-ellipses" size={24} color={t.primary} />
             </View>
             <View style={styles.contactInfo}>
-              <Text style={styles.contactTitle}>Telepon Bebas Pulsa</Text>
-              <Text style={styles.contactDesc}>0800-1-234-567</Text>
+              <Text style={styles.contactTitle}>Live Chat</Text>
+              <Text style={styles.contactDesc}>Chat langsung dengan admin</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
           </TouchableOpacity>
@@ -82,6 +98,18 @@ export default function HelpSupportScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal visible={chatVisible} animationType="slide" onRequestClose={() => setChatVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: t.background }}>
+          <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
+            <TouchableOpacity onPress={() => setChatVisible(false)} style={styles.backBtn}>
+              <Ionicons name="close" size={24} color={t.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: t.text }]}>Live Chat</Text>
+          </View>
+          <WebView source={{ uri: settings.chat_link }} style={{ flex: 1 }} />
+        </View>
+      </Modal>
     </View>
   );
 }

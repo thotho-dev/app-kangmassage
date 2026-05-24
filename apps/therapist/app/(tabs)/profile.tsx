@@ -30,7 +30,7 @@ const MENU_ITEMS = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile, isOnline, loading, toggleOnline, fetchProfile } = useTherapistStore();
+  const { profile, isOnline, loading, toggleOnline, fetchProfile, setOffline } = useTherapistStore();
   const [isToggling, setIsToggling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -48,6 +48,7 @@ export default function ProfileScreen() {
 
 
   const handleLogout = async () => {
+    await setOffline();
     await supabase.auth.signOut();
     router.replace('/(auth)/login');
   };
