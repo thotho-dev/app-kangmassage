@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getAppSettings } from '@/lib/settings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,8 +20,16 @@ export async function POST(req: NextRequest) {
 
     if (uError || !user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
+    const settings = await getAppSettings();
+    if (amount < Number(settings.topup_min_amount)) {
+      return NextResponse.json({ error: `Minimal topup adalah Rp ${Number(settings.topup_min_amount).toLocaleString('id-ID')}` }, { status: 400 });
+    }
+    if (amount > Number(settings.topup_max_amount)) {
+      return NextResponse.json({ error: `Maksimal topup adalah Rp ${Number(settings.topup_max_amount).toLocaleString('id-ID')}` }, { status: 400 });
+    }
+
     const external_id = `UTOPUP-${Date.now()}-${user.id.slice(0, 8)}`;
-    const ADMIN_FEE = 2500;
+    const ADMIN_FEE = Number(settings.topup_admin_fee);
     const netAmount = amount - ADMIN_FEE;
 
     const { data: topup, error: topupError } = await supabase

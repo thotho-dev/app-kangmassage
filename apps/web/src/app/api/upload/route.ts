@@ -1,10 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 
+export async function GET(req: NextRequest) {
+  try {
+    const supabase = createAdminClient();
+    const bucket = req.nextUrl.searchParams.get('bucket') || 'logos';
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .list('', { sortBy: { column: 'created_at', order: 'desc' }, limit: 20 });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const files = (data || []).map((f) => {
+      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(f.name);
+      return { name: f.name, url: publicUrl, created_at: f.created_at, id: f.id };
+    });
+
+    return NextResponse.json({ files });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const supabase = createAdminClient();
+    const { bucket, fileName } = await req.json();
+
+    if (!fileName) {
+      return NextResponse.json({ error: 'fileName is required' }, { status: 400 });
+    }
+
+    const { error } = await supabase.storage
+      .from(bucket || 'logos')
+      .remove([fileName]);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = createAdminClient();
-    const formData = await req.formData();
+    const formData = await req.formData() as any;
     const file = formData.get('file') as File;
     const bucket = formData.get('bucket') as string || 'avatars';
 

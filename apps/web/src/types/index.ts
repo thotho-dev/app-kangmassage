@@ -185,6 +185,24 @@ export interface PaginatedResponse<T> {
 }
 
 // Dashboard analytics
+export interface ActivityItem {
+  id: string;
+  order_number: string;
+  status: OrderStatus;
+  note?: string;
+  created_at: string;
+}
+
+export interface RecentOrderItem {
+  id: string;
+  order_number: string;
+  status: OrderStatus;
+  total_price: number;
+  created_at: string;
+  user_name: string;
+  therapist_name: string;
+}
+
 export interface DashboardStats {
   totalOrders: number;
   totalRevenue: number;
@@ -194,8 +212,27 @@ export interface DashboardStats {
   onlineTherapists: number;
   todayOrders: number;
   todayRevenue: number;
+  completedOrders: number;
+  totalPlatformFee: number;
+  todayPlatformFee: number;
+  totalTherapistEarnings: number;
+  newUsersToday: number;
+  verifiedTherapists: number;
+  avgRating: number;
+  totalTherapistBalance: number;
+  totalUserBalance: number;
+  totalTopup: number;
+  todayTopup: number;
+  totalTopupFee: number;
+  todayTopupFee: number;
+  totalWithdrawal: number;
+  todayWithdrawal: number;
+  totalWithdrawalFee: number;
+  todayWithdrawalFee: number;
   ordersByStatus: { status: OrderStatus; count: number }[];
   revenueByDay: { date: string; revenue: number; orders: number }[];
+  recentOrders: RecentOrderItem[];
+  recentActivity: ActivityItem[];
 }
 
 // Matching

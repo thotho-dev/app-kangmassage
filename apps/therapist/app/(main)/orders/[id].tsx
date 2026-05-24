@@ -11,6 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
 import { getTierDetails, calculateTier } from '@/lib/tierLogic';
+import { getAppSettings } from '@/lib/appSettings';
 import { useAlert } from '@/components/CustomAlert';
 import { useTherapistStore } from '@/store/therapistStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -346,17 +347,42 @@ export default function OrderDetailScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setTherapistLoc({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude
-        });
+        const latitude = loc.coords.latitude;
+        const longitude = loc.coords.longitude;
+        setTherapistLoc({ latitude, longitude });
+        
+        // Geocode coordinates to readable address
+        let live_address = '';
+        try {
+          const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+          if (geocode && geocode.length > 0) {
+            const addressObj = geocode[0];
+            const street = addressObj.street || addressObj.name || '';
+            const streetNumber = addressObj.streetNumber || '';
+            const streetInfo = streetNumber ? `${street} No. ${streetNumber}` : street;
+            const district = addressObj.district || addressObj.subregion || '';
+            const city = addressObj.city || '';
+            const region = addressObj.region || '';
+            
+            const parts = [
+              streetInfo,
+              district,
+              city,
+              region !== city ? region : null
+            ].filter(p => p && p.trim().length > 0);
+            live_address = parts.join(', ');
+          }
+        } catch (geocodeErr) {
+          console.warn('Failed to reverse geocode live location:', geocodeErr);
+        }
         
         // Also update therapist_locations table in DB
         if (profile?.id) {
           await supabase.from('therapist_locations').upsert({
             therapist_id: profile.id,
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
+            latitude,
+            longitude,
+            live_address: live_address || null,
             last_updated: new Date().toISOString()
           }, { onConflict: 'therapist_id' });
         }
@@ -550,6 +576,23 @@ export default function OrderDetailScreen() {
               };
               balanceCounter -= commissionAmount;
               txsToInsert.push(commTx);
+            }
+
+            // --- Admin Fee Pesanan ---
+            const appSettings = await getAppSettings();
+            const adminFee = appSettings.order_admin_fee;
+            if (adminFee > 0) {
+              const afTx = {
+                therapist_id: targetTherapistId,
+                order_id: freshOrder.id,
+                type: 'debit',
+                amount: -adminFee,
+                balance_before: balanceCounter,
+                balance_after: balanceCounter - adminFee,
+                description: `Biaya Admin Pesanan - ${freshOrder.order_number}`
+              };
+              balanceCounter -= adminFee;
+              txsToInsert.push(afTx);
             }
 
             // --- 3. REWARD / TIER TARGET LOGIC & AUTO PROMOTION ---
@@ -1091,6 +1134,13 @@ export default function OrderDetailScreen() {
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Potongan Cashback</Text>
                       <Text style={[styles.payAmount, { color: t.danger }]}>- Rp {order.used_cashback.toLocaleString('id-ID')}</Text>
+                    </View>
+                  )}
+
+                  {order.service_fee > 0 && (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payLabel}>Biaya Layanan (User)</Text>
+                      <Text style={[styles.payAmount, { color: t.text }]}>Rp {order.service_fee.toLocaleString('id-ID')}</Text>
                     </View>
                   )}
 

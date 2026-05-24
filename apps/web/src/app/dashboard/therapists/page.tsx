@@ -169,8 +169,16 @@ export default function TherapistsPage() {
             placeholder={t('search')}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="input-field pl-10"
+            className="input-field pl-10 pr-10"
           />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); setPage(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-muted"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          )}
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
           <div className="relative w-full sm:w-40">
@@ -318,13 +326,6 @@ export default function TherapistsPage() {
                           title="Detail"
                         >
                           <Eye className="w-5 h-5" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteTherapist(therapist.id)}
-                          className="p-2 hover:bg-danger/10 rounded-xl text-danger transition-all duration-200 hover:scale-110"
-                          title={t('delete')}
-                        >
-                          <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </td>

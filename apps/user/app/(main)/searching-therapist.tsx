@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/context/AlertContext';
+import { getAppSettings, DEFAULT_SETTINGS } from '@/lib/appSettings';
 
 const PURPLE = '#240080';
 const BG = '#F8F9FE';
@@ -20,6 +21,7 @@ export default function SearchingTherapistScreen() {
   const [timeLeft, setTimeLeft] = useState(45);
   const [isTimeout, setIsTimeout] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [appSettings, setAppSettings] = useState(DEFAULT_SETTINGS);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const stopTimer = () => {
@@ -125,6 +127,11 @@ export default function SearchingTherapistScreen() {
     };
   }, [id]);
 
+  // Fetch dynamic app settings on mount
+  useEffect(() => {
+    getAppSettings().then(setAppSettings);
+  }, []);
+
   const handleRetry = async () => {
     if (retryCount >= 2) {
       // Jika sudah klik 3x (0, 1, 2), maka batalkan otomatis
@@ -207,21 +214,23 @@ export default function SearchingTherapistScreen() {
         return null;
       }
 
+      const settings = appSettings;
       // Filter manual kriteria awal agar bisa di-log
       const candidates = allOnline.filter((t: any) => {
         if (!t.is_verified) {
           console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: is_verified = false (Belum verifikasi)`);
           return false;
         }
-        if (t.rating < 4.5) {
-          console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Rating (${t.rating}) di bawah 4.5`);
+        if (t.rating < settings.min_rating) {
+          console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Rating (${t.rating}) di bawah ${settings.min_rating}`);
           return false;
         }
         
         // Cek Saldo: Harus cukup untuk bagi hasil (platform fee)
-        // Estimasi fee adalah 20% dari total harga
-        const estimatedFee = (orderData.total_price || 0) * 0.2;
-        const minBalance = Math.max(15000, estimatedFee); // Minimal 15rb ATAU sebesar fee
+        // Estimasi fee menggunakan platform cut dari settings (bronze sebagai default)
+        const feePercent = settings.bronze_platform_cut;
+        const estimatedFee = (orderData.total_price || 0) * (feePercent / 100);
+        const minBalance = Math.max(settings.min_wallet_balance, estimatedFee);
 
         if (t.wallet_balance < minBalance) {
           console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Saldo ${t.wallet_balance} kurang untuk fee Rp ${estimatedFee}`);
@@ -304,13 +313,13 @@ export default function SearchingTherapistScreen() {
 
         t.distance = distance;
         
-        if (distance > 3) {
-           console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Jarak terlalu jauh (${distance.toFixed(2)} KM)`);
+        if (distance > settings.matching_radius_km) {
+           console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Jarak terlalu jauh (${distance.toFixed(2)} KM, max ${settings.matching_radius_km} KM)`);
            return false;
         }
         
         console.log(`[DEBUG Matchmaking] Terapis ${t.id} LOLOS! Jarak: ${distance.toFixed(2)} KM`);
-        return true; // Radius di bawah 3 KM
+        return true;
       });
 
       console.log('[DEBUG Matchmaking] Jumlah terapis yang valid setelah filter lokal:', validTherapists.length);

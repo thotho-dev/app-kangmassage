@@ -16,6 +16,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
+  const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
   const limit = 10;
 
   const fetchUsers = useCallback(async () => {
@@ -26,6 +27,7 @@ export default function UsersPage() {
       const data = await res.json();
       setUsers(data.data || []);
       setTotal(data.total || 0);
+      setImgErrors(new Set());
     } finally {
       setLoading(false);
     }
@@ -79,8 +81,16 @@ export default function UsersPage() {
             placeholder={t('search')}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="input-field pl-10"
+            className="input-field pl-10 pr-10"
           />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); setPage(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-muted"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -121,11 +131,16 @@ export default function UsersPage() {
                     <td>
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          {user.avatar_url ? (
-                            <img src={user.avatar_url} className="w-full h-full rounded-xl object-cover" alt="" />
+                          {user.avatar_url && !imgErrors.has(user.id) ? (
+                            <img
+                              src={user.avatar_url}
+                              className="w-full h-full rounded-xl object-cover"
+                              alt=""
+                              onError={() => setImgErrors(prev => new Set(prev).add(user.id))}
+                            />
                           ) : (
                             <span className="text-primary font-semibold text-sm">
-                              {user.full_name[0]?.toUpperCase()}
+                              {user.full_name[0]?.toUpperCase() || '?'}
                             </span>
                           )}
                         </div>

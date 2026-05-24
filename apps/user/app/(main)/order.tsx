@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar, TextInput, Platform, Alert, ActivityIndicator, BackHandler, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -35,6 +35,7 @@ import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
+import { getAppSettings } from '@/lib/appSettings';
 import { API_URL } from '@/lib/config';
 
 const PURPLE = '#240080';
@@ -164,14 +165,19 @@ export default function OrderScreen() {
   const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [useCashback, setUseCashback] = useState(false);
-  const SERVICE_FEE = 0;
+  const [serviceFee, setServiceFee] = useState(2000);
+
+  useEffect(() => {
+    getAppSettings().then(s => setServiceFee(s.order_service_fee));
+  }, []);
+
   const isCashback = appliedVoucher?.is_cashback === true;
   
   // Perhitungan Cashback 70%
   const userCashbackBalance = profile?.cashback_balance || 0;
   const maxCashbackCanUse = Math.floor(userCashbackBalance * 0.7);
   
-  let finalPrice = (isCashback ? totalPrice : Math.max(0, totalPrice - discountAmount)) + SERVICE_FEE;
+  let finalPrice = (isCashback ? totalPrice : Math.max(0, totalPrice - discountAmount)) + serviceFee;
   
   // Potong Cashback jika diaktifkan (Hanya untuk pembayaran Saldo)
   const cashbackToDeduct = (useCashback && paymentMethod === 'saldo') ? Math.min(finalPrice, maxCashbackCanUse) : 0;
@@ -567,7 +573,7 @@ export default function OrderScreen() {
         duration: selectedDuration.value,
         status: 'pending',
         service_price: selectedDuration.price,
-        service_fee: SERVICE_FEE,
+        service_fee: serviceFee,
         total_price: finalPrice,
         discount_amount: discountAmount,
         voucher_id: appliedVoucher?.id || null,
@@ -1109,7 +1115,7 @@ export default function OrderScreen() {
 
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Biaya Layanan</Text>
-            <Text style={styles.breakdownValue}>Rp {SERVICE_FEE.toLocaleString('id-ID')}</Text>
+            <Text style={styles.breakdownValue}>Rp {serviceFee.toLocaleString('id-ID')}</Text>
           </View>
 
           {discountAmount > 0 && (

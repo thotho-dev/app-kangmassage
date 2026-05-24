@@ -19,9 +19,10 @@ import {
   Sun,
   Moon,
   Package,
+  Radio,
 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { clsx } from 'clsx';
 import { useTheme } from '@/context/ThemeContext';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -33,8 +34,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarHover, setSidebarHover] = useState(false);
+  const [adminName, setAdminName] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const userId = data?.user?.id;
+      if (userId) {
+        supabase.from('users').select('full_name').eq('supabase_uid', userId).single().then(({ data: user }) => {
+          setAdminName(user?.full_name || data?.user?.email || 'Admin');
+        });
+      }
+    });
+    supabase.from('app_settings').select('logo_url').limit(1).single().then(({ data }) => {
+      if (data?.logo_url) {
+        setLogoUrl(data.logo_url);
+        const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+        if (link) link.href = data.logo_url;
+      }
+    });
+  }, []);
 
   const navItems = [
     { href: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
@@ -44,6 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/dashboard/services', label: t('services'), icon: Tag },
     { href: '/dashboard/vouchers', label: t('vouchers'), icon: Ticket },
     { href: '/dashboard/reports', label: t('reports'), icon: BarChart3 },
+    { href: '/dashboard/broadcast', label: t('broadcast'), icon: Radio },
     { href: '/dashboard/settings', label: t('settings'), icon: Settings },
   ];
 
@@ -61,21 +84,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  const Sidebar = () => (
+  const Sidebar = ({ collapsed }: { collapsed?: boolean }) => (
     <aside className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-6 border-b border-ui-border">
-        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-primary/10 flex-shrink-0 overflow-hidden">
-          <img src="/logo-kang-massage.png" alt="Logo" className="w-8 h-8 object-contain" />
+      <div className="flex items-center px-2 py-4 overflow-hidden">
+        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+          <img src={logoUrl || '/logo-kang-massage.png'} alt="Logo" className="w-10 h-10 object-contain" />
         </div>
-        <div>
-          <h1 className="font-bold text-text-primary text-base leading-tight">{t('pijat_admin')}</h1>
-          <p className="text-text-muted text-xs">{t('on_demand_platform')}</p>
+        <div className={`overflow-hidden mb-2 whitespace-nowrap transition-all duration-200 ${collapsed ? 'max-w-0 ml-0 opacity-0' : 'max-w-50 ml-3 opacity-100'}`}>
+          <h1 className="font-bold text-text-primary text-base leading-tight truncate">{t('pijat_admin')}</h1>
+          <p className="text-text-muted text-xs truncate">{t('on_demand_platform')}</p>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto space-y-1 py-3 px-1">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
           return (
@@ -83,23 +106,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               key={href}
               href={href}
               onClick={() => setSidebarOpen(false)}
-              className={clsx('nav-item', isActive && 'nav-item-active')}
+              className={clsx('nav-item w-full', collapsed && 'pr-0', isActive && 'nav-item-active')}
+              title={collapsed ? label : undefined}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              <span>{label}</span>
+              <span className="w-10 flex-shrink-0 flex items-center justify-center">
+                <Icon className="w-5 h-5" />
+              </span>
+              <span className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[130px] opacity-100'}`}>{label}</span>
             </Link>
           );
         })}
       </nav>
 
       {/* Bottom */}
-      <div className="px-3 py-4 border-t border-ui-border">
+      <div className="border-t border-ui-border py-3 px-1">
         <button 
           onClick={() => setShowLogoutConfirm(true)} 
           className="nav-item w-full text-danger hover:bg-danger/5"
+          title={collapsed ? t('logout') : undefined}
         >
-          <LogOut className="w-5 h-5" />
-          <span>{t('logout')}</span>
+          <span className="w-10 flex-shrink-0 flex items-center justify-center">
+            <LogOut className="w-5 h-5" />
+          </span>
+          <span className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[130px] opacity-100'}`}>{t('logout')}</span>
         </button>
       </div>
     </aside>
@@ -108,8 +137,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex flex-col w-64 bg-card border-r border-ui-border flex-shrink-0 z-40">
-        <Sidebar />
+      <div
+        className={clsx('hidden lg:flex flex-col bg-card border-r border-ui-border flex-shrink-0 z-40 transition-all duration-200', sidebarHover ? 'w-[226px]' : 'w-13')}
+        onMouseEnter={() => setSidebarHover(true)}
+        onMouseLeave={() => setSidebarHover(false)}
+      >
+        <div className="flex-1 overflow-hidden">
+          <Sidebar collapsed={!sidebarHover} />
+        </div>
       </div>
 
       {/* Mobile Sidebar Overlay */}
@@ -159,9 +194,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2 border border-ui-border">
               <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-xs font-bold text-white">A</span>
+                <span className="text-xs font-bold text-white">{adminName.charAt(0).toUpperCase()}</span>
               </div>
-              <span className="text-sm text-text-secondary font-medium hidden sm:block">Admin</span>
+              <span className="text-sm text-text-secondary font-medium hidden sm:block">{adminName}</span>
             </div>
           </div>
         </header>

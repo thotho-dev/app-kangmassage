@@ -80,6 +80,7 @@ CREATE TABLE therapists (
   commission_rate DECIMAL(5,2) NOT NULL DEFAULT 80.00, -- % of order fee goes to therapist
   is_verified     BOOLEAN NOT NULL DEFAULT false,
   is_active       BOOLEAN NOT NULL DEFAULT true,
+  tier            therapist_tier NOT NULL DEFAULT 'bronze',
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -204,6 +205,10 @@ CREATE TABLE orders (
   started_at        TIMESTAMPTZ,
   completed_at      TIMESTAMPTZ,
   cancelled_at      TIMESTAMPTZ,
+
+  -- User preferences
+  therapist_preference VARCHAR(20),  -- 'any', 'male', 'female'
+  user_gender         VARCHAR(10),   -- User's gender for reference
 
   -- Notes
   user_notes        TEXT,
@@ -401,6 +406,68 @@ BEGIN
   RETURN R * c;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- APP SETTINGS TABLE
+-- ============================================================
+
+CREATE TYPE therapist_tier AS ENUM ('bronze', 'silver', 'gold', 'platinum', 'diamond');
+
+CREATE TABLE app_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Matching Configuration
+  matching_radius_km      NUMERIC(5,2) NOT NULL DEFAULT 3.00,
+  min_rating              NUMERIC(3,2) NOT NULL DEFAULT 4.50,
+  min_wallet_balance      NUMERIC(12,2) NOT NULL DEFAULT 15000.00,
+
+  -- Commission Rates (platform cut %)
+  bronze_platform_cut     NUMERIC(5,2) NOT NULL DEFAULT 27.00,
+  silver_platform_cut     NUMERIC(5,2) NOT NULL DEFAULT 25.00,
+  gold_platform_cut       NUMERIC(5,2) NOT NULL DEFAULT 23.00,
+  platinum_platform_cut   NUMERIC(5,2) NOT NULL DEFAULT 21.00,
+  diamond_platform_cut    NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+
+  -- Topup Configuration
+  topup_admin_fee         NUMERIC(12,2) NOT NULL DEFAULT 2500.00,
+  topup_min_amount        NUMERIC(12,2) NOT NULL DEFAULT 10000.00,
+  topup_max_amount        NUMERIC(12,2) NOT NULL DEFAULT 2000000.00,
+
+  -- Withdrawal Configuration
+  withdraw_admin_fee      NUMERIC(12,2) NOT NULL DEFAULT 5000.00,
+  withdraw_min_amount     NUMERIC(12,2) NOT NULL DEFAULT 50000.00,
+  withdraw_max_amount     NUMERIC(12,2) NOT NULL DEFAULT 5000000.00,
+
+  -- Order Fees
+  order_service_fee       NUMERIC(12,2) NOT NULL DEFAULT 2000.00,
+  order_admin_fee         NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+
+  -- Platform Info
+  platform_name           VARCHAR(100) NOT NULL DEFAULT 'Kang Massage',
+  support_email           VARCHAR(255) NOT NULL DEFAULT 'support@kangmassage.app',
+
+  -- Branding Assets
+  logo_url                TEXT,
+
+  updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by              UUID REFERENCES users(id)
+);
+
+-- Insert default settings row
+INSERT INTO app_settings (id) VALUES (gen_random_uuid())
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "app_settings_public_read" ON app_settings FOR SELECT USING (true);
+CREATE POLICY "app_settings_admin_write" ON app_settings FOR INSERT WITH CHECK (
+  auth.uid() IN (SELECT supabase_uid FROM users WHERE role = 'admin')
+);
+CREATE POLICY "app_settings_admin_update" ON app_settings FOR UPDATE USING (
+  auth.uid() IN (SELECT supabase_uid FROM users WHERE role = 'admin')
+);
+
+CREATE TRIGGER update_app_settings_updated_at BEFORE UPDATE ON app_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Update user total_orders on completion
 CREATE OR REPLACE FUNCTION update_user_total_orders()

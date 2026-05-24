@@ -1,12 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTherapistStore } from '../store/therapistStore';
 import { supabase } from '../lib/supabase';
 import { initializeNotifee, displayOrderNotification } from '../lib/notifee';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../lib/utils';
+import { getAppSettings, DEFAULT_SETTINGS } from '../lib/appSettings';
 
 export const useOrderListener = () => {
   const { profile, isOnline, setIncomingOrder } = useTherapistStore();
+  const settingsRef = useRef(DEFAULT_SETTINGS);
 
   useEffect(() => {
     initializeNotifee();
@@ -14,6 +16,9 @@ export const useOrderListener = () => {
 
   useEffect(() => {
     if (!profile || !isOnline) return;
+
+    // Fetch latest settings
+    getAppSettings().then(s => { settingsRef.current = s; });
 
     console.log('Starting order listener for therapist:', profile.id);
 
@@ -28,33 +33,29 @@ export const useOrderListener = () => {
           filter: 'status=eq.pending',
         },
         async (payload: any) => {
-          console.log('===== [DEBUG OrderListener] PAYLOAD MASUK =====');
-          console.log('Event Type:', payload.eventType);
-          console.log('New Data:', payload.new);
-          console.log('Old Data:', payload.old);
-
           const newOrder = payload.new;
-          
+
           if (!newOrder || newOrder.status !== 'pending') return;
 
-          // 1. GLOBAL BALANCE CHECK (Minimum 15.000)
+          const settings = settingsRef.current;
+
+          // 1. GLOBAL BALANCE CHECK (from settings)
           const currentBalance = Number(profile.wallet_balance) || 0;
-          if (currentBalance < 15000) {
-            console.log(`[DEBUG OrderListener] BLOKIR: Saldo (${currentBalance}) di bawah 15rb.`);
+          if (currentBalance < settings.min_wallet_balance) {
+            console.log(`[DEBUG OrderListener] BLOKIR: Saldo (${currentBalance}) di bawah ${settings.min_wallet_balance}.`);
             return;
           }
 
-          // 2. GLOBAL RATING CHECK (Minimum 4.5)
-          // Terapis baru (tanpa rating) dianggap 5.0 agar bisa mulai bekerja
+          // 2. GLOBAL RATING CHECK (from settings)
           const currentRating = Number(profile.rating) || 5.0;
-          if (currentRating < 4.5) {
-            console.log(`[DEBUG OrderListener] BLOKIR: Rating (${currentRating}) di bawah 4.5.`);
+          if (currentRating < settings.min_rating) {
+            console.log(`[DEBUG OrderListener] BLOKIR: Rating (${currentRating}) di bawah ${settings.min_rating}.`);
             return;
           }
 
           // 2. Targeted Check: Is it for us specifically or for everyone?
           const isTargeted = newOrder.therapist_id === profile.id;
-          const isBroadcast = !newOrder.therapist_id; // null or empty
+          const isBroadcast = !newOrder.therapist_id;
 
           if (!isTargeted && !isBroadcast) {
             console.log('[DEBUG OrderListener] Pesanan ditargetkan untuk terapis lain.');
@@ -64,7 +65,7 @@ export const useOrderListener = () => {
           // 3. Broadcast specific filters (Rebutan)
           if (isBroadcast) {
              console.log('[DEBUG OrderListener] Mengecek kelayakan pesanan broadcast...');
-             
+
              // A. Check if Therapist is Busy (Has active orders)
              const { count: activeCount, error: activeError } = await supabase
                .from('orders')
@@ -82,19 +83,17 @@ export const useOrderListener = () => {
              if (svcData) {
                const reqSkill = svcData.category_slug || svcData.name;
                const therapistSkills: string[] = profile.specializations || [];
-               
+
                const checkSkill = (skill: string) => therapistSkills.some(ts => ts.toLowerCase() === skill.toLowerCase());
-               const hasSkill = Array.isArray(reqSkill) 
+               const hasSkill = Array.isArray(reqSkill)
                  ? reqSkill.some(s => checkSkill(s))
                  : checkSkill(reqSkill);
-                 
+
                if (!hasSkill) {
                  console.log(`[DEBUG OrderListener] GAGAL: Tidak memiliki skill untuk layanan ${svcData.name}`);
                  return;
                }
              }
-
-             // Check Gender Preference
 
              // Check Gender Preference
              if (newOrder.therapist_preference && newOrder.therapist_preference !== 'any') {
@@ -103,20 +102,20 @@ export const useOrderListener = () => {
                   return;
                 }
              }
-             
-             // Check Distance (Radius 3KM)
+
+             // Check Distance (from settings)
              try {
                 const { status } = await Location.getForegroundPermissionsAsync();
                 if (status !== 'granted') return;
 
                 const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
                 const dist = parseFloat(calculateDistance(loc.coords.latitude, loc.coords.longitude, newOrder.latitude, newOrder.longitude));
-                
-                if (dist > 3) {
-                  console.log(`[DEBUG OrderListener] GAGAL: Jarak terlalu jauh (${dist} km)`);
+
+                if (dist > settings.matching_radius_km) {
+                  console.log(`[DEBUG OrderListener] GAGAL: Jarak terlalu jauh (${dist} km, max ${settings.matching_radius_km} km)`);
                   return;
                 }
-                console.log(`[DEBUG OrderListener] Jarak OK: ${dist} km`);
+                console.log(`[DEBUG OrderListener] Jarak OK: ${dist} km (max ${settings.matching_radius_km} km)`);
              } catch (e) {
                 console.error('[DEBUG OrderListener] Error checking location:', e);
                 return;
@@ -130,7 +129,7 @@ export const useOrderListener = () => {
           }
 
           console.log('[DEBUG OrderListener] BERHASIL LOLOS FILTER! Menerima pesanan...');
-          
+
           // Fetch full order data with relations for real data in popup
           const { data: orderData, error: orderError } = await supabase
             .from('orders')

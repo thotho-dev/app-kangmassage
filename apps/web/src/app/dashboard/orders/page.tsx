@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Search, RefreshCw, ShoppingBag, Filter, Eye } from 'lucide-react';
-import { Order } from '@/types';
+import { RefreshCw, ShoppingBag, Eye, X, Clock, MapPin, User, Phone, Star, Tag } from 'lucide-react';
+import { Order, OrderLog } from '@/types';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { useLanguage } from '@/context/LanguageContext';
+import { Portal } from '@/components/ui/Portal';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'badge-pending',
@@ -21,6 +22,234 @@ function formatCurrency(amount: number) {
   return `Rp ${amount.toLocaleString('id-ID')}`;
 }
 
+function ViewOrderDetailModal({ order, onClose }: {
+  order: Order;
+  onClose: () => void;
+}) {
+  const statusColor = (status: string) => clsx('badge', STATUS_COLORS[status] || 'badge');
+  const paymentBadge = (status: string) => clsx('badge',
+    status === 'paid' ? 'badge-completed' :
+    status === 'failed' ? 'badge-cancelled' : 'badge-pending'
+  );
+
+  const timelineItems = [
+    { label: 'Dibuat', time: order.created_at, done: true },
+    { label: 'Diterima', time: order.accepted_at, done: !!order.accepted_at },
+    { label: 'Dalam Perjalanan', time: null, done: order.status === 'on_the_way' || order.status === 'in_progress' || order.status === 'completed' },
+    { label: 'Sedang Berlangsung', time: order.started_at, done: order.status === 'in_progress' || order.status === 'completed' },
+    { label: order.status === 'cancelled' ? 'Dibatalkan' : 'Selesai', time: order.completed_at || order.cancelled_at, done: order.status === 'completed' || order.status === 'cancelled' },
+  ];
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="text-xl font-bold text-text-primary">Detail Pesanan</h2>
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="modal-body space-y-6">
+          {/* Order Number + Status */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-text-muted uppercase tracking-wider">Pesanan</p>
+              <p className="font-mono text-lg font-bold text-primary-400">{order.order_number}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={statusColor(order.status)}>
+                {order.status.replace('_', ' ')}
+              </span>
+              <span className={paymentBadge(order.payment_status)}>
+                {order.payment_status}
+              </span>
+            </div>
+          </div>
+
+          {/* Customer & Therapist */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="glass-card p-4">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1">
+                <User className="w-3 h-3" /> Pelanggan
+              </p>
+              <p className="text-sm font-semibold text-text-primary">{(order.user as any)?.full_name || '-'}</p>
+              <p className="text-xs text-text-muted flex items-center gap-1 mt-1">
+                <Phone className="w-3 h-3" /> {(order.user as any)?.phone || '-'}
+              </p>
+            </div>
+            <div className="glass-card p-4">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1">
+                <User className="w-3 h-3" /> Terapis
+              </p>
+              {order.therapist ? (
+                <>
+                  <p className="text-sm font-semibold text-text-primary">{(order.therapist as any)?.full_name}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-text-muted flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> {(order.therapist as any)?.phone}
+                    </p>
+                    {(order.therapist as any)?.rating && (
+                      <span className="text-xs text-yellow-500 flex items-center gap-0.5">
+                        <Star className="w-3 h-3 fill-current" /> {(order.therapist as any)?.rating?.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-text-muted italic">Belum ditugaskan</p>
+              )}
+            </div>
+          </div>
+
+          {/* Service Info */}
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Detail Layanan</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-text-primary">{(order.service as any)?.name || '-'}</p>
+                <p className="text-xs text-text-muted">{(order.service as any)?.duration_min || '-'} menit</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Price Breakdown */}
+          <div className="glass-card p-4 space-y-2">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Detail Pembayaran</p>
+            <div className="flex justify-between text-sm">
+              <span className="text-text-muted">Harga Layanan</span>
+              <span className="text-text-primary">{formatCurrency(order.service_price)}</span>
+            </div>
+            {order.discount_amount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-text-muted">Diskon</span>
+                <span className="text-danger">-{formatCurrency(order.discount_amount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm font-bold pt-2 border-t border-ui-border">
+              <span className="text-text-primary">Total</span>
+              <span className="text-green-400">{formatCurrency(order.total_price)}</span>
+            </div>
+            {order.payment_method && (
+              <div className="flex justify-between text-xs pt-1">
+                <span className="text-text-muted">Metode Pembayaran</span>
+                <span className="text-text-secondary capitalize">{order.payment_method}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Voucher */}
+          {(order as any).voucher && (
+            <div className="glass-card p-4 flex items-center gap-3">
+              <Tag className="w-4 h-4 text-primary" />
+              <div>
+                <p className="text-xs font-semibold text-text-primary">{(order as any).voucher?.code}</p>
+                <p className="text-[10px] text-text-muted">
+                  {(order as any).voucher?.type === 'percentage' ? `${(order as any).voucher?.value}%` : formatCurrency((order as any).voucher?.value || 0)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Address */}
+          <div className="glass-card p-4">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> Alamat
+            </p>
+            <p className="text-sm text-text-secondary">{order.address}</p>
+            <p className="text-[10px] text-text-muted mt-1">
+              {order.latitude?.toFixed(5)}, {order.longitude?.toFixed(5)}
+            </p>
+          </div>
+
+          {/* User Notes */}
+          {order.user_notes && (
+            <div className="glass-card p-4">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Catatan</p>
+              <p className="text-sm text-text-secondary italic">"{order.user_notes}"</p>
+            </div>
+          )}
+
+          {/* Timeline */}
+          <div>
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3">Timeline</p>
+            <div className="space-y-3">
+              {timelineItems.map((item, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className={clsx(
+                      'w-3 h-3 rounded-full border-2 flex-shrink-0 mt-0.5',
+                      item.done ? 'bg-green-500 border-green-500' : 'bg-card border-text-muted'
+                    )} />
+                    {i < timelineItems.length - 1 && (
+                      <div className={clsx(
+                        'w-0.5 h-8',
+                        timelineItems[i + 1]?.done ? 'bg-green-500' : 'bg-ui-border'
+                      )} />
+                    )}
+                  </div>
+                  <div>
+                    <p className={clsx('text-xs font-medium', item.done ? 'text-text-primary' : 'text-text-muted')}>{item.label}</p>
+                    {item.time && (
+                      <p className="text-[10px] text-text-muted">{format(new Date(item.time), 'dd MMM yyyy HH:mm')}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Order Logs */}
+          {(order as any).order_logs?.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3">Riwayat Aktivitas</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {(order as any).order_logs.map((log: OrderLog, i: number) => (
+                  <div key={i} className="flex items-center justify-between glass-card p-2.5">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3 h-3 text-text-muted" />
+                      <span className="text-xs text-text-secondary">{log.status?.replace('_', ' ')}</span>
+                    </div>
+                    <span className="text-[10px] text-text-muted">{format(new Date(log.created_at), 'dd MMM HH:mm')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Rating & Review */}
+          {(order.status === 'completed' && (order.rating || order.review)) && (
+            <div className="glass-card p-4">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Rating & Ulasan</p>
+              {order.rating && (
+                <div className="flex items-center gap-1.5 text-yellow-500 font-bold mb-1">
+                  <Star className="w-4 h-4 fill-current" />
+                  <span className="text-sm">{order.rating.toFixed(1)}</span>
+                </div>
+              )}
+              {order.review && (
+                <p className="text-xs text-text-secondary italic">"{order.review}"</p>
+              )}
+            </div>
+          )}
+
+          {/* Cancellation Reason */}
+          {order.status === 'cancelled' && order.cancellation_reason && (
+            <div className="glass-card p-4 border border-danger/20">
+              <p className="text-[10px] font-bold text-danger uppercase tracking-widest mb-2">Alasan Pembatalan</p>
+              <p className="text-sm text-text-secondary">{order.cancellation_reason}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button onClick={onClose} className="btn-primary w-full py-4 text-sm font-bold shadow-lg shadow-primary/20">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
   const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -29,6 +258,8 @@ export default function OrdersPage() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [viewModal, setViewModal] = useState<{ open: boolean; order: Order | null }>({ open: false, order: null });
+  const [detailData, setDetailData] = useState<Order | null>(null);
   const limit = 20;
 
   const fetchOrders = useCallback(async () => {
@@ -47,18 +278,28 @@ export default function OrdersPage() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  // Auto-refresh every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(fetchOrders, 5000);
-    return () => clearInterval(interval);
-  }, [fetchOrders]);
+  const handleViewDetail = useCallback(async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`);
+      const result = await res.json();
+      if (result.data) {
+        setDetailData(result.data);
+        setViewModal({ open: true, order: result.data });
+      } else {
+        import('react-hot-toast').then(m => m.default.error(result.error || 'Gagal memuat detail pesanan'));
+      }
+    } catch (err) {
+      console.error('Failed to fetch order detail:', err);
+      import('react-hot-toast').then(m => m.default.error('Gagal memuat detail pesanan'));
+    }
+  }, []);
 
   return (
     <div className="page-container">
       <div className="section-header">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('orders_monitor')}</h1>
-          <p className="text-text-muted text-sm mt-1">{total.toLocaleString()} {t('total_orders_count')} · {t('auto_refresh')}</p>
+          <p className="text-text-muted text-sm mt-1">{total.toLocaleString()} {t('total_orders_count')}</p>
         </div>
         <button onClick={fetchOrders} className="btn-secondary flex items-center gap-2 text-sm">
           <RefreshCw className="w-4 h-4" />
@@ -97,15 +338,15 @@ export default function OrdersPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Order #</th>
+                <th>{t('order_number')}</th>
                 <th>{t('users')}</th>
                 <th>{t('therapist')}</th>
                 <th>{t('services')}</th>
                 <th>{t('amount')}</th>
                 <th>{t('status')}</th>
-                <th>Payment</th>
+                <th>{t('payment')}</th>
                 <th>{t('date')}</th>
-                <th></th>
+                <th className="text-center">{t('detail')}</th>
               </tr>
             </thead>
             <tbody>
@@ -163,8 +404,12 @@ export default function OrdersPage() {
                       {format(new Date(order.created_at), 'dd MMM HH:mm')}
                     </td>
                     <td>
-                      <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                        <Eye className="w-4 h-4 text-text-muted" />
+                      <button
+                        onClick={() => handleViewDetail(order.id)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-center"
+                        title="Lihat Detail"
+                      >
+                        <Eye className="w-4 h-4 text-text-muted " />
                       </button>
                     </td>
                   </tr>
@@ -188,6 +433,16 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Order Detail Modal */}
+      {viewModal.open && viewModal.order && (
+        <Portal>
+          <ViewOrderDetailModal
+            order={detailData || viewModal.order}
+            onClose={() => { setViewModal({ open: false, order: null }); setDetailData(null); }}
+          />
+        </Portal>
+      )}
     </div>
   );
 }

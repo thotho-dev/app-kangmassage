@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getAppSettings } from '@/lib/settings';
 
 // GET /api/orders/[id]
 export async function GET(
@@ -9,6 +10,28 @@ export async function GET(
   try {
     const supabase = createAdminClient();
 
+    // First try to get the order without joins to diagnose
+    const { data: basicOrder } = await supabase
+      .from('orders')
+      .select('id, voucher_id')
+      .eq('id', params.id)
+      .single();
+
+    if (!basicOrder) {
+      return NextResponse.json({ error: 'Order not found in database' }, { status: 404 });
+    }
+
+    // Fetch voucher separately if exists (to avoid schema cache relationship issues)
+    let voucherData = null;
+    if (basicOrder.voucher_id) {
+      const { data: v } = await supabase
+        .from('vouchers')
+        .select('id, code, type, value')
+        .eq('id', basicOrder.voucher_id)
+        .single();
+      voucherData = v;
+    }
+
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -16,19 +39,22 @@ export async function GET(
         user:users(id, full_name, phone, avatar_url),
         therapist:therapists(id, full_name, phone, avatar_url, rating, bio),
         service:services(id, name, description, duration_min, base_price, image_url),
-        voucher:vouchers(id, code, type, value),
         order_logs(*)
       `)
       .eq('id', params.id)
       .single();
 
-    if (error || !data) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    if (error) {
+      return NextResponse.json({ error: `Supabase error: ${error.message}` }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    if (!data) {
+      return NextResponse.json({ error: 'Order data empty' }, { status: 404 });
+    }
+
+    return NextResponse.json({ data: { ...data, voucher: voucherData } });
+  } catch (err: any) {
+    return NextResponse.json({ error: `Internal error: ${err.message}` }, { status: 500 });
   }
 }
 
@@ -128,13 +154,17 @@ export async function PATCH(
 
     // Update therapist earnings on completion
     if (status === 'completed' && data.therapist_id) {
-      // Dynamic commission based on tier
+      // Dynamic commission based on tier (from app_settings)
+      const settings = await getAppSettings();
       const tier = (data.therapist.tier || 'bronze').toLowerCase();
-      let platformCut = 27;
-      if (tier === 'silver') platformCut = 25;
-      if (tier === 'gold') platformCut = 23;
-      if (tier === 'platinum') platformCut = 21;
-      if (tier === 'diamond') platformCut = 20;
+      const tierMap: Record<string, number> = {
+        bronze: Number(settings.bronze_platform_cut),
+        silver: Number(settings.silver_platform_cut),
+        gold: Number(settings.gold_platform_cut),
+        platinum: Number(settings.platinum_platform_cut),
+        diamond: Number(settings.diamond_platform_cut),
+      };
+      let platformCut = tierMap[tier] ?? Number(settings.bronze_platform_cut);
       
       const therapistRate = 100 - platformCut;
       const commission = (data.total_price * therapistRate) / 100;

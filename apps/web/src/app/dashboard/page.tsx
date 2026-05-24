@@ -3,17 +3,26 @@
 import { useEffect, useState } from 'react';
 import {
   TrendingUp, Users, UserCheck, ShoppingBag,
-  Activity, Star, ArrowUpRight, RefreshCw,
-  Wallet, Clock
+  Activity, ArrowUpRight, RefreshCw,
+  Wallet, Clock, ShieldCheck, UserPlus, DollarSign,
+  Percent, CreditCard, Landmark, ArrowDownLeft,
+  UserCircle, Receipt, PiggyBank
 } from 'lucide-react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
-} from 'recharts';
+
+import dynamic from 'next/dynamic';
 import { DashboardStats } from '@/types';
 import { clsx } from 'clsx';
 import { useTheme } from '@/context/ThemeContext';
 import { useLanguage } from '@/context/LanguageContext';
+
+const TherapistMap = dynamic(() => import('@/components/map/TherapistMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="glass-card p-6 flex items-center justify-center" style={{ height: 460 }}>
+      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  ),
+});
 
 const STATUS_COLORS: Record<string, string> = {
   pending: '#eab308',
@@ -72,13 +81,24 @@ function StatCard({
   );
 }
 
+type TabKey = 'therapists' | 'users' | 'revenue' | 'transactions' | 'wallet';
+
 export default function DashboardPage() {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabKey>('therapists');
 
   const statusLabels = getStatusLabels(t);
+
+  const tabs: { key: TabKey; label: string; icon: any }[] = [
+    { key: 'therapists', label: t('info_therapists'), icon: UserCircle },
+    { key: 'users', label: t('info_users'), icon: Users },
+    { key: 'revenue', label: t('info_revenue'), icon: PiggyBank },
+    { key: 'transactions', label: t('info_transactions'), icon: Receipt },
+    { key: 'wallet', label: t('info_wallet'), icon: Wallet },
+  ];
 
   const fetchStats = async () => {
     try {
@@ -94,7 +114,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 30000); // Refresh every 30s
+    const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -110,10 +130,13 @@ export default function DashboardPage() {
     );
   }
 
+  const pctOfTotal = (val: number, total: number) =>
+    total > 0 ? `${((val / total) * 100).toFixed(0)}${t('pct_of_total')}` : undefined;
+
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">{t('dashboard')}</h1>
           <p className="text-text-muted text-sm mt-1">{t('real_time_overview')}</p>
@@ -127,172 +150,280 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label={t('total_orders')}
-          value={stats?.totalOrders.toLocaleString() || '0'}
-          icon={ShoppingBag}
-          color="bg-primary"
-          sub={`${stats?.todayOrders || 0} ${t('x_today')}`}
-        />
-        <StatCard
-          label={t('total_revenue')}
-          value={stats ? `Rp ${stats.totalRevenue.toLocaleString('id-ID')}` : 'Rp 0'}
-          icon={TrendingUp}
-          color="bg-success"
-          sub={`Rp ${(stats?.todayRevenue || 0).toLocaleString('id-ID')} ${t('x_today')}`}
-        />
-        <StatCard
-          label={t('total_users')}
-          value={stats?.totalUsers.toLocaleString() || '0'}
-          icon={Users}
-          color="bg-blue-600"
-        />
-        <StatCard
-          label={t('total_therapists')}
-          value={stats?.totalTherapists.toLocaleString() || '0'}
-          icon={UserCheck}
-          color="bg-slate-700"
-          sub={`${stats?.onlineTherapists || 0} ${t('x_online')}`}
-        />
-        <StatCard
-          label={t('active_orders')}
-          value={stats?.activeOrders.toLocaleString() || '0'}
-          icon={Activity}
-          color="bg-orange-600"
-        />
-        <StatCard
-          label={t('online_therapists')}
-          value={stats?.onlineTherapists.toLocaleString() || '0'}
-          icon={Star}
-          color="bg-teal-600"
-        />
-        <StatCard
-          label={t('todays_orders')}
-          value={stats?.todayOrders.toLocaleString() || '0'}
-          icon={Clock}
-          color="bg-indigo-600"
-        />
-        <StatCard
-          label={t('todays_revenue')}
-          value={stats ? `Rp ${stats.todayRevenue.toLocaleString('id-ID')}` : 'Rp 0'}
-          icon={Wallet}
-          color="bg-pink-600"
-        />
+      {/* Top Tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-2 mb-6">
+        {tabs.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={clsx(
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors',
+              activeTab === key
+                ? 'bg-card text-text-primary border border-ui-border shadow-sm'
+                : 'text-text-muted hover:text-text-primary hover:bg-muted border border-transparent'
+            )}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* ===== INFO TERAPIS ===== */}
+      {activeTab === 'therapists' && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+          <StatCard
+            label={t('total_therapists')}
+            value={stats?.totalTherapists.toLocaleString() || '0'}
+            icon={UserCheck}
+            color="bg-slate-700"
+          />
+          <StatCard
+            label={t('online_therapists')}
+            value={stats?.onlineTherapists.toLocaleString() || '0'}
+            icon={Activity}
+            color="bg-teal-600"
+          />
+          <StatCard
+            label={t('verified')}
+            value={stats?.verifiedTherapists.toLocaleString() || '0'}
+            icon={ShieldCheck}
+            color="bg-emerald-600"
+            sub={pctOfTotal(stats?.verifiedTherapists || 0, stats?.totalTherapists || 0)}
+          />
+          <StatCard
+            label={t('total_therapist_balance')}
+            value={stats ? formatCurrency(stats.totalTherapistBalance) : 'Rp 0'}
+            icon={Wallet}
+            color="bg-slate-700"
+          />
+        </div>
+      )}
+
+      {/* ===== INFO PENGGUNA ===== */}
+      {activeTab === 'users' && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+          <StatCard
+            label={t('total_users')}
+            value={stats?.totalUsers.toLocaleString() || '0'}
+            icon={Users}
+            color="bg-blue-600"
+          />
+          <StatCard
+            label={t('new_users_today')}
+            value={stats?.newUsersToday.toLocaleString() || '0'}
+            icon={UserPlus}
+            color="bg-indigo-600"
+          />
+          <StatCard
+            label={t('total_user_balance')}
+            value={stats ? formatCurrency(stats.totalUserBalance) : 'Rp 0'}
+            icon={Wallet}
+            color="bg-blue-600"
+          />
+        </div>
+      )}
+
+      {/* ===== INFO PENDAPATAN ===== */}
+      {activeTab === 'revenue' && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+          <StatCard
+            label={t('todays_revenue_label')}
+            value={stats ? formatCurrency(stats.todayRevenue) : 'Rp 0'}
+            icon={TrendingUp}
+            color="bg-success"
+            sub={t('from_service_price')}
+          />
+          <StatCard
+            label={t('todays_platform_fee')}
+            value={stats ? formatCurrency(stats.todayPlatformFee) : 'Rp 0'}
+            icon={Percent}
+            color="bg-primary"
+            sub={stats?.todayRevenue ? `${((stats.todayPlatformFee / stats.todayRevenue) * 100).toFixed(0)}${t('pct_of_revenue')}` : undefined}
+          />
+          <StatCard
+            label={t('total_revenue')}
+            value={stats ? formatCurrency(stats.totalRevenue) : 'Rp 0'}
+            icon={DollarSign}
+            color="bg-sky-600"
+          />
+          <StatCard
+            label={t('total_platform_fee')}
+            value={stats ? formatCurrency(stats.totalPlatformFee) : 'Rp 0'}
+            icon={Wallet}
+            color="bg-violet-600"
+          />
+        </div>
+      )}
+
+      {/* ===== INFO TRANSAKSI ===== */}
+      {activeTab === 'transactions' && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+          <StatCard
+            label={t('total_orders')}
+            value={stats?.totalOrders.toLocaleString() || '0'}
+            icon={ShoppingBag}
+            color="bg-primary"
+          />
+          <StatCard
+            label={t('active_orders')}
+            value={stats?.activeOrders.toLocaleString() || '0'}
+            icon={Activity}
+            color="bg-orange-600"
+          />
+          <StatCard
+            label={t('todays_orders')}
+            value={stats?.todayOrders.toLocaleString() || '0'}
+            icon={Clock}
+            color="bg-indigo-600"
+          />
+          <StatCard
+            label={t('completed_orders')}
+            value={stats?.completedOrders.toLocaleString() || '0'}
+            icon={ShoppingBag}
+            color="bg-emerald-600"
+          />
+        </div>
+      )}
+
+      {/* ===== TOPUP & TARIK SALDO ===== */}
+      {activeTab === 'wallet' && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+          <StatCard
+            label={t('total_topup')}
+            value={stats ? formatCurrency(stats.totalTopup) : 'Rp 0'}
+            icon={CreditCard}
+            color="bg-blue-600"
+          />
+          <StatCard
+            label={t('todays_topup')}
+            value={stats ? formatCurrency(stats.todayTopup) : 'Rp 0'}
+            icon={ArrowDownLeft}
+            color="bg-cyan-600"
+          />
+          <StatCard
+            label={t('total_withdrawal')}
+            value={stats ? formatCurrency(stats.totalWithdrawal) : 'Rp 0'}
+            icon={Landmark}
+            color="bg-purple-600"
+          />
+          <StatCard
+            label={t('todays_withdrawal')}
+            value={stats ? formatCurrency(stats.todayWithdrawal) : 'Rp 0'}
+            icon={Wallet}
+            color="bg-rose-600"
+          />
+        </div>
+      )}
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         <div className="lg:col-span-2 glass-card p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-text-primary">Revenue & Orders</h2>
-              <p className="text-text-muted text-xs mt-1">Last 30 days</p>
+              <h2 className="font-semibold text-text-primary">{t('recent_orders')}</h2>
+              <p className="text-text-muted text-xs mt-1">{t('real_time_overview')}</p>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={stats?.revenueByDay || []}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6A0DAD" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#6A0DAD" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FDB927" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#FDB927" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: theme === 'dark' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)', fontSize: 11 }}
-                tickFormatter={(v) => new Date(v).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
-              />
-              <YAxis tick={{ fill: theme === 'dark' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)', fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{ 
-                  background: theme === 'dark' ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`, 
-                  borderRadius: '12px' 
-                }}
-                labelStyle={{ color: theme === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' }}
-                formatter={(value, name) => [
-                  name === 'revenue' ? formatCurrency(value as number) : value,
-                  name === 'revenue' ? 'Revenue' : 'Orders',
-                ]}
-              />
-              <Area type="monotone" dataKey="revenue" stroke="#9333ea" fill="url(#colorRevenue)" strokeWidth={2} />
-              <Area type="monotone" dataKey="orders" stroke="#FDB927" fill="url(#colorOrders)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ui-border">
+                  <th className="text-left py-3 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">{t('order')}</th>
+                  <th className="text-left py-3 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">{t('user')}</th>
+                  <th className="text-left py-3 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">{t('therapist')}</th>
+                  <th className="text-left py-3 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">{t('status')}</th>
+                  <th className="text-right py-3 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">{t('amount')}</th>
+                  <th className="text-right py-3 px-2 text-text-muted font-medium text-xs uppercase tracking-wider">{t('date')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(stats?.recentOrders?.length || 0) > 0 ? (
+                  stats!.recentOrders.map((o) => (
+                    <tr key={o.id} className="border-b border-ui-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-2 text-text-primary font-mono text-xs">#{o.order_number}</td>
+                      <td className="py-3 px-2 text-text-primary">{o.user_name}</td>
+                      <td className="py-3 px-2 text-text-primary">{o.therapist_name}</td>
+                      <td className="py-3 px-2">
+                        <span className={clsx(
+                          'badge',
+                          o.status === 'completed' && 'badge-success',
+                          o.status === 'cancelled' && 'badge-danger',
+                          o.status === 'pending' && 'badge-warning',
+                          o.status === 'accepted' && 'badge-info',
+                          o.status === 'on_the_way' && 'badge-info',
+                          o.status === 'in_progress' && 'badge-primary',
+                          o.status === 'rejected' && 'badge-danger',
+                        )}>
+                          {statusLabels[o.status] || o.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-right text-text-primary font-medium">{formatCurrency(o.total_price)}</td>
+                      <td className="py-3 px-2 text-right text-text-muted text-xs whitespace-nowrap">
+                        {new Date(o.created_at).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-text-muted/40 text-sm">{t('no_orders_yet')}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* Orders by Status Pie */}
         <div className="glass-card p-6">
-          <div className="mb-6">
-            <h2 className="font-semibold text-text-primary">Order Status</h2>
-            <p className="text-text-muted text-xs mt-1">Distribution overview</p>
+          <div className="mb-4">
+            <h2 className="font-semibold text-text-primary">{t('activity_history')}</h2>
+            <p className="text-text-muted text-xs mt-1">{t('real_time_overview')}</p>
           </div>
-          {(stats?.ordersByStatus.length || 0) > 0 ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={stats?.ordersByStatus}
-                  dataKey="count"
-                  nameKey="status"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={3}
-                >
-                  {stats?.ordersByStatus.map((entry) => (
-                    <Cell key={entry.status} fill={STATUS_COLORS[entry.status] || '#6b7280'} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ 
-                    background: theme === 'dark' ? '#1e293b' : '#ffffff', 
-                    border: `1px solid ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`, 
-                    borderRadius: '12px' 
-                  }}
-                  formatter={(value, name) => [value, statusLabels[name as string] || name]}
-                />
-                <Legend
-                  formatter={(value) => statusLabels[value] || value}
-                  wrapperStyle={{ color: theme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.6)', fontSize: '11px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-60 text-text-primary/20 text-sm">
-              {t('no_orders_yet')}
-            </div>
-          )}
+          <div className="space-y-1 max-h-[360px] overflow-y-auto">
+            {(stats?.recentActivity?.length || 0) > 0 ? (
+              stats!.recentActivity.map((a) => (
+                <div key={a.id} className="flex items-start gap-3 py-2.5 px-2 rounded-lg hover:bg-muted/30 transition-colors">
+                  <div className={clsx(
+                    'w-2 h-2 rounded-full mt-2 flex-shrink-0',
+                    a.status === 'completed' && 'bg-emerald-500',
+                    a.status === 'cancelled' && 'bg-red-500',
+                    a.status === 'rejected' && 'bg-gray-500',
+                    a.status === 'pending' && 'bg-yellow-500',
+                    a.status === 'accepted' && 'bg-blue-500',
+                    a.status === 'on_the_way' && 'bg-indigo-500',
+                    a.status === 'in_progress' && 'bg-purple-500',
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary truncate">
+                      <span className="font-mono text-xs text-text-muted">#{a.order_number}</span>
+                      {' '}
+                      <span className={clsx(
+                        'font-medium',
+                        a.status === 'completed' && 'text-emerald-400',
+                        a.status === 'cancelled' && 'text-red-400',
+                        a.status === 'rejected' && 'text-gray-400',
+                        a.status === 'pending' && 'text-yellow-400',
+                      )}>{statusLabels[a.status] || a.status}</span>
+                    </p>
+                    {a.note && <p className="text-xs text-text-muted/60 truncate mt-0.5">{a.note}</p>}
+                  </div>
+                  <span className="text-xs text-text-muted/40 whitespace-nowrap flex-shrink-0">
+                    {new Date(a.created_at).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-center h-40 text-text-muted/40 text-sm">
+                {t('no_orders_yet')}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Recent Activity placeholder */}
-      <div className="glass-card p-6">
-        <h2 className="font-semibold text-text-primary mb-4">{t('quick_actions')}</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: t('orders'), href: '/dashboard/orders', color: 'from-primary to-primary-700' },
-            { label: t('users'), href: '/dashboard/users', color: 'from-secondary to-secondary-700' },
-            { label: t('settings'), href: '/dashboard/settings', color: 'from-info to-info-700' },
-            { label: t('reports'), href: '/dashboard/reports', color: 'from-success to-success-700' },
-          ].map(({ label, href, color }) => (
-            <a
-              key={href}
-              href={href}
-              className={`flex items-center justify-center py-3 px-4 rounded-xl bg-gradient-to-r ${color} text-white text-sm font-medium hover:opacity-90 transition-opacity text-center shadow-sm`}
-            >
-              {label}
-            </a>
-          ))}
-        </div>
+      {/* Therapist Map */}
+      <div className="mt-6">
+        <TherapistMap />
       </div>
     </div>
   );

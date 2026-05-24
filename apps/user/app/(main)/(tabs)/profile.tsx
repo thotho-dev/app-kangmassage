@@ -292,7 +292,7 @@ export default function ProfileScreen() {
                 {profile?.full_name || 'User'}
               </Text>
               <Text style={[styles.emailText, { color: theme.textSecondary }]} numberOfLines={1}>
-                {user?.email || ''}
+                {user?.phone || ''}
               </Text>
             </View>
           </View>

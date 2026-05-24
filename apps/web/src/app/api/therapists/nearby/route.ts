@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getAppSettings } from '@/lib/settings';
 
 // GET /api/therapists/nearby - Find nearest therapists for order matching
 export async function GET(req: NextRequest) {
@@ -8,7 +9,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const lat = parseFloat(searchParams.get('lat') || '0');
     const lng = parseFloat(searchParams.get('lng') || '0');
-    const radius = parseFloat(searchParams.get('radius') || '10'); // km
+    const settings = await getAppSettings();
+    const radius = parseFloat(searchParams.get('radius') || String(settings.matching_radius_km));
 
     // Get online therapists with locations
     const { data: therapists, error } = await supabase

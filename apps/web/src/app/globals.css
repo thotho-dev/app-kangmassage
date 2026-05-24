@@ -196,9 +196,9 @@ html.light, .light {
   /* Sidebar nav item */
   .nav-item {
     color: var(--text-secondary);
-    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
+    @apply flex items-center py-3 rounded-xl text-sm font-medium
            hover:text-text-primary hover:bg-muted transition-all duration-200
-           cursor-pointer;
+           cursor-pointer border border-transparent;
   }
 
   .nav-item-active {
@@ -254,4 +254,67 @@ html.light, .light {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Leaflet Map Premium Theme Styling */
+.leaflet-container {
+  background-color: var(--card) !important;
+  font-family: inherit !important;
+}
+
+.leaflet-tile-container {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+.light .leaflet-tile-container {
+  filter: none !important;
+}
+
+/* Ensure leaflet controls and popups match design theme */
+.leaflet-bar {
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.leaflet-bar a {
+  background-color: var(--card) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  transition: all 0.2s ease;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--muted) !important;
+  color: var(--primary) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background-color: var(--card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.leaflet-popup-tip {
+  background-color: var(--card) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Style the close button on popup */
+.leaflet-popup-close-button {
+  color: var(--text-muted) !important;
+  padding: 8px 8px 0 0 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: var(--text-primary) !important;
+  background: transparent !important;
+}
+
+.custom-div-icon {
+  background: transparent !important;
+  border: none !important;
 }

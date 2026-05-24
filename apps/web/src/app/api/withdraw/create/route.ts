@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getAppSettings } from '@/lib/settings';
 
 export async function POST(req: NextRequest) {
   let debugStep = 'INIT';
@@ -12,8 +13,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (amount < 50000) {
-      return NextResponse.json({ error: 'Minimal penarikan adalah Rp 50.000' }, { status: 400 });
+    const settings = await getAppSettings();
+    if (amount < Number(settings.withdraw_min_amount)) {
+      return NextResponse.json({ error: `Minimal penarikan adalah Rp ${Number(settings.withdraw_min_amount).toLocaleString('id-ID')}` }, { status: 400 });
+    }
+    if (amount > Number(settings.withdraw_max_amount)) {
+      return NextResponse.json({ error: `Maksimal penarikan adalah Rp ${Number(settings.withdraw_max_amount).toLocaleString('id-ID')}` }, { status: 400 });
     }
 
     debugStep = 'CREATE_SUPABASE_CLIENT';
@@ -44,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const external_id = `WD-${Date.now()}-${therapist.id.slice(0, 8)}`;
-    const WITHDRAW_FEE = 5000;
+    const WITHDRAW_FEE = Number(settings.withdraw_admin_fee);
     const totalDeduction = amount;
     const payoutAmount = amount - WITHDRAW_FEE;
 
