@@ -20,6 +20,7 @@ import {
   Moon,
   Package,
   Radio,
+  MessageSquare,
 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect } from 'react';
@@ -66,6 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/dashboard/services', label: t('services'), icon: Tag },
     { href: '/dashboard/vouchers', label: t('vouchers'), icon: Ticket },
     { href: '/dashboard/reports', label: t('reports'), icon: BarChart3 },
+    { href: '/dashboard/chats', label: 'Chats', icon: MessageSquare },
     { href: '/dashboard/broadcast', label: t('broadcast'), icon: Radio },
     { href: '/dashboard/settings', label: t('settings'), icon: Settings },
   ];

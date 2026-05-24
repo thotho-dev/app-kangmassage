@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/store/themeStore';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTherapistStore } from '@/store/therapistStore';
 
@@ -34,6 +34,8 @@ const getNotifDetails = (type: string) => {
       return { icon: 'checkmark-circle', color: '#10B981' }; // Green
     case 'order_cancelled':
       return { icon: 'close-circle', color: '#EF4444' }; // Red
+    case 'support_chat':
+      return { icon: 'chatbubble-ellipses', color: '#3B82F6' }; // Blue
     default:
       return { icon: 'notifications', color: '#F97316' }; // Orange
   }
@@ -57,7 +59,7 @@ export default function NotificationsScreen() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setNotifications(data || []);
+      setNotifications(deduplicateNotifications(data || []));
     } catch (error) {
       console.error('Error fetching therapist notifications:', error);
     } finally {
@@ -66,8 +68,48 @@ export default function NotificationsScreen() {
     }
   };
 
+  const deduplicateNotifications = (items: any[]) => {
+    const seen = new Set<string>();
+    return items.filter(item => {
+      if (item.type === 'support_chat') {
+        const chatId = item.data?.chat_id;
+        if (chatId) {
+          if (seen.has(chatId)) return false;
+          seen.add(chatId);
+        }
+      }
+      return true;
+    });
+  };
+
+  // Refetch on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      if (profile?.id) fetchNotifications();
+    }, [profile?.id])
+  );
+
+  // Realtime: new notification appears immediately
   useEffect(() => {
-    if (profile?.id) fetchNotifications();
+    if (!profile?.id) return;
+    const channel = supabase
+      .channel('notifications')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `therapist_id=eq.${profile.id}` },
+        (payload) => {
+          const newNotif = payload.new as any;
+          setNotifications(prev => {
+            let updated = [newNotif, ...prev];
+            if (newNotif.type === 'support_chat' && newNotif.data?.chat_id) {
+              const chatId = newNotif.data.chat_id;
+              updated = updated.filter((n, i) => i === 0 || !(n.type === 'support_chat' && n.data?.chat_id === chatId));
+            }
+            return updated;
+          });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [profile?.id]);
 
   const onRefresh = () => {
@@ -129,8 +171,13 @@ export default function NotificationsScreen() {
           renderItem={({ item }) => {
             const { icon, color } = getNotifDetails(item.type);
             const isUnread = !item.is_read;
+            const handlePress = () => {
+              if (item.type === 'support_chat') {
+                router.push('/support/chat');
+              }
+            };
             return (
-              <TouchableOpacity style={[
+              <TouchableOpacity onPress={handlePress} style={[
                 styles.card, 
                 { backgroundColor: t.surface, borderColor: isUnread ? color + '40' : t.border },
                 isUnread && { borderWidth: 1.5 }

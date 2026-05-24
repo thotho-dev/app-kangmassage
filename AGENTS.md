@@ -46,11 +46,16 @@ Enums: `user_role`, `order_status` (pending → accepted → on_the_way → in_p
 ## Setup
 
 1. Create Supabase project, run `supabase/schema.sql`
-2. Copy `apps/web/.env.local.example` → `apps/web/.env.local`, fill Supabase + Midtrans + JWT values
+2. Copy `apps/web/.env.local.example` → `apps/web/.env.local`, fill Supabase + Midtrans + JWT + Gemini values
 3. `npm install`
 4. `npm run web` (port 3000)
 
 Mobile apps use hardcoded Supabase creds — no env setup needed.
+
+### Gemini AI
+
+Support chat uses Gemini Flash (free tier) via `apps/web/src/app/api/chat-ai/route.ts`.
+Set `GEMINI_API_KEY` in `.env.local`. Get free key at https://aistudio.google.com/apikey
 
 ## Design system
 

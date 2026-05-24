@@ -25,7 +25,9 @@ export default function MainLayout() {
       <Stack.Screen name="profile/withdraw-history" />
       <Stack.Screen name="profile/tier-info" />
       <Stack.Screen name="profile/reviews" />
+      <Stack.Screen name="support/chat" />
       <Stack.Screen name="support/help" />
+      <Stack.Screen name="support/guide" />
       <Stack.Screen name="support/faq" />
       <Stack.Screen name="support/privacy" />
       <Stack.Screen name="support/terms" />

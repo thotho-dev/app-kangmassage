@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
-import { WebView } from 'react-native-webview';
 
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,11 +13,10 @@ export default function HelpSupportScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
   const router = useRouter();
-  const [settings, setSettings] = useState<{ support_whatsapp: string; support_email: string; chat_link: string }>({ support_whatsapp: '', support_email: '', chat_link: '' });
-  const [chatVisible, setChatVisible] = useState(false);
+  const [settings, setSettings] = useState<{ support_whatsapp: string; support_email: string }>({ support_whatsapp: '', support_email: '' });
 
   useEffect(() => {
-    getAppSettings().then(s => setSettings({ support_whatsapp: s.support_whatsapp, support_email: s.support_email, chat_link: s.chat_link }));
+    getAppSettings().then(s => setSettings({ support_whatsapp: s.support_whatsapp, support_email: s.support_email }));
   }, []);
 
   const handleWhatsApp = () => {
@@ -31,7 +29,7 @@ export default function HelpSupportScreen() {
   };
 
   const handleChat = () => {
-    if (settings.chat_link) setChatVisible(true);
+    router.push('/support/chat');
   };
 
   return (
@@ -91,25 +89,13 @@ export default function HelpSupportScreen() {
             <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/support/guide')}>
             <Ionicons name="book-outline" size={20} color={t.textSecondary} />
             <Text style={styles.menuText}>Panduan Terapis</Text>
             <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <Modal visible={chatVisible} animationType="slide" onRequestClose={() => setChatVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: t.background }}>
-          <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
-            <TouchableOpacity onPress={() => setChatVisible(false)} style={styles.backBtn}>
-              <Ionicons name="close" size={24} color={t.text} />
-            </TouchableOpacity>
-            <Text style={[styles.title, { color: t.text }]}>Live Chat</Text>
-          </View>
-          <WebView source={{ uri: settings.chat_link }} style={{ flex: 1 }} />
-        </View>
-      </Modal>
     </View>
   );
 }
