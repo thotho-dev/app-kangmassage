@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 const slides = [
@@ -46,15 +47,20 @@ export default function OnboardingScreen() {
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
+  const finish = async () => {
+    await SecureStore.setItemAsync('onboarding_completed', 'true');
+    router.replace('/(auth)/login');
+  };
+
   const goNext = () => {
     if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
     } else {
-      router.replace('/(auth)/login');
+      finish();
     }
   };
 
-  const skip = () => router.replace('/(auth)/login');
+  const skip = () => finish();
 
   return (
     <View style={styles.container}>

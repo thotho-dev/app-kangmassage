@@ -182,17 +182,17 @@ const wheelStyles = StyleSheet.create({
   },
   itemText: {
     fontSize: 17,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
   itemTextSelected: {
     fontSize: 20,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   itemTextDisabled: {
     color: TEXT_DISABLED,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   strikethrough: {
     position: 'absolute',
@@ -515,8 +515,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   closeBtn: {
@@ -537,13 +537,13 @@ const styles = StyleSheet.create({
   },
   previewText: {
     fontSize: 20,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
     letterSpacing: 1,
   },
   previewColon: {
     fontSize: 20,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   wheelsContainer: {
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   },
   colonText: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   actions: {
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_MUTED,
   },
   confirmBtn: {
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
   },
 });

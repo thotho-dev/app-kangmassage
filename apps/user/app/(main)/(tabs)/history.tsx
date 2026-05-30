@@ -416,7 +416,7 @@ export default function HistoryScreen() {
                       {item.scheduled_at ? (
                         <View style={[styles.metaRow, { backgroundColor: '#F5F3FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginTop: 4 }]}>
                           <Clock size={11} color="#8B5CF6" />
-                          <Text style={[styles.dateText, { color: '#5B21B6', fontFamily: 'Inter-Bold', fontSize: 10 }]}>
+                          <Text style={[styles.dateText, { color: '#5B21B6', fontFamily: 'PlusJakartaSans-Bold', fontSize: 10 }]}>
                             Jadwal: {formatDate(item.scheduled_at)}
                           </Text>
                         </View>
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
 
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
   activeTabText: {
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
   },
   orderId: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     letterSpacing: 0.3,
   },
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     letterSpacing: 0.3,
   },
   cardBody: {
@@ -700,12 +700,12 @@ const styles = StyleSheet.create({
   },
   therapistName: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   serviceName: {
     fontSize: 13,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   metaRow: {
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   rightBox: {
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   },
   priceText: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   ratingBadge: {
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: GOLD,
   },
   cardFooter: {
@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
   },
   footerBtnText: {
     fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
 
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
 
@@ -827,13 +827,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   favNameText: {
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   favSpecialtyText: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
     marginBottom: 4,
   },
@@ -854,12 +854,12 @@ const styles = StyleSheet.create({
   },
   favRatingValue: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: GOLD,
   },
   favOrdersCount: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   favHeartBtn: {
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
   },
   favChatBtnText: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   favBookBtn: {
@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
   },
   favBookBtnText: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
   },
 });

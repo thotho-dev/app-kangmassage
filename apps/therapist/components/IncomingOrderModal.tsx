@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Alert } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useTherapistStore } from '../store/therapistStore';
 import { useThemeColors } from '../store/themeStore';
@@ -9,6 +10,7 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../lib/utils';
 import { CustomAlertTrigger } from '../store/alertStore';
+import { API_URL } from '../lib/config';
 
 export default function IncomingOrderModal() {
   const { incomingOrder, setIncomingOrder, profile } = useTherapistStore();
@@ -16,16 +18,37 @@ export default function IncomingOrderModal() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [therapistLoc, setTherapistLoc] = useState<{latitude: number, longitude: number} | null>(null);
+  const [countdown, setCountdown] = useState(40);
+  const [progress, setProgress] = useState(0);
   const fadeAnim = useState(new Animated.Value(0))[0];
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (incomingOrder) {
+      setCountdown(40);
+      setProgress(0);
       Animated.spring(fadeAnim, {
         toValue: 1,
         useNativeDriver: true,
         tension: 50,
         friction: 7,
       }).start();
+
+      // Start 40s countdown
+      const startTime = Date.now();
+      const totalDuration = 40000;
+      countdownRef.current = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 40 - Math.floor(elapsed / 1000));
+        const pct = Math.min(1, elapsed / totalDuration);
+        setCountdown(remaining);
+        setProgress(pct);
+
+        if (remaining <= 0) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          setIncomingOrder(null);
+        }
+      }, 100);
 
       // Fetch current location to calculate real distance
       (async () => {
@@ -42,10 +65,60 @@ export default function IncomingOrderModal() {
     } else {
       fadeAnim.setValue(0);
       setTherapistLoc(null);
+      setCountdown(40);
+      setProgress(0);
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
     }
+
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
   }, [incomingOrder]);
 
   if (!incomingOrder) return null;
+
+  const TIMER_SIZE = 56;
+  const STROKE_WIDTH = 3;
+  const timerRadius = (TIMER_SIZE - STROKE_WIDTH) / 2;
+  const timerCircumference = 2 * Math.PI * timerRadius;
+
+  const TimerCircle = () => {
+    const offset = timerCircumference - progress * timerCircumference;
+
+    return (
+      <View style={{ width: TIMER_SIZE, height: TIMER_SIZE, alignItems: 'center', justifyContent: 'center' }}>
+        <Svg width={TIMER_SIZE} height={TIMER_SIZE} style={{ position: 'absolute' }}>
+          <Circle
+            cx={TIMER_SIZE / 2}
+            cy={TIMER_SIZE / 2}
+            r={timerRadius}
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth={STROKE_WIDTH}
+            fill="none"
+          />
+          <Circle
+            cx={TIMER_SIZE / 2}
+            cy={TIMER_SIZE / 2}
+            r={timerRadius}
+            stroke="#FFFFFF"
+            strokeWidth={STROKE_WIDTH}
+            fill="none"
+            strokeDasharray={timerCircumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            transform={`rotate(-90, ${TIMER_SIZE / 2}, ${TIMER_SIZE / 2})`}
+          />
+        </Svg>
+        <Text style={{ color: '#FFFFFF', fontSize: 18, fontFamily: 'Inter_700Bold' }}>{countdown}</Text>
+      </View>
+    );
+  };
 
   const handleAccept = async () => {
     if (!profile) return;
@@ -98,6 +171,18 @@ export default function IncomingOrderModal() {
       }
       
       const orderId = incomingOrder.id;
+      // Send push notification to user
+      fetch(`${API_URL}/api/notifications/send`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: incomingOrder.user_id,
+          title: 'Pesanan Diterima',
+          body: `Terapis ${profile?.full_name} telah menerima pesanan Anda dan akan segera menuju lokasi.`,
+          type: 'order_accepted',
+          data: { order_id: orderId },
+        }),
+      }).catch((err: any) => console.warn('Push notif error:', err?.message));
+
       setIncomingOrder(null);
       router.push(`/orders/${orderId}`);
     } catch (error) {
@@ -160,9 +245,13 @@ export default function IncomingOrderModal() {
             }] 
           }
         ]}>
-          <View style={[styles.header, { backgroundColor: incomingOrder.scheduled_at ? '#8B5CF6' : t.primary }]}>
+            <View style={[styles.header, { backgroundColor: incomingOrder.scheduled_at ? '#8B5CF6' : t.primary }]}>
             <View style={styles.iconWrap}>
-              <Ionicons name={incomingOrder.scheduled_at ? "calendar" : "notifications"} size={32} color="#FFFFFF" />
+              {incomingOrder.scheduled_at ? (
+                <Ionicons name="calendar" size={32} color="#FFFFFF" />
+              ) : (
+                <TimerCircle />
+              )}
             </View>
             <Text style={styles.headerTitle}>
               {incomingOrder.scheduled_at ? 'Booking Terjadwal!' : 'Pesanan Baru Masuk!'}
@@ -184,10 +273,19 @@ export default function IncomingOrderModal() {
                 <View style={styles.serviceRow}>
                   <Text style={[styles.serviceText, { color: t.textSecondary }]}>{incomingOrder.services?.name || 'Layanan Pijat'}</Text>
                   <Text style={{ color: t.textMuted, fontSize: 10 }}>·</Text>
-                  <Ionicons name="time-outline" size={12} color={t.textMuted} style={{ marginTop: 1 }} />
-                  <Text style={[styles.durationText, { color: t.textMuted }]}>
-                    {incomingOrder.services?.price_type === 'treatment' ? '1 Treatment' : `${incomingOrder.duration || incomingOrder.services?.duration_min || 60} Menit`}
-                  </Text>
+                  {incomingOrder.services?.price_type === 'treatment' ? (
+                    <>
+                      <Ionicons name="sparkles" size={12} color="#8B5CF6" style={{ marginTop: 1 }} />
+                      <Text style={[styles.durationText, { color: '#8B5CF6' }]}>Treatment</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="time-outline" size={12} color={t.textMuted} style={{ marginTop: 1 }} />
+                      <Text style={[styles.durationText, { color: t.textMuted }]}>
+                        {incomingOrder.duration || incomingOrder.services?.duration_min || 60} Menit
+                      </Text>
+                    </>
+                  )}
                 </View>
               </View>
             </View>
@@ -204,6 +302,13 @@ export default function IncomingOrderModal() {
               </View>
             )}
 
+            <View style={[styles.addressBox, { backgroundColor: t.background }]}>
+              <Ionicons name="location-outline" size={18} color={t.textSecondary} />
+              <Text style={[styles.addressText, { color: t.textSecondary }]} numberOfLines={2}>
+                {incomingOrder.address || 'Alamat tidak tersedia'}
+              </Text>
+            </View>
+
             <View style={styles.infoGrid}>
               <View style={[styles.infoBox, { backgroundColor: t.background, borderColor: t.border }]}>
                 <Ionicons name="navigate-outline" size={20} color={t.secondary} />
@@ -219,13 +324,6 @@ export default function IncomingOrderModal() {
                 <Text style={[styles.infoValue, { color: t.text }]}>Rp {(incomingOrder.service_price || incomingOrder.total_price || 0).toLocaleString('id-ID')}</Text>
                 <Text style={[styles.infoLabel, { color: t.textMuted }]}>Biaya</Text>
               </View>
-            </View>
-
-            <View style={[styles.addressBox, { backgroundColor: t.background }]}>
-              <Ionicons name="location-outline" size={18} color={t.textSecondary} />
-              <Text style={[styles.addressText, { color: t.textSecondary }]} numberOfLines={2}>
-                {incomingOrder.address || 'Alamat tidak tersedia'}
-              </Text>
             </View>
 
             <View style={styles.actions}>

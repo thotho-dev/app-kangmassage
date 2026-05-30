@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   scrollContent: {
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   unreadDot: {
@@ -222,14 +222,14 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 13,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
     lineHeight: 18,
     marginBottom: 8,
   },
   time: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   emptyState: {
@@ -240,13 +240,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
     marginTop: 8,
     textAlign: 'center',

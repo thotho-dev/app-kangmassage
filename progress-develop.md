@@ -1,5 +1,15 @@
 # Progress Development - App Kang Massage
 
+## [2026-05-26] - Refinement Visual Aplikasi User (Font & Logo Pembayaran)
+
+### 🎨 Standardisasi Font & Ukuran Teks Global
+- **Migrasi Font Plus Jakarta Sans**: Mengganti seluruh referensi font keluarga `Inter-` (`Inter-Bold`, `Inter-SemiBold`, `Inter-Medium`, `Inter-Regular`) menjadi `PlusJakartaSans-Bold`, `PlusJakartaSans-SemiBold`, `PlusJakartaSans-Medium`, `PlusJakartaSans-Regular` di seluruh halaman aplikasi user (`apps/user`) untuk keselarasan tipografi.
+- **Penyelarasan Ukuran Font Global**: Mengurangi semua ukuran teks `fontSize: 16` menjadi `fontSize: 14` di seluruh halaman aplikasi user (termasuk variabel global `body` dan `bodyMedium` di `constants/Theme.ts` serta inline styling di 21 file halaman) agar layout terlihat lebih compact, rapi, dan proporsional.
+
+### 💳 Integrasi Logo Pembayaran Asli (Virtual Account & GoPay)
+- **Visualisasi Logo Asli di Detail Pesanan (`order.tsx`)**: Mengganti ikon generic (Lucide CreditCard & QrCode) pada opsi Virtual Account (BCA, Mandiri, BRI, BNI) dan GoPay dengan logo asli dari folder `assets/` (sama seperti tampilan top-up terapis).
+- **Wrapper Desain Simetris**: Menambahkan pembungkus ikon kustom (`paymentItemIconContainer`) dengan dimensi `36x36` dan warna latar belakang soft di daftar pilihan pembayaran untuk menjaga keselarasan baris teks dan ikon agar tetap rapi saat berganti metode pembayaran.
+
 ## [2026-05-20] - Migrasi Payment Gateway Ke Xendit (Fokus Aplikasi Terapis)
 
 ### 💳 Integrasi Pembayaran Xendit (Top Up Terapis)

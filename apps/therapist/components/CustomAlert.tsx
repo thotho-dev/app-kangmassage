@@ -94,7 +94,7 @@ export default function CustomAlert() {
                   style={[styles.button, { backgroundColor: t.primary, width: '100%' }]}
                   onPress={hideAlert}
                 >
-                  <Text style={styles.buttonText}>OKE</Text>
+                  <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>OKE</Text>
                 </TouchableOpacity>
               )}
             </View>

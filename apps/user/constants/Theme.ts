@@ -40,10 +40,11 @@ export const SPACING = {
 };
 
 export const FONTS = {
-  regular: 'Inter-Regular',
-  medium: 'Inter-Medium',
-  semiBold: 'Inter-SemiBold',
-  bold: 'Inter-Bold',
+  regular: 'PlusJakartaSans-Regular',
+  medium: 'PlusJakartaSans-Medium',
+  semiBold: 'PlusJakartaSans-SemiBold',
+  bold: 'PlusJakartaSans-Bold',
+  extraBold: 'PlusJakartaSans-ExtraBold',
 };
 
 export const TYPOGRAPHY = {
@@ -61,11 +62,11 @@ export const TYPOGRAPHY = {
   },
   body: {
     fontFamily: FONTS.regular,
-    fontSize: 16,
+    fontSize: 14,
   },
   bodyMedium: {
     fontFamily: FONTS.medium,
-    fontSize: 16,
+    fontSize: 14,
   },
   caption: {
     fontFamily: FONTS.regular,

@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
     marginBottom: 8,
   },
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   infoCard: {
     marginTop: 40,
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
   retryBadgeText: {
     fontSize: 10,
     color: '#64748B',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   footer: {
     paddingBottom: 20,
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
   cancelText: {
     color: '#EF4444',
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   modalOverlay: {
     position: 'absolute',
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 22,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#0F172A',
     marginBottom: 8,
   },
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 20,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   modalActions: {
     width: '100%',
@@ -719,15 +719,15 @@ const styles = StyleSheet.create({
   },
   retryBtnText: {
     color: 'white',
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   modalCancelBtn: {
     backgroundColor: '#F1F5F9',
   },
   modalCancelText: {
     color: '#64748B',
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
 });

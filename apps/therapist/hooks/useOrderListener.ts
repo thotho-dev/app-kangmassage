@@ -46,13 +46,6 @@ export const useOrderListener = () => {
             return;
           }
 
-          // 2. GLOBAL RATING CHECK (from settings)
-          const currentRating = Number(profile.rating) || 5.0;
-          if (currentRating < settings.min_rating) {
-            console.log(`[DEBUG OrderListener] BLOKIR: Rating (${currentRating}) di bawah ${settings.min_rating}.`);
-            return;
-          }
-
           // 2. Targeted Check: Is it for us specifically or for everyone?
           const isTargeted = newOrder.therapist_id === profile.id;
           const isBroadcast = !newOrder.therapist_id;
@@ -66,7 +59,14 @@ export const useOrderListener = () => {
           if (isBroadcast) {
              console.log('[DEBUG OrderListener] Mengecek kelayakan pesanan broadcast...');
 
-             // A. Check if Therapist is Busy (Has active orders)
+             // A. RATING CHECK (skip for targeted/favorite orders)
+             const currentRating = Number(profile.rating) || 5.0;
+             if (currentRating < settings.min_rating) {
+               console.log(`[DEBUG OrderListener] BLOKIR: Rating (${currentRating}) di bawah ${settings.min_rating}.`);
+               return;
+             }
+
+             // B. Check if Therapist is Busy (Has active orders)
              const { count: activeCount, error: activeError } = await supabase
                .from('orders')
                .select('*', { count: 'exact', head: true })
@@ -133,7 +133,7 @@ export const useOrderListener = () => {
           // Fetch full order data with relations for real data in popup
           const { data: orderData, error: orderError } = await supabase
             .from('orders')
-            .select('*, users(full_name, avatar_url), services:service_id(name, duration_min)')
+            .select('*, users(full_name, avatar_url), services:service_id(name, duration_min, price_type)')
             .eq('id', payload.new.id)
             .single();
 

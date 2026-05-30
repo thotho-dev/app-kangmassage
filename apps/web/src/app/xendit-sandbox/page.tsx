@@ -66,10 +66,15 @@ function XenditSandboxContent() {
         setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            // Dynamic deep link based on app prefix
-            const deepLink = orderId.startsWith('TOPUP-')
-              ? 'kang-massage-therapist://profile/topup-history'
-              : 'kangmassage://wallet';
+            let deepLink = 'kangmassage://wallet';
+            if (orderId.startsWith('TOPUP-')) {
+              deepLink = 'kang-massage-therapist://profile/topup-history';
+            } else if (orderId.startsWith('UTOPUP-')) {
+              deepLink = 'kangmassage://wallet';
+            } else {
+              // Order payment or QRIS — redirect back to order detail in therapist app
+              deepLink = `kang-massage-therapist://orders/${orderId}`;
+            }
             window.location.href = deepLink;
           }
           return prev - 1;
@@ -197,7 +202,7 @@ function XenditSandboxContent() {
             </div>
 
             <a 
-              href={orderId?.startsWith('TOPUP-') ? "kang-massage-therapist://profile/topup-history" : "kangmassage://wallet"} 
+              href={orderId?.startsWith('TOPUP-') ? "kang-massage-therapist://profile/topup-history" : orderId?.startsWith('UTOPUP-') ? "kangmassage://wallet" : `kang-massage-therapist://orders/${orderId}`} 
               style={styles.backToAppLink}
             >
               Kembali Ke Aplikasi Sekarang

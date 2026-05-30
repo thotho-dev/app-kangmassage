@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
 
 const { width } = Dimensions.get('window');
 
@@ -394,6 +395,20 @@ export default function TrackingScreen() {
                         .eq('id', orderData.user_id);
                     }
                   }
+                }
+
+                // Send push notification to therapist
+                if (orderData.therapist_id) {
+                  fetch(`${API_URL}/api/notifications/send`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      therapist_id: orderData.therapist_id,
+                      title: 'Pesanan Dibatalkan',
+                      body: 'Pelanggan telah membatalkan pesanan ini.',
+                      type: 'order_cancelled',
+                      data: { order_id: id },
+                    }),
+                  }).catch((err: any) => console.warn('Push notif error:', err?.message));
                 }
 
                 // Add log entry
@@ -1165,7 +1180,7 @@ const styles = StyleSheet.create({
   },
   orderBadgeText: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     letterSpacing: 0.8,
   },
   floatingInfo: {
@@ -1217,7 +1232,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   statusRow: {
     flexDirection: 'row',
@@ -1227,7 +1242,7 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -1285,19 +1300,19 @@ const styles = StyleSheet.create({
   },
   etaLabel: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 6,
   },
   etaTime: {
     fontSize: 28,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   etaUnit: {
     fontSize: 14,
     color: COLORS.gold[500],
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
   etaIconWrapper: {
     shadowColor: COLORS.primary[500],
@@ -1313,7 +1328,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: { paddingHorizontal: 4, marginTop: 10, marginBottom: 20 },
-  sectionTitle: { fontSize: 14, fontFamily: 'Inter-Bold', color: '#1A1A2E', marginBottom: 12 },
+  sectionTitle: { fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#1A1A2E', marginBottom: 12 },
   stepsCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#F0F0F0' },
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 4 },
   stepLeft: { alignItems: 'center', width: 32 },
@@ -1323,9 +1338,9 @@ const styles = StyleSheet.create({
   stepPending: { backgroundColor: '#F0F0F0' },
   stepLine: { width: 2, height: 24, backgroundColor: '#F0F0F0', marginVertical: 2 },
   stepLineDone: { backgroundColor: '#10B981' },
-  stepLabel: { fontSize: 13, fontFamily: 'Inter-Medium', color: '#94A3B8', paddingTop: 6 },
+  stepLabel: { fontSize: 13, fontFamily: 'PlusJakartaSans-Medium', color: '#94A3B8', paddingTop: 6 },
   stepLabelDone: { color: '#10B981' },
-  stepLabelCurrent: { fontSize: 13, fontFamily: 'Inter-SemiBold', color: COLORS.primary[600] },
+  stepLabelCurrent: { fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: COLORS.primary[600] },
   addressCard: {
     flexDirection: 'row',
     borderRadius: 24,
@@ -1348,14 +1363,14 @@ const styles = StyleSheet.create({
   },
   addressLabel: {
     fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   addressText: {
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
   cancelBtn: {
     alignItems: 'center',
@@ -1367,14 +1382,14 @@ const styles = StyleSheet.create({
   cancelText: {
     color: '#E74C3C',
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
   detailSection: {
     marginTop: 10,
   },
   detailTitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#1A1A2E',
     marginBottom: 12,
   },
@@ -1403,25 +1418,25 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: '#6B7280',
     marginBottom: 2,
   },
   detailValue: {
     fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: '#1A1A2E',
   },
   detailValueSmall: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginTop: 2,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   detailPrice: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#240080',
   },
   detailDivider: {
@@ -1462,7 +1477,7 @@ const styles = StyleSheet.create({
   },
   homeBtnText: {
     color: 'white',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 12,
   },
   cancelledBanner: {
@@ -1477,12 +1492,12 @@ const styles = StyleSheet.create({
   },
   cancelledTitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 2,
   },
   cancelledSub: {
     fontSize: 11,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     lineHeight: 15,
   },
   homeBtn: {
@@ -1500,12 +1515,12 @@ const styles = StyleSheet.create({
   },
   ratingTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 8,
   },
   ratingSubtitle: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
@@ -1521,7 +1536,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     padding: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 13,
     marginBottom: 20,
     textAlignVertical: 'top',
@@ -1544,7 +1559,7 @@ const styles = StyleSheet.create({
   submitRatingText: {
     color: 'white',
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   ratingSuccess: {
     margin: 20,
@@ -1557,13 +1572,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   ratingSuccessTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 2,
   },
   ratingSuccessSub: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   completedHeader: {
     height: 100,
@@ -1574,8 +1589,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitleCompleted: {
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   ratingHistory: {
     paddingBottom: 4,
@@ -1592,7 +1607,7 @@ const styles = StyleSheet.create({
   },
   ratingHistoryText: {
     fontSize: 13,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     lineHeight: 18,
   },
   priceBreakdown: {
@@ -1605,19 +1620,19 @@ const styles = StyleSheet.create({
   },
   priceLabelSmall: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   priceValueSmall: {
     fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
   totalLabel: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   paymentMethod: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   openRatingBtn: {
     flexDirection: 'row',
@@ -1633,7 +1648,7 @@ const styles = StyleSheet.create({
   },
   openRatingText: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   modalOverlay: {
     flex: 1,
@@ -1689,11 +1704,11 @@ const styles = StyleSheet.create({
   },
   ratingDisplayText: { 
     fontSize: 14, 
-    fontFamily: 'Inter-Bold' 
+    fontFamily: 'PlusJakartaSans-Bold' 
   },
   reviewDisplayText: { 
     fontSize: 14, 
-    fontFamily: 'Inter-Medium', 
+    fontFamily: 'PlusJakartaSans-Medium', 
     fontStyle: 'italic', 
     lineHeight: 20 
   },
@@ -1726,13 +1741,13 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 10,
     textAlign: 'center',
   },
   alertMessage: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     lineHeight: 20,
     textAlign: 'center',
   },
@@ -1762,7 +1777,7 @@ const styles = StyleSheet.create({
   },
   alertBtnText: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   txtPrimary: {
     color: '#FFFFFF',

@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#1A1A2E',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Inter-Medium',
     marginBottom: 20,
   },
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   },
   voucherCode: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Inter-Bold',
     letterSpacing: 2,
     marginTop: 5,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: '#1A1A2E',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Inter-Bold',
     marginBottom: 15,
   },
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   },
   useButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Inter-Bold',
   }
 });

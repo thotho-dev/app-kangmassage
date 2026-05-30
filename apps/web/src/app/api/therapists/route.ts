@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status');
+    const regStep = searchParams.get('registration_step');
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -26,6 +27,13 @@ export async function GET(req: NextRequest) {
     const isActive = searchParams.get('is_active');
     if (isActive) {
       query = query.eq('is_active', isActive === 'true');
+    }
+    const isVerified = searchParams.get('is_verified');
+    if (isVerified !== null) {
+      query = query.eq('is_verified', isVerified === 'true');
+    } else if (!regStep) {
+      // Default: only show verified therapists in main list
+      query = query.eq('is_verified', true);
     }
 
     const { data, error, count } = await query.range(offset, offset + limit - 1);
@@ -120,7 +128,8 @@ export async function POST(req: NextRequest) {
       console.error('Database Error:', error);
       // Handle unique constraint violation
       if (error.code === '23505') {
-        return NextResponse.json({ error: 'Email atau Nomor Telepon ini sudah digunakan oleh terapis lain. Silakan cek kembali ya.' }, { status: 400 });
+        const msg = error.message?.includes('nik') ? 'NIK sudah terdaftar oleh terapis lain.' : 'Email atau Nomor Telepon ini sudah digunakan oleh terapis lain. Silakan cek kembali ya.';
+        return NextResponse.json({ error: msg }, { status: 400 });
       }
       return NextResponse.json({ error: 'Waduh, sepertinya ada masalah teknis di database. Silakan coba sesaat lagi.' }, { status: 500 });
     }

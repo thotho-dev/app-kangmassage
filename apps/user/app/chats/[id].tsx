@@ -507,8 +507,8 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerAvatar: { width: 40, height: 40, borderRadius: 20 },
-  headerName: { fontSize: 16, fontFamily: 'Inter-Bold' },
-  headerStatus: { fontSize: 12, fontFamily: 'Inter-Regular' },
+  headerName: { fontSize: 14, fontFamily: 'PlusJakartaSans-Bold' },
+  headerStatus: { fontSize: 12, fontFamily: 'PlusJakartaSans-Regular' },
   headerAction: { padding: 8 },
   listContent: { padding: 16, gap: 12 },
   messageRow: { flexDirection: 'row', marginBottom: 4, alignItems: 'flex-end', gap: 8 },
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: '75%', padding: 12, borderRadius: 16 },
   myBubble: { borderBottomRightRadius: 4 },
   otherBubble: { borderBottomLeftRadius: 4 },
-  messageText: { fontSize: 14, fontFamily: 'Inter-Regular' },
+  messageText: { fontSize: 14, fontFamily: 'PlusJakartaSans-Regular' },
   timeText: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
   inputContainer: {
     flexDirection: 'row',
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 14,
   },
   sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   },
   avatarLetter: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   
   /* Attachment Modal Styles */
@@ -570,8 +570,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sheetTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 16,
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 14,
     marginBottom: 20,
   },
   sheetActions: {
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sheetActionLabel: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 12,
   },
   sheetCancelBtn: {
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sheetCancelText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 14,
   },
 
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   templatesTitle: {
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 18,
   },
   templateItem: {
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   },
   templateText: {
     flex: 1,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -666,12 +666,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   uploadTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 16,
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 14,
     marginTop: 16,
   },
   uploadProgressText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 14,
     marginTop: 4,
   },

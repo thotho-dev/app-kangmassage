@@ -1,8 +1,28 @@
-import React from 'react';
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { LocationProvider } from '@/context/LocationContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function MainLayout() {
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (loading) return;
+
+    const lastSegment = segments[segments.length - 1];
+    const isAllowedGuestRoute =
+      !lastSegment ||
+      lastSegment === '(main)' ||
+      lastSegment === '(tabs)' ||
+      lastSegment === 'home';
+
+    if (!isAuthenticated && !isAllowedGuestRoute) {
+      router.replace('/(auth)/login');
+    }
+  }, [isAuthenticated, loading, segments, router]);
+
   return (
     <LocationProvider>
       <Stack
@@ -11,10 +31,7 @@ export default function MainLayout() {
           animation: 'slide_from_right',
         }}
       >
-        {/* Main Tab Navigation */}
         <Stack.Screen name="(tabs)" />
-
-        {/* Process Screens */}
         <Stack.Screen name="services" />
         <Stack.Screen name="vouchers" />
         <Stack.Screen name="voucher-detail/[id]" />

@@ -2,12 +2,22 @@ import { useState } from 'react';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { useAlert } from '@/components/CustomAlert';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+
+const XENDIT_BANKS = [
+  'BCA', 'BNI', 'BRI', 'Mandiri', 'Permata', 'CIMB Niaga', 'Danamon',
+  'Maybank', 'Panin', 'OCBC NISP', 'BTN', 'BSI', 'BTPN', 'BJB',
+  'BPD Bali', 'BPD Jateng', 'BPD Jatim', 'BPD Sultra', 'BPD Sumut',
+  'BPD DIY', 'BPD Kaltim', 'BPD Kalsel', 'BPD Lampung', 'BPD NTB',
+  'BPD Riau', 'BPD Sumbar', 'BPD Sumsel', 'BPD Sulsel', 'BPD Kalbar',
+  'BCA Syariah', 'Muamalat', 'Mega', 'Sinarmas',
+  'DANA', 'OVO', 'GoPay',
+];
 
 export default function PaymentMethodScreen() {
   const t = useThemeColors();
@@ -19,6 +29,7 @@ export default function PaymentMethodScreen() {
   
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(!profile?.bank_account_number);
+  const [showBankPicker, setShowBankPicker] = useState(false);
   const [form, setForm] = useState({
     bank: profile?.bank_name || '',
     number: profile?.bank_account_number || '',
@@ -129,16 +140,17 @@ export default function PaymentMethodScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Nama Bank</Text>
-                <View style={styles.inputContainer}>
+                <TouchableOpacity
+                  style={[styles.inputContainer, { paddingVertical: 0 }]}
+                  onPress={() => setShowBankPicker(true)}
+                  activeOpacity={0.7}
+                >
                   <Ionicons name="business-outline" size={18} color={t.textMuted} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.inputField}
-                    placeholder="Contoh: BCA, Mandiri, BNI"
-                    placeholderTextColor={t.textMuted}
-                    value={form.bank}
-                    onChangeText={(text) => setForm({ ...form, bank: text })}
-                  />
-                </View>
+                  <Text style={[styles.inputField, { textAlignVertical: 'center', paddingVertical: 14, color: form.bank ? t.text : t.textMuted }]}>
+                    {form.bank || 'Pilih Bank'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={t.textMuted} />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
@@ -186,6 +198,33 @@ export default function PaymentMethodScreen() {
             </LinearGradient>
           </View>
         </ScrollView>
+
+        {/* Bank Picker Modal */}
+        <Modal transparent visible={showBankPicker} animationType="slide">
+          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={() => setShowBankPicker(false)}>
+            <TouchableOpacity activeOpacity={1} onPress={() => {}} style={[styles.pickerSheet, { backgroundColor: t.surface }]}>
+              <View style={[styles.pickerHandle, { backgroundColor: t.border }]} />
+              <Text style={[styles.pickerTitle, { color: t.text }]}>Pilih Bank</Text>
+              <FlatList
+                data={XENDIT_BANKS}
+                keyExtractor={(item) => item}
+                style={{ maxHeight: 320 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.pickerItem, { backgroundColor: form.bank === item ? t.secondary + '15' : 'transparent' }]}
+                    onPress={() => {
+                      setForm({ ...form, bank: item });
+                      setShowBankPicker(false);
+                    }}
+                  >
+                    <Text style={[styles.pickerItemText, { color: form.bank === item ? t.secondary : t.text }]}>{item}</Text>
+                    {form.bank === item && <Ionicons name="checkmark" size={18} color={t.secondary} />}
+                  </TouchableOpacity>
+                )}
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -261,5 +300,20 @@ const getStyles = (t: any) => StyleSheet.create({
   securityBox: { marginTop: SPACING.xxl, marginBottom: 40 },
   securityGradient: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 16, alignItems: 'center' },
   securityText: { flex: 1, fontSize: 11, color: t.textSecondary, lineHeight: 18 },
+
+  /* Bank Picker */
+  pickerSheet: {
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: SPACING.lg, paddingBottom: 40, paddingTop: SPACING.md,
+    maxHeight: 420,
+  },
+  pickerHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: SPACING.md },
+  pickerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold', marginBottom: SPACING.md },
+  pickerItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, paddingHorizontal: SPACING.md,
+    borderRadius: 12, marginBottom: 2,
+  },
+  pickerItemText: { ...TYPOGRAPHY.body, fontFamily: 'Inter_600SemiBold' },
 });
 

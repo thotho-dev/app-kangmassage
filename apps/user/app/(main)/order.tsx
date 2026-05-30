@@ -509,18 +509,23 @@ export default function OrderScreen() {
       id: 'va',
       title: 'Transfer Bank (Virtual Account)',
       items: [
-        { id: 'bca_va', label: 'BCA Virtual Account', icon: CreditCard },
-        { id: 'mandiri_va', label: 'Mandiri Virtual Account', icon: CreditCard },
-        { id: 'bri_va', label: 'BRI Virtual Account', icon: CreditCard },
-        { id: 'bni_va', label: 'BNI Virtual Account', icon: CreditCard },
+        { id: 'bca_va', label: 'BCA Virtual Account', image: require('@/assets/bca.png') },
+        { id: 'mandiri_va', label: 'Mandiri Virtual Account', image: require('@/assets/mandiri.png') },
+        { id: 'bri_va', label: 'BRI Virtual Account', image: require('@/assets/bri.png') },
+        { id: 'permata_va', label: 'Permata Virtual Account', image: require('@/assets/permata.png') },
+        { id: 'bsi_va', label: 'BSI Virtual Account', image: require('@/assets/bsi.png') },
+        { id: 'cimb_va', label: 'CIMB Virtual Account', image: require('@/assets/cimb.png') },
+        { id: 'bni_va', label: 'BNI Virtual Account', image: require('@/assets/bni.png') },
       ]
     },
     {
       id: 'ewallet',
       title: 'E-Wallet & QRIS',
       items: [
-        { id: 'gopay', label: 'GoPay', icon: QrCode },
         { id: 'qris', label: 'QRIS Terapis', icon: QrCode },
+        { id: 'dana', label: 'DANA', image: require('@/assets/Dana.png') },
+        { id: 'ovo', label: 'OVO', image: require('@/assets/ovo.png') },
+        { id: 'linkaja', label: 'LINKAJA', image: require('@/assets/linkaja.png') },
       ]
     }
   ];
@@ -1015,7 +1020,11 @@ export default function OrderScreen() {
               onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
             >
               <View style={styles.paymentIcon}>
-                <currentMethod.icon size={20} color={PURPLE} />
+                {currentMethod.image ? (
+                  <Image source={currentMethod.image} style={styles.paymentLogo} />
+                ) : (
+                  currentMethod.icon && <currentMethod.icon size={20} color={PURPLE} />
+                )}
               </View>
               <Text style={[styles.paymentLabel, { color: TEXT_DARK }]}>
                 {currentMethod.label}
@@ -1046,7 +1055,13 @@ export default function OrderScreen() {
                           }}
                         >
                           <View style={styles.paymentMethodLeft}>
-                            <method.icon size={20} color={paymentMethod === method.id ? PURPLE : TEXT_MUTED} />
+                            <View style={styles.paymentItemIconContainer}>
+                              {method.image ? (
+                                <Image source={method.image} style={styles.paymentLogo} />
+                              ) : (
+                                method.icon && <method.icon size={20} color={paymentMethod === method.id ? PURPLE : TEXT_MUTED} />
+                              )}
+                            </View>
                             <View style={{ marginLeft: 12 }}>
                               <Text style={[
                                 styles.paymentItemLabel,
@@ -1200,8 +1215,8 @@ const styles = StyleSheet.create({
   },
   paymentLabel: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
   paymentDropdown: {
     marginTop: 8,
@@ -1220,7 +1235,7 @@ const styles = StyleSheet.create({
   },
   groupTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -1236,8 +1251,8 @@ const styles = StyleSheet.create({
   },
   paymentItemLabel: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans-Medium',
     marginLeft: 12,
   },
   selectedDot: {
@@ -1248,7 +1263,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   scrollContent: {
@@ -1260,7 +1275,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginBottom: 12,
   },
@@ -1290,19 +1305,19 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   serviceName: {
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginBottom: 4,
   },
   servicePrice: {
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: PURPLE,
   },
   serviceDescription: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     marginTop: 4,
     lineHeight: 16,
   },
@@ -1322,7 +1337,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
     paddingVertical: 17,
   },
@@ -1331,7 +1346,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_MUTED,
     marginBottom: 8,
     marginLeft: 4,
@@ -1350,7 +1365,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
   fullMapsButton: {
@@ -1371,7 +1386,7 @@ const styles = StyleSheet.create({
   fullMapsButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   durationOptionsContainer: {
     gap: 10,
@@ -1397,16 +1412,16 @@ const styles = StyleSheet.create({
   },
   durationOptionLabel: {
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
   durationOptionLabelActive: {
     color: PURPLE,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   durationOptionPrice: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   durationOptionPriceActive: {
@@ -1437,7 +1452,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
   activeTabText: {
@@ -1462,7 +1477,7 @@ const styles = StyleSheet.create({
   },
   scheduleBtnText: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   genderContainer: {
@@ -1486,12 +1501,12 @@ const styles = StyleSheet.create({
   },
   genderBtnText: {
     fontSize: 13,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   genderBtnTextActive: {
     color: PURPLE,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   dropdownContainer: {
     backgroundColor: '#FFFFFF',
@@ -1514,7 +1529,7 @@ const styles = StyleSheet.create({
   },
   dropdownHeaderText: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   dropdownList: {
@@ -1537,11 +1552,11 @@ const styles = StyleSheet.create({
   },
   paymentText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
   paymentTextActive: {
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   footer: {
@@ -1573,12 +1588,12 @@ const styles = StyleSheet.create({
   breakdownLabel: {
     fontSize: 13,
     color: TEXT_MUTED,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
   },
   breakdownValue: {
     fontSize: 13,
     color: TEXT_DARK,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
   totalRow: {
     flexDirection: 'row',
@@ -1588,12 +1603,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   totalPrice: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   divider: {
@@ -1618,12 +1633,12 @@ const styles = StyleSheet.create({
   },
   cashbackTitle: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   cashbackSub: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
     marginTop: 2,
   },
@@ -1637,12 +1652,12 @@ const styles = StyleSheet.create({
   },
   appliedBadgeText: {
     fontSize: 12,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
   },
   discountLabel: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#10B981',
     marginTop: 2,
   },
@@ -1659,7 +1674,7 @@ const styles = StyleSheet.create({
   orderButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   // Voucher Styles
   voucherSelector: {
@@ -1688,23 +1703,23 @@ const styles = StyleSheet.create({
   },
   voucherPlaceholderTitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   voucherPlaceholderSub: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
     marginTop: 2,
   },
   voucherAppliedTitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
   },
   voucherAppliedSub: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
@@ -1724,9 +1739,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  paymentLogo: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
+  },
+  paymentItemIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   balanceSub: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     marginTop: 2,
   },
 });

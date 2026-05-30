@@ -48,13 +48,14 @@ export async function POST(req: NextRequest) {
     if (topupError) throw topupError;
 
     // Xendit Invoice Integration
-    const secretKey = process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     // INTERCEPT FOR LOCAL SANDBOX
     if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
-      const url = new URL(req.url);
-      const origin = url.origin;
+      const host = req.headers.get('host') || 'localhost:3000';
+      const protocol = req.headers.get('x-forwarded-proto')?.split(',')[0] || 'http';
+      const origin = `${protocol}://${host}`;
       const redirectUrl = `${origin}/xendit-sandbox?id=${topup.id}&amount=${amount}&external_id=${external_id}&type=user_topup`;
 
       const mockData = {
@@ -78,12 +79,16 @@ export async function POST(req: NextRequest) {
 
     const paymentMethodsMap: Record<string, string[]> = {
       'dana': ['DANA'],
-      'gopay': ['QRIS'],
+      'ovo': ['OVO'],
+      'linkaja': ['LINKAJA'],
       'shopeepay': ['SHOPEEPAY'],
       'bca_va': ['BCA'],
       'mandiri_va': ['MANDIRI'],
       'bni_va': ['BNI'],
       'bri_va': ['BRI'],
+      'permata_va': ['PERMATA'],
+      'bsi_va': ['BSI'],
+      'cimb_va': ['CIMB'],
       'alfamart': ['ALFAMART'],
       'indomaret': ['INDOMARET'],
     };

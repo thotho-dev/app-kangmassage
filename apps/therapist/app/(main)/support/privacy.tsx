@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
 
@@ -6,12 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, TYPOGRAPHY } from '@/constants/Theme';
+import { getAppSettings } from '@/lib/appSettings';
 
 export default function PrivacyPolicyScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
   
   const router = useRouter();
+  const [platformName, setPlatformName] = useState('Kang Massage');
+
+  useEffect(() => {
+    getAppSettings().then(s => setPlatformName(s.platform_name));
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -25,7 +32,7 @@ export default function PrivacyPolicyScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.content}>
-          PijatPro berkomitmen untuk melindungi privasi Anda. Kebijakan ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan melindungi informasi pribadi Anda sebagai mitra terapis.
+          {platformName} berkomitmen untuk melindungi privasi Anda. Kebijakan ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan melindungi informasi pribadi Anda sebagai mitra terapis.
           {'\n\n'}
           <Text style={styles.bold}>1. Informasi yang Kami Kumpulkan</Text>{'\n'}
           Kami mengumpulkan informasi yang Anda berikan secara langsung, seperti nama, nomor telepon, alamat email, foto profil, dan informasi rekening bank. Kami juga mengumpulkan data lokasi saat aplikasi sedang digunakan untuk keperluan pelacakan pesanan.

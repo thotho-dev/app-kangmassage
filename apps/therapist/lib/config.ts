@@ -8,6 +8,12 @@
 import { Platform } from 'react-native';
 
 // Pakai IP ini kalo testing dari HP fisik via Expo Go
+// Ganti dengan IP komputer saat ini. Cek pakai `ipconfig` jika error Network Request Failed.
 const LOCAL_IP = 'http://10.39.80.246:3000';
 
 export const WEB_API_URL = LOCAL_IP;
+export const API_URL = WEB_API_URL;
+
+// Puter AI - diambil dari app_settings di Supabase
+// Gunakan getPuterConfig() untuk mendapatkan nilai terbaru
+export const PUTER_API_URL = 'https://api.puter.com';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Search, RefreshCw, UserCheck, Star, MapPin, Plus, Filter, X, Loader2, Check, Trash2, Camera, Upload, Eye, EyeOff, Pencil, Power } from 'lucide-react';
+import { Search, RefreshCw, UserCheck, Star, MapPin, Plus, Filter, X, Loader2, Check, Trash2, Camera, Upload, Eye, EyeOff, Pencil, Power, ChevronDown, RotateCcw } from 'lucide-react';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Therapist } from '@/types';
 import { clsx } from 'clsx';
@@ -30,7 +30,24 @@ export default function TherapistsPage() {
   const [viewModal, setViewModal] = useState<{ open: boolean; therapist: Therapist | null }>({ open: false, therapist: null });
   const [imageModal, setImageModal] = useState<{ open: boolean; url: string }>({ open: false, url: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [tab, setTab] = useState<'all' | 'verification'>('all');
+  const [pendingVerifications, setPendingVerifications] = useState<Therapist[]>([]);
+  const [verifLoading, setVerifLoading] = useState(false);
+  const [expandedVerif, setExpandedVerif] = useState<string | null>(null);
+  const [revisionModal, setRevisionModal] = useState<{ open: boolean; therapist: Therapist | null; selectedFields: string[]; note: string }>({ open: false, therapist: null, selectedFields: [], note: '' });
   const limit = 10;
+
+  const REVISION_FIELDS = [
+    { id: 'ktp', label: 'KTP (NIK & Foto)' },
+    { id: 'selfie', label: 'Foto Selfie' },
+    { id: 'gender', label: 'Jenis Kelamin' },
+    { id: 'pengalaman', label: 'Pengalaman' },
+    { id: 'keahlian', label: 'Keahlian' },
+    { id: 'sertifikat', label: 'Sertifikat' },
+    { id: 'alamat', label: 'Alamat' },
+    { id: 'bio', label: 'Bio' },
+    { id: 'ktp_fields', label: 'Data KTP (Tempat Lahir / Status)' },
+  ];
 
   const fetchTherapists = useCallback(async () => {
     setLoading(true);
@@ -98,7 +115,59 @@ export default function TherapistsPage() {
     });
   };
 
-  useEffect(() => { fetchTherapists(); }, [fetchTherapists]);
+  const fetchPendingVerifications = useCallback(async () => {
+    setVerifLoading(true);
+    try {
+      const res = await fetch('/api/therapists?is_verified=false&limit=100');
+      const data = await res.json();
+      setPendingVerifications(data.data || []);
+    } finally {
+      setVerifLoading(false);
+    }
+  }, []);
+
+  const handleApproveVerification = async (therapist: Therapist) => {
+    try {
+      const res = await fetch(`/api/therapists/${therapist.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_verified: true, registration_step: 'completed' }),
+      });
+      if (res.ok) {
+        toast.success(`${therapist.full_name} berhasil diverifikasi!`);
+        fetchPendingVerifications();
+      }
+    } catch {
+      toast.error('Gagal memverifikasi terapis');
+    }
+  };
+
+  const handleReviseVerification = async (therapist: Therapist, fields: string[], note: string) => {
+    try {
+      const selectedLabels = fields.map(f => REVISION_FIELDS.find(rf => rf.id === f)?.label || f);
+      const revisionNote = `[${selectedLabels.join(', ')}]${note ? ' — ' + note : ''}`;
+      const res = await fetch(`/api/therapists/${therapist.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registration_step: 'otp_verified', revision_note: revisionNote }),
+      });
+      if (res.ok) {
+        toast.success(`Notifikasi revisi dikirim ke ${therapist.full_name}`);
+        fetchPendingVerifications();
+      }
+    } catch {
+      toast.error('Gagal mengirim permintaan revisi');
+    }
+  };
+
+  useEffect(() => {
+    fetchTherapists();
+    fetchPendingVerifications();
+  }, []);// only on mount
+
+  useEffect(() => {
+    if (tab === 'verification') fetchPendingVerifications();
+  }, [tab]);
 
   return (
     <div className="page-container">
@@ -108,7 +177,7 @@ export default function TherapistsPage() {
           <p className="text-text-muted text-sm mt-1">{total.toLocaleString()} {t('total_therapists')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={fetchTherapists} className="btn-secondary flex items-center gap-2 text-sm">
+          <button onClick={tab === 'verification' ? fetchPendingVerifications : fetchTherapists} className="btn-secondary flex items-center gap-2 text-sm">
             <RefreshCw className="w-4 h-4" />
             {t('refresh')}
           </button>
@@ -119,47 +188,33 @@ export default function TherapistsPage() {
         </div>
       </div>
 
-      {modal.open && (
-        <Portal>
-          <TherapistModal 
-            onClose={() => setModal({ open: false, therapist: null })}
-            onSubmit={handleAddTherapist}
-            submitting={submitting}
-            initialData={modal.therapist}
-          />
-        </Portal>
-      )}
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 rounded-xl bg-white/5 w-fit mb-4">
+        <button
+          onClick={() => setTab('all')}
+          className={clsx('px-5 py-2 rounded-lg text-sm font-medium transition-all',
+            tab === 'all' ? 'bg-primary text-white shadow-lg' : 'text-text-muted hover:text-text-primary'
+          )}
+        >
+          Semua Terapis
+        </button>
+        <button
+          onClick={() => setTab('verification')}
+          className={clsx('relative px-5 py-2 rounded-lg text-sm font-medium transition-all',
+            tab === 'verification' ? 'bg-primary text-white shadow-lg' : 'text-text-muted hover:text-text-primary'
+          )}
+        >
+          Permintaan Verifikasi
+          {pendingVerifications.length > 0 && tab !== 'verification' && (
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
+              {pendingVerifications.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-      {viewModal.open && viewModal.therapist && (
-        <Portal>
-          <ViewDetailModal 
-            therapist={viewModal.therapist}
-            onClose={() => setViewModal({ open: false, therapist: null })}
-            onRefresh={fetchTherapists}
-            onImageClick={(url) => setImageModal({ open: true, url })}
-            onEdit={(t) => setModal({ open: true, therapist: t })}
-            onDelete={handleDeleteTherapist}
-          />
-        </Portal>
-      )}
-
-      {imageModal.open && (
-        <Portal>
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4" onClick={() => setImageModal({ open: false, url: '' })}>
-            <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
-              <X className="w-8 h-8" />
-            </button>
-              <Image 
-                src={imageModal.url} 
-                alt="Therapist Detail" 
-                width={1200}
-                height={800}
-                className="max-w-full max-h-full rounded-lg shadow-2xl animate-in zoom-in-95 duration-200 object-contain" 
-              />
-          </div>
-        </Portal>
-      )}
-
+      {tab === 'all' && (
+        <>
       {/* Filters */}
       <div className="glass-card p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -351,6 +406,292 @@ export default function TherapistsPage() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {tab === 'verification' && (
+        <div className="glass-card overflow-hidden">
+          <div className="p-4 border-b border-ui-border">
+            <h3 className="text-lg font-bold text-text-primary">Permintaan Verifikasi</h3>
+            <p className="text-sm text-text-muted mt-1">Terapis yang sudah melengkapi data dan menunggu persetujuan</p>
+          </div>
+          {verifLoading ? (
+            <div className="p-8 text-center text-text-muted">Memuat...</div>
+          ) : pendingVerifications.length === 0 ? (
+            <div className="p-8 text-center text-text-muted">
+              <UserCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              Tidak ada permintaan verifikasi baru
+            </div>
+          ) : (
+            <div className="divide-y divide-ui-border">
+              {pendingVerifications.map((therapist) => (
+                <div key={therapist.id} className="border-b border-ui-border last:border-b-0">
+                  {/* Collapsible Header */}
+                  <button
+                    onClick={() => setExpandedVerif(expandedVerif === therapist.id ? null : therapist.id)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      {therapist.avatar_url ? (
+                        <Image src={therapist.avatar_url} alt={therapist.full_name} width={44} height={44} className="rounded-xl object-cover flex-shrink-0" unoptimized />
+                      ) : (
+                        <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0">
+                          {therapist.full_name?.[0] || '?'}
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-text-primary">{therapist.full_name}</p>
+                          {therapist.revision_note ? (
+                            <span className="px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 text-[10px] font-medium">Menunggu perbaikan</span>
+                          ) : (
+                            therapist.registration_step === 'submitted' && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium">Perubahan baru</span>
+                            )
+                          )}
+                        </div>
+                        <p className="text-xs text-text-muted">{therapist.phone}</p>
+                      </div>
+                    </div>
+                    <ChevronDown className={clsx('w-5 h-5 text-text-muted transition-transform duration-200', expandedVerif === therapist.id && 'rotate-180')} />
+                  </button>
+
+                  {/* Collapsible Content */}
+                  {expandedVerif === therapist.id && (
+                    <div className="px-5 pb-5 pt-2">
+                      {/* Data Diri */}
+                      <div className="mb-4">
+                        <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Data Diri</h4>
+                        <div className="grid grid-cols-2 gap-y-2 text-sm">
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">NIK</span><span className="text-text-primary font-medium">: {therapist.nik || '-'}</span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Nama Lengkap</span><span className="text-text-primary font-medium">: {therapist.full_name || '-'}</span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Tempat/Tgl Lahir</span><span className="text-text-primary font-medium">: {[therapist.birth_place, therapist.birth_date].filter(Boolean).join(', ') || '-'}</span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Gender</span><span className="text-text-primary font-medium">: {therapist.gender === 'male' ? 'Laki-laki' : therapist.gender === 'female' ? 'Perempuan' : '-'}</span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Status Perkawinan</span><span className="text-text-primary font-medium">: {therapist.marital_status || '-'}</span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Email</span><span className="text-text-primary font-medium">: {therapist.email || '-'}</span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Tier</span><span className="text-text-primary font-medium">: <span className="uppercase">{therapist.tier || 'bronze'}</span></span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Pengalaman</span><span className="text-text-primary font-medium">: {therapist.experience_years || 0} tahun</span></div>
+                          {therapist.updated_at && (
+                            <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Terakhir</span><span className="text-text-primary font-medium">: {format(new Date(therapist.updated_at), 'dd MMM HH:mm')}</span></div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Alamat */}
+                      {therapist.address && (
+                        <div className="mb-4">
+                          <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Alamat</h4>
+                          <div className="flex items-start gap-1.5 text-sm">
+                            <MapPin className="w-4 h-4 text-text-muted mt-0.5 flex-shrink-0" />
+                            <span className="text-text-primary">
+                              {[therapist.address, therapist.kelurahan, therapist.district, therapist.city, therapist.province].filter(Boolean).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Keahlian */}
+                      {therapist.specializations && therapist.specializations.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Keahlian</h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {therapist.specializations.map((s) => (
+                              <span key={s} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bio */}
+                      {therapist.bio && (
+                        <div className="mb-4">
+                          <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Bio</h4>
+                          <p className="text-sm text-text-muted italic leading-relaxed bg-white/[0.03] rounded-xl px-4 py-3">&ldquo;{therapist.bio}&rdquo;</p>
+                        </div>
+                      )}
+
+                      {/* Dokumen */}
+                      <div className="mb-4">
+                        <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Dokumen</h4>
+                        <div className="flex gap-4">
+                          {therapist.ktp_photo_url && (
+                            <button onClick={() => setImageModal({ open: true, url: therapist.ktp_photo_url! })} className="group text-center">
+                              <div className="w-28 h-20 rounded-xl overflow-hidden border border-ui-border bg-white/5 group-hover:border-primary/50 transition-colors">
+                                <Image src={therapist.ktp_photo_url} alt="KTP" width={112} height={80} className="w-full h-full object-cover" unoptimized />
+                              </div>
+                              <p className="text-[10px] text-text-muted mt-1.5 group-hover:text-primary transition-colors">Foto KTP</p>
+                            </button>
+                          )}
+                          {therapist.selfie_photo_url && (
+                            <button onClick={() => setImageModal({ open: true, url: therapist.selfie_photo_url! })} className="group text-center">
+                              <div className="w-28 h-20 rounded-xl overflow-hidden border border-ui-border bg-white/5 group-hover:border-primary/50 transition-colors">
+                                <Image src={therapist.selfie_photo_url} alt="Selfie" width={112} height={80} className="w-full h-full object-cover" unoptimized />
+                              </div>
+                              <p className="text-[10px] text-text-muted mt-1.5 group-hover:text-primary transition-colors">Foto Selfie</p>
+                            </button>
+                          )}
+                          {therapist.certificate_url && (
+                            <a href={therapist.certificate_url} target="_blank" rel="noopener noreferrer"
+                              className="group text-center">
+                              <div className="w-28 h-20 rounded-xl flex items-center justify-center border border-ui-border bg-info/5 group-hover:border-info/40 transition-colors">
+                                <Eye className="w-7 h-7 text-info" />
+                              </div>
+                              <p className="text-[10px] text-text-muted mt-1.5 group-hover:text-info transition-colors">Sertifikat</p>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-end gap-2 pt-4 border-t border-ui-border">
+                        <button
+                          onClick={() => setRevisionModal({ open: true, therapist, selectedFields: [], note: '' })}
+                          className="btn-secondary text-sm px-4 py-2.5 flex items-center gap-2 text-orange-500 border-orange-500/30 hover:bg-orange-500/10"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Minta Revisi
+                        </button>
+                        <button
+                          onClick={() => handleApproveVerification(therapist)}
+                          className="btn-primary text-sm px-5 py-2.5 flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Setujui
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Revision Modal */}
+      {revisionModal.open && revisionModal.therapist && (
+        <Portal>
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-card rounded-2xl w-[480px] max-w-[95vw] max-h-[90vh] overflow-y-auto shadow-2xl border border-ui-border animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between p-5 border-b border-ui-border">
+                <div>
+                  <h3 className="text-lg font-bold text-text-primary">Minta Revisi</h3>
+                  <p className="text-sm text-text-muted mt-0.5">Pilih kolom yang perlu diperbaiki oleh {revisionModal.therapist.full_name}</p>
+                </div>
+                <button onClick={() => setRevisionModal({ open: false, therapist: null, selectedFields: [], note: '' })} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                  <X className="w-5 h-5 text-text-muted" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Field checkboxes */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-text-primary">Kolom yang perlu direvisi</p>
+                  {REVISION_FIELDS.map((field) => (
+                    <label key={field.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.03] cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={revisionModal.selectedFields.includes(field.id)}
+                        onChange={() => {
+                          const fields = revisionModal.selectedFields.includes(field.id)
+                            ? revisionModal.selectedFields.filter(f => f !== field.id)
+                            : [...revisionModal.selectedFields, field.id];
+                          setRevisionModal(prev => ({ ...prev, selectedFields: fields }));
+                        }}
+                        className="w-4 h-4 rounded border-ui-border accent-orange-500"
+                      />
+                      <span className="text-sm text-text-primary">{field.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Textarea for additional notes */}
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium text-text-primary">Catatan tambahan <span className="text-text-muted font-normal">(opsional)</span></p>
+                  <textarea
+                    value={revisionModal.note}
+                    onChange={(e) => setRevisionModal(prev => ({ ...prev, note: e.target.value }))}
+                    placeholder="Jelaskan apa yang perlu diperbaiki..."
+                    rows={3}
+                    className="input-field w-full resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 p-5 border-t border-ui-border">
+                <button
+                  onClick={() => setRevisionModal({ open: false, therapist: null, selectedFields: [], note: '' })}
+                  className="btn-secondary text-sm px-4 py-2"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={() => {
+                    if (revisionModal.selectedFields.length === 0) {
+                      toast.error('Pilih minimal satu kolom yang perlu direvisi');
+                      return;
+                    }
+                    handleReviseVerification(revisionModal.therapist!, revisionModal.selectedFields, revisionModal.note);
+                    setRevisionModal({ open: false, therapist: null, selectedFields: [], note: '' });
+                  }}
+                  className="btn-primary text-sm px-4 py-2 flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Kirim Permintaan Revisi
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Image Full View Sidebar */}
+      {imageModal.open && (
+        <div className="fixed inset-y-0 right-0 z-[10000] w-[420px] max-w-[90vw] bg-card border-l border-ui-border shadow-2xl animate-in slide-in-from-right duration-200 flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-ui-border">
+            <h3 className="text-sm font-bold text-text-primary">Foto</h3>
+            <button onClick={() => setImageModal({ open: false, url: '' })} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+              <X className="w-5 h-5 text-text-muted" />
+            </button>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4 bg-black">
+            <Image 
+              src={imageModal.url} 
+              alt="Full View" 
+              width={800}
+              height={1200}
+              className="max-w-full max-h-full rounded-lg object-contain" 
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Modal */}
+      {modal.open && (
+        <Portal>
+          <TherapistModal 
+            onClose={() => setModal({ open: false, therapist: null })}
+            onSubmit={handleAddTherapist}
+            submitting={submitting}
+            initialData={modal.therapist}
+          />
+        </Portal>
+      )}
+
+      {/* View Detail Modal */}
+      {viewModal.open && viewModal.therapist && (
+        <Portal>
+          <ViewDetailModal 
+            therapist={viewModal.therapist}
+            onClose={() => setViewModal({ open: false, therapist: null })}
+            onRefresh={fetchTherapists}
+            onImageClick={(url) => setImageModal({ open: true, url })}
+            onEdit={(t) => setModal({ open: true, therapist: t })}
+            onDelete={handleDeleteTherapist}
+          />
+        </Portal>
+      )}
+
       {/* Confirm Modal */}
       {confirmModal && (
         <ConfirmModal 
@@ -518,7 +859,6 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
         tier: initialData?.tier || 'bronze',
         status: initialData?.status || 'online',
         rating: initialData?.rating || 5.0,
-        commission_rate: 80.0
       };
       onSubmit(submissionData);
     } catch (err) {
@@ -832,8 +1172,16 @@ function ViewDetailModal({ therapist, onClose, onRefresh, onImageClick, onEdit, 
             <div className="glass-card p-4">
               <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">{t('gender')}</p>
               <p className="text-sm text-text-secondary">
-                {therapist.gender === 'male' ? t('male') : t('female')}
+                {therapist.gender === 'male' ? t('male') : therapist.gender === 'female' ? t('female') : '-'}
               </p>
+            </div>
+            <div className="glass-card p-4">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Tempat/Tgl Lahir</p>
+              <p className="text-sm text-text-secondary">{[therapist.birth_place, therapist.birth_date].filter(Boolean).join(', ') || '-'}</p>
+            </div>
+            <div className="glass-card p-4">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Status Perkawinan</p>
+              <p className="text-sm text-text-secondary">{therapist.marital_status || '-'}</p>
             </div>
           </div>
 

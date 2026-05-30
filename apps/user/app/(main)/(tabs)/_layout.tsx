@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   activeLabel: {
     color: PURPLE,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 12,
     letterSpacing: 0.2,
   },

@@ -1,19 +1,29 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useThemeColors } from '@/store/themeStore';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { TYPOGRAPHY } from '@/constants/Theme';
+import { getAppSettings } from '@/lib/appSettings';
 
 export default function SplashScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
   const router = useRouter();
-  const logoScale = new Animated.Value(0);
-  const logoOpacity = new Animated.Value(0);
-  const textOpacity = new Animated.Value(0);
-  const ripple = new Animated.Value(0);
+  const [platformName, setPlatformName] = useState('Kang Massage');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const ripple = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    getAppSettings().then(s => {
+      setPlatformName(s.platform_name);
+      setLogoUrl(s.logo_url);
+    });
+  }, []);
 
   useEffect(() => {
     Animated.sequence([
@@ -21,18 +31,18 @@ export default function SplashScreen() {
         Animated.spring(logoScale, {
           toValue: 1,
           useNativeDriver: true,
-          tension: 60,
-          friction: 8,
+          tension: 50,
+          friction: 7,
         }),
         Animated.timing(logoOpacity, {
           toValue: 1,
-          duration: 600,
+          duration: 800,
           useNativeDriver: true,
         }),
       ]),
       Animated.timing(textOpacity, {
         toValue: 1,
-        duration: 500,
+        duration: 600,
         useNativeDriver: true,
       }),
     ]).start();
@@ -40,15 +50,16 @@ export default function SplashScreen() {
     Animated.loop(
       Animated.timing(ripple, {
         toValue: 1,
-        duration: 2000,
+        duration: 2500,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       })
     ).start();
 
-    const timer = setTimeout(() => {
-      router.replace('/onboarding');
-    }, 2800);
+      const timer = setTimeout(async () => {
+        const done = await SecureStore.getItemAsync('onboarding_completed');
+        router.replace(done ? '/(auth)/login' : '/onboarding');
+      }, 3000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -72,22 +83,20 @@ export default function SplashScreen() {
           { transform: [{ scale: logoScale }], opacity: logoOpacity },
         ]}
       >
-        <LinearGradient
-          colors={[t.secondary, '#EA580C']}
-          style={styles.logoCircle}
-        >
-          <Ionicons name="hand-left" size={52} color="#FFFFFF" />
-        </LinearGradient>
+        <Image
+          source={logoUrl ? { uri: logoUrl } : require('../assets/logo-kang-massage.png')}
+          style={styles.logoImage}
+        />
       </Animated.View>
 
       <Animated.View style={{ opacity: textOpacity, alignItems: 'center', marginTop: 24 }}>
-        <Animated.Text style={styles.title}>PijatPro</Animated.Text>
+        <Animated.Text style={styles.title}>{platformName}</Animated.Text>
         <Animated.Text style={styles.subtitle}>Mitra Terapis</Animated.Text>
       </Animated.View>
 
       {/* Bottom badge */}
-      <Animated.View style={[styles.badge, { opacity: textOpacity }]}>
-        <Ionicons name="shield-checkmark" size={14} color={t.success} />
+      <Animated.View style={[styles.badge, { opacity: textOpacity, backgroundColor: t.primary + '15', borderColor: t.primary + '30' }]}>
+        <Ionicons name="shield-checkmark" size={14} color={t.primary} />
         <Animated.Text style={styles.badgeText}>Platform Terpercaya #1 Indonesia</Animated.Text>
       </Animated.View>
     </View>
@@ -107,29 +116,20 @@ const getStyles = (t: any) => StyleSheet.create({
     height: 160,
     borderRadius: 80,
     borderWidth: 2,
-    borderColor: t.secondary + '20',
+    borderColor: t.primary + '20',
   },
   logoContainer: { alignItems: 'center' },
-  logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: t.secondary,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 16,
+  logoImage: {
+    width: 120, height: 120, resizeMode: 'contain',
   },
   title: {
     ...TYPOGRAPHY.h1,
-    color: '#FFFFFF',
+    color: t.text,
     fontSize: 36,
   },
   subtitle: {
     ...TYPOGRAPHY.body,
-    color: 'rgba(255,255,255,0.7)',
+    color: t.textSecondary,
     marginTop: 6,
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -141,16 +141,14 @@ const getStyles = (t: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
   },
   badgeText: {
     ...TYPOGRAPHY.caption,
-    color: '#FFFFFF',
+    color: t.textSecondary,
     fontSize: 12,
   },
 });

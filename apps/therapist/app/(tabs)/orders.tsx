@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { calculateDistance } from '@/lib/utils';
 import { CustomAlertTrigger } from '@/store/alertStore';
+import { API_URL } from '@/lib/config';
 
 const STATUS_COLOR: Record<string, string> = {
   pending: '#F97316',
@@ -85,7 +86,7 @@ export default function OrdersScreen() {
         .select(`
           *,
           users (full_name, avatar_url, phone),
-          services (name, duration_min)
+          services (name, duration_min, price_type)
         `)
         .eq('therapist_id', profile.id)
         .order('created_at', { ascending: false });
@@ -174,6 +175,18 @@ export default function OrdersScreen() {
              type: 'error'
            });
         }
+      } else {
+        const acceptedOrder = data[0];
+        fetch(`${API_URL}/api/notifications/send`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: acceptedOrder.user_id,
+            title: 'Pesanan Diterima',
+            body: `Terapis ${profile?.full_name} telah menerima pesanan Anda dan akan segera menuju lokasi.`,
+            type: 'order_accepted',
+            data: { order_id: orderId },
+          }),
+        }).catch((err: any) => console.warn('Push notif error:', err?.message));
       }
 
       fetchOrders();
@@ -230,7 +243,7 @@ export default function OrdersScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.customerName}>{order.users?.full_name || 'Pelanggan'}</Text>
-                  <Text style={styles.serviceText}>{order.services?.name || 'Pijat Relaksasi'} · {order.services?.duration_min || 60} menit</Text>
+                  <Text style={styles.serviceText}>{order.services?.name || 'Pijat Relaksasi'} · {(order.services as any)?.price_type === 'treatment' ? 'Treatment' : `${order.services?.duration_min || 60} menit`}</Text>
                 </View>
                 <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[order.status] || t.textMuted) + '15' }]}>
                   <View style={[styles.badgeDot, { backgroundColor: STATUS_COLOR[order.status] || t.textMuted } ]} />

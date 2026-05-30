@@ -50,14 +50,15 @@ export async function POST(req: NextRequest) {
     if (topupError) throw topupError;
 
     // 3. Integrate Xendit Invoice API
-    const secretKey = process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     // INTERCEPT FOR XENDIT DIRECT SANDBOX / LOCAL TESTING
     if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
-      const url = new URL(req.url);
-      const origin = url.origin;
-      // Gunakan origin dinamis agar bisa diakses dari HP fisik (IP lokal), bukan memaksakan localhost
+      // Pakai Host header biar URL sandbox sesuai IP asli, bukan localhost dari req.url
+      const host = req.headers.get('host') || 'localhost:3000';
+      const protocol = req.headers.get('x-forwarded-proto')?.split(',')[0] || 'http';
+      const origin = `${protocol}://${host}`;
       const redirectUrl = `${origin}/xendit-sandbox?id=${topup.id}&amount=${amount}&order_id=${order_id}`;
 
       const directXenditData = {
@@ -85,13 +86,17 @@ export async function POST(req: NextRequest) {
 
     // Map payment_method to Xendit allowed payment channels if specific method chosen
     const paymentMethodsMap: Record<string, string[]> = {
-      'gopay': ['QRIS'],
       'shopeepay': ['SHOPEEPAY'],
       'dana': ['DANA'],
+      'ovo': ['OVO'],
+      'linkaja': ['LINKAJA'],
       'bca_va': ['BCA'],
       'mandiri_va': ['MANDIRI'],
       'bni_va': ['BNI'],
       'bri_va': ['BRI'],
+      'permata_va': ['PERMATA'],
+      'bsi_va': ['BSI'],
+      'cimb_va': ['CIMB'],
       'alfamart': ['ALFAMART'],
       'indomaret': ['INDOMARET'],
     };

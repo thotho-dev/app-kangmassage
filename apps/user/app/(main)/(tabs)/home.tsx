@@ -612,7 +612,7 @@ const bannerStyles = StyleSheet.create({
   badgeText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     letterSpacing: 0.8,
   },
   textBlock: {
@@ -624,7 +624,7 @@ const bannerStyles = StyleSheet.create({
   slideTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 4,
     textShadowColor: 'rgba(0,0,0,0.4)',
     textShadowOffset: { width: 0, height: 1 },
@@ -633,7 +633,7 @@ const bannerStyles = StyleSheet.create({
   slideSubtitle: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
   },
   bookBtn: {
     position: 'absolute',
@@ -649,7 +649,7 @@ const bannerStyles = StyleSheet.create({
   bookBtnText: {
     color: '#FFE6B0',
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     letterSpacing: 1,
   },
   dots: {
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 25,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   bellButton: {
@@ -764,18 +764,18 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: '#FFFFFF',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 14,
   },
   greetingSmall: {
     fontSize: 11,
     color: TEXT_MUTED,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     marginBottom: 1,
   },
   greetingName: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   circleAction: {
@@ -814,12 +814,12 @@ const styles = StyleSheet.create({
   locationLabel: {
     fontSize: 10,
     color: TEXT_MUTED,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     marginBottom: 1,
   },
   locationText: {
     fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_DARK,
   },
 
@@ -844,13 +844,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   seeAll: {
     fontSize: 12,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: PURPLE,
   },
 
@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
   },
   serviceBadgeText: {
     fontSize: 9,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#15803D',
   },
   serviceBadgeTextDiscount: {
@@ -910,19 +910,19 @@ const styles = StyleSheet.create({
   },
   serviceName: {
     fontSize: 12,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginBottom: 2,
   },
   servicePrice: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
     marginBottom: 4,
   },
   serviceDesc: {
     fontSize: 10,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
     lineHeight: 14,
     marginBottom: 10,
@@ -941,7 +941,7 @@ const styles = StyleSheet.create({
   pickButtonText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
 
   // All services
@@ -959,7 +959,7 @@ const styles = StyleSheet.create({
   },
   allServicesText: {
     color: PURPLE,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 13,
   },
 
@@ -1002,13 +1002,13 @@ const styles = StyleSheet.create({
   },
   floatingTitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#1A1A2E',
     marginBottom: 2,
   },
   floatingSubtitle: {
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: '#6B7280',
   },
   floatingRight: {
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
   floatingBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   floatingCloseBtn: {
     position: 'absolute',

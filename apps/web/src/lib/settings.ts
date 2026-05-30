@@ -22,6 +22,8 @@ export type AppSettings = {
   support_whatsapp: string;
   chat_link: string;
   logo_url: string | null;
+  xendit_secret_key: string;
+  xendit_webhook_verification_token: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -46,6 +48,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   support_whatsapp: '',
   chat_link: '',
   logo_url: null,
+  xendit_secret_key: '',
+  xendit_webhook_verification_token: '',
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -83,6 +87,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       support_whatsapp: data.support_whatsapp ?? DEFAULT_SETTINGS.support_whatsapp,
       chat_link: data.chat_link ?? DEFAULT_SETTINGS.chat_link,
       logo_url: data.logo_url ?? null,
+      xendit_secret_key: data.xendit_secret_key ?? '',
+      xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
     };
   } catch {
     return DEFAULT_SETTINGS;

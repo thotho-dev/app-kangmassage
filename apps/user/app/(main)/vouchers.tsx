@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   scrollContent: {
@@ -413,17 +413,17 @@ const styles = StyleSheet.create({
   },
   voucherTitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#1A1A1A',
   },
   voucherDescription: {
     fontSize: 10,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: '#6B7280',
   },
   voucherDiscount: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   discountRow: {
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   invalidText: {
     fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#EF4444',
   },
   footerInfo: {
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   },
   voucherExpiry: {
     fontSize: 11,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: '#9CA3AF',
   },
   useButton: {
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   },
   useButtonText: {
     fontSize: 11,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
   cutoutTop: {
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
     flex: 1,
   },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   emptyContainer: {
@@ -553,13 +553,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 13,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
     textAlign: 'center',
     lineHeight: 20,

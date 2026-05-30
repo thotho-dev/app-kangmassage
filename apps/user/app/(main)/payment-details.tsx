@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     shadowColor: PURPLE, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
   },
-  payBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  payBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 
   instrContainer: {
     backgroundColor: 'white', padding: 20, borderRadius: 24,
@@ -174,5 +174,5 @@ const styles = StyleSheet.create({
     shadowColor: PURPLE, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2, shadowRadius: 8, elevation: 4,
   },
-  doneBtnText: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
+  doneBtnText: { fontSize: 14, color: '#FFFFFF', fontWeight: '700' },
 });

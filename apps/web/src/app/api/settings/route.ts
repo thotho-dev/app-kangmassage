@@ -37,6 +37,11 @@ export async function GET() {
         support_whatsapp: '',
         chat_link: '',
         logo_url: null,
+        puter_auth_token: '',
+        puter_model_name: 'deepseek/deepseek-v4-flash',
+        puter_ocr_model_name: 'z-ai/glm-4.5-air:free',
+        xendit_secret_key: '',
+        xendit_webhook_verification_token: '',
       });
     }
 
@@ -62,6 +67,11 @@ export async function GET() {
       support_whatsapp: data.support_whatsapp ?? '',
       chat_link: data.chat_link ?? '',
       logo_url: data.logo_url ?? null,
+      puter_auth_token: data.puter_auth_token ?? '',
+      puter_model_name: data.puter_model_name ?? 'deepseek/deepseek-v4-flash',
+      puter_ocr_model_name: data.puter_ocr_model_name ?? 'z-ai/glm-4.5-air:free',
+      xendit_secret_key: data.xendit_secret_key ?? '',
+      xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
     });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -102,6 +112,8 @@ export async function PUT(req: NextRequest) {
       'withdraw_admin_fee', 'withdraw_min_amount', 'withdraw_max_amount',
       'order_service_fee', 'order_admin_fee',
       'platform_name', 'support_email', 'support_whatsapp', 'chat_link', 'logo_url',
+      'puter_auth_token', 'puter_model_name', 'puter_ocr_model_name',
+      'xendit_secret_key', 'xendit_webhook_verification_token',
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -161,6 +173,11 @@ export async function PUT(req: NextRequest) {
       support_whatsapp: data.support_whatsapp ?? '',
       chat_link: data.chat_link ?? '',
       logo_url: data.logo_url ?? null,
+      puter_auth_token: data.puter_auth_token ?? '',
+      puter_model_name: data.puter_model_name ?? 'deepseek/deepseek-v4-flash',
+      puter_ocr_model_name: data.puter_ocr_model_name ?? 'z-ai/glm-4.5-air:free',
+      xendit_secret_key: data.xendit_secret_key ?? '',
+      xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
     });
   } catch (err) {
     console.error(err);

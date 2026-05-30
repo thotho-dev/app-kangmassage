@@ -53,6 +53,7 @@ CREATE TABLE users (
   role            user_role NOT NULL DEFAULT 'user',
   wallet_balance  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   total_orders    INTEGER NOT NULL DEFAULT 0,
+  push_token      TEXT,
   is_active       BOOLEAN NOT NULL DEFAULT true,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -68,19 +69,35 @@ CREATE TABLE therapists (
   full_name       VARCHAR(255) NOT NULL,
   phone           VARCHAR(20) UNIQUE NOT NULL,
   email           VARCHAR(255) UNIQUE,
+  nik             VARCHAR(16) UNIQUE,
+  address         TEXT,
+  rt_rw           TEXT,
+  kelurahan       TEXT,
+  district        TEXT,
+  city            TEXT,
+  province        TEXT,
+  experience_years INTEGER DEFAULT 0,
   avatar_url      TEXT,
   bio             TEXT,
   gender          VARCHAR(10),
   specializations TEXT[],
+  ktp_photo_url   TEXT,
+  selfie_photo_url TEXT,
+  certificate_url TEXT,
+  certificate_verified BOOLEAN DEFAULT false,
+  device_id       TEXT,
+  revision_note   TEXT,
+  registration_step VARCHAR(20) DEFAULT 'pending',
   rating          DECIMAL(3,2) NOT NULL DEFAULT 5.00,
   total_reviews   INTEGER NOT NULL DEFAULT 0,
   total_orders    INTEGER NOT NULL DEFAULT 0,
   status          therapist_status NOT NULL DEFAULT 'offline',
   wallet_balance  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-  commission_rate DECIMAL(5,2) NOT NULL DEFAULT 80.00, -- % of order fee goes to therapist
+  commission_rate DECIMAL(5,2) NOT NULL DEFAULT 80.00,
   is_verified     BOOLEAN NOT NULL DEFAULT false,
   is_active       BOOLEAN NOT NULL DEFAULT true,
   tier            therapist_tier NOT NULL DEFAULT 'bronze',
+  push_token      TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -271,6 +288,23 @@ CREATE TABLE notifications (
 );
 
 -- ============================================================
+-- THERAPIST TOPUPS TABLE (Xendit Transactions)
+-- ============================================================
+
+CREATE TABLE therapist_topups (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  therapist_id    UUID NOT NULL REFERENCES therapists(id) ON DELETE CASCADE,
+  amount          DECIMAL(12,2) NOT NULL,
+  fee             DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  status          VARCHAR(50) NOT NULL DEFAULT 'pending',
+  external_id     VARCHAR(255) UNIQUE NOT NULL,
+  payment_method  VARCHAR(100) NOT NULL,
+  payment_data    JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
 -- USER TOPUPS TABLE (Midtrans Transactions)
 -- ============================================================
 
@@ -356,8 +390,23 @@ CREATE TRIGGER update_therapists_updated_at BEFORE UPDATE ON therapists FOR EACH
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_services_updated_at BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_vouchers_updated_at BEFORE UPDATE ON vouchers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_therapist_topups_updated_at BEFORE UPDATE ON therapist_topups FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_topups_updated_at BEFORE UPDATE ON user_topups FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_withdrawals_updated_at BEFORE UPDATE ON user_withdrawals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Prevent unverified therapists from going online
+CREATE OR REPLACE FUNCTION enforce_therapist_verified_for_online()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'online' AND (OLD.is_verified = false OR NEW.is_verified = false) THEN
+    NEW.status := 'offline';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_therapist_verified_for_online BEFORE UPDATE ON therapists
+FOR EACH ROW EXECUTE FUNCTION enforce_therapist_verified_for_online();
 
 -- Auto-generate order number
 CREATE OR REPLACE FUNCTION generate_order_number()
@@ -453,6 +502,15 @@ CREATE TABLE app_settings (
   support_whatsapp        TEXT NOT NULL DEFAULT '',
   chat_link               TEXT NOT NULL DEFAULT '',
 
+  -- AI Chat Configuration
+  puter_auth_token        TEXT NOT NULL DEFAULT '',
+  puter_model_name        VARCHAR(100) NOT NULL DEFAULT 'deepseek/deepseek-v4-flash',
+  puter_ocr_model_name    VARCHAR(100) NOT NULL DEFAULT 'z-ai/glm-4.5-air:free',
+
+  -- Xendit Configuration
+  xendit_secret_key              TEXT NOT NULL DEFAULT '',
+  xendit_webhook_verification_token TEXT NOT NULL DEFAULT '',
+
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by              UUID REFERENCES users(id)
 );
@@ -503,6 +561,7 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE voucher_usages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE therapist_topups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_topups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_withdrawals ENABLE ROW LEVEL SECURITY;
 
@@ -536,6 +595,11 @@ CREATE POLICY "notifications_own" ON notifications FOR ALL USING (
 CREATE POLICY "transactions_own" ON transactions FOR SELECT USING (
   user_id IN (SELECT id FROM users WHERE supabase_uid = auth.uid())
   OR therapist_id IN (SELECT id FROM therapists WHERE supabase_uid = auth.uid())
+);
+
+-- Therapist Topups own
+CREATE POLICY "therapist_topups_own" ON therapist_topups FOR ALL USING (
+  therapist_id IN (SELECT id FROM therapists WHERE supabase_uid = auth.uid())
 );
 
 -- User Topups own

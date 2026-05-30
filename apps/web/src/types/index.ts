@@ -31,6 +31,17 @@ export interface Therapist {
   avatar_url?: string;
   bio?: string;
   gender?: string;
+  nik?: string;
+  address?: string;
+  rt_rw?: string;
+  kelurahan?: string;
+  district?: string;
+  city?: string;
+  province?: string;
+  experience_years?: number;
+  ktp_photo_url?: string;
+  selfie_photo_url?: string;
+  certificate_url?: string;
   specializations?: string[];
   rating: number;
   total_reviews: number;
@@ -39,6 +50,8 @@ export interface Therapist {
   wallet_balance: number;
   commission_rate: number;
   device_id?: string;
+  registration_step?: string;
+  revision_note?: string;
   is_verified: boolean;
   is_active: boolean;
   tier: TherapistTier;

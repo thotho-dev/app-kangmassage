@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heyputer/puter.js": "^2.4.2",
     "@supabase/ssr": "^0.4.0",
     "@supabase/supabase-js": "^2.43.4",
     "browser-image-compression": "^2.0.2",
@@ -23,6 +24,7 @@
     "react-hot-toast": "^2.4.1",
     "react-leaflet": "^5.0.0",
     "recharts": "^2.12.7",
+    "tesseract.js": "^7.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

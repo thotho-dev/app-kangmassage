@@ -172,7 +172,7 @@ export default function TopupHistoryScreen() {
                   <View style={styles.timerContainer}>
                     <Clock size={14} color={DANGER} />
                     <Text style={styles.timerText}>
-                      Batal otomatis dalam <Text style={{ fontFamily: 'Inter-Bold' }}>{renderCountdown(item.created_at, item.id)}</Text>
+                      Batal otomatis dalam <Text style={{ fontFamily: 'PlusJakartaSans-Bold' }}>{renderCountdown(item.created_at, item.id)}</Text>
                     </Text>
                   </View>
                 )}
@@ -225,31 +225,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: BORDER 
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK },
+  headerTitle: { fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK },
   scroll: { padding: 16, paddingBottom: 40 },
   
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
   emptyIcon: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 20, backgroundColor: '#FFFFFF' },
-  emptyTitle: { fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK, marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK, marginBottom: 8 },
   emptySub: { fontSize: 13, color: TEXT_MUTED, textAlign: 'center' },
   
   card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: BORDER, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: `${PURPLE}10` },
-  amount: { fontSize: 15, color: TEXT_DARK, fontFamily: 'Inter-Bold' },
+  amount: { fontSize: 15, color: TEXT_DARK, fontFamily: 'PlusJakartaSans-Bold' },
   date: { fontSize: 12, color: TEXT_MUTED, marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontSize: 11, fontFamily: 'Inter-Bold' },
+  statusText: { fontSize: 11, fontFamily: 'PlusJakartaSans-Bold' },
   
   cardBottom: { borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 12, gap: 6 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailLabel: { fontSize: 12, color: TEXT_MUTED },
-  detailValue: { fontSize: 12, color: TEXT_DARK, fontFamily: 'Inter-SemiBold' },
+  detailValue: { fontSize: 12, color: TEXT_DARK, fontFamily: 'PlusJakartaSans-SemiBold' },
   
   timerContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, backgroundColor: `${DANGER}10`, padding: 8, borderRadius: 8 },
   timerText: { fontSize: 12, color: DANGER },
   
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 16, borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 16 },
   actionBtn: { paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  actionText: { fontSize: 13, fontFamily: 'Inter-Bold' },
+  actionText: { fontSize: 13, fontFamily: 'PlusJakartaSans-Bold' },
 });

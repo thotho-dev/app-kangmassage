@@ -236,17 +236,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: BORDER 
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK },
+  headerTitle: { fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK },
   list: { padding: 16, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   
   card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: BORDER },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  amount: { fontSize: 15, fontFamily: 'Inter-Bold', color: TEXT_DARK },
+  amount: { fontSize: 15, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK },
   date: { fontSize: 12, marginTop: 2, color: TEXT_MUTED },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontSize: 11, fontFamily: 'Inter-Bold' },
+  statusText: { fontSize: 11, fontFamily: 'PlusJakartaSans-Bold' },
   
   cardDivider: { height: 1, backgroundColor: BORDER, marginVertical: 12 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: 40 },
   emptyIcon: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  emptyTitle: { fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK, marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK, marginBottom: 8 },
   emptyDesc: { fontSize: 13, color: TEXT_MUTED, textAlign: 'center', lineHeight: 20 },
 
   cancelActionBtn: {
@@ -270,6 +270,6 @@ const styles = StyleSheet.create({
   cancelActionText: {
     color: '#DC2626',
     fontSize: 12,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
 });

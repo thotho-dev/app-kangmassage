@@ -12,6 +12,10 @@ import IncomingOrderModal from '@/components/IncomingOrderModal';
 import { useAlert } from '@/components/CustomAlert';
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '@/lib/supabase';
+
+let verifyChannel: any = null;
+import { CustomAlertTrigger } from '@/store/alertStore';
 
 function TabIcon({ name, label, focused, color, activeBg }: { name: string; label?: string; focused: boolean, color: string, activeBg: string }) {
   return (
@@ -32,7 +36,7 @@ export default function TabLayout() {
   const t = useThemeColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { profile, isOnline, fetchProfile, setIncomingOrder, welcomeMessage, setWelcomeMessage } = useTherapistStore();
+  const { profile, isOnline, fetchProfile, setIncomingOrder, welcomeMessage, setWelcomeMessage, subscribeToDeactivation, unsubscribeDeactivation } = useTherapistStore();
   const { showAlert, AlertComponent } = useAlert();
 
   useEffect(() => {
@@ -45,8 +49,66 @@ export default function TabLayout() {
   }, [welcomeMessage]);
 
   useEffect(() => {
-    fetchProfile();
+    fetchProfile().then(() => {
+      const p = useTherapistStore.getState().profile;
+      if (!p?.id) return;
+
+      subscribeToDeactivation(async () => {
+        unsubscribeDeactivation();
+        if (p?.id) {
+          await supabase.from('therapists').update({ status: 'offline' }).eq('id', p.id);
+        }
+        await supabase.auth.signOut();
+        CustomAlertTrigger.show({
+          type: 'error',
+          title: 'Akun Dinonaktifkan',
+          message: 'Akun Anda telah dinonaktifkan oleh admin. Silakan hubungi admin untuk informasi lebih lanjut.',
+          buttons: [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }],
+        });
+      });
+
+      // Subscribe realtime untuk verifikasi / revisi
+      verifyChannel = supabase
+        .channel('therapist-verify')
+        .on('postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'therapists', filter: `id=eq.${p.id}` },
+          (payload) => {
+            const updated = payload.new as any;
+            const old = payload.old as any;
+            if (updated.is_verified === true && old?.is_verified === false) {
+              CustomAlertTrigger.show({
+                type: 'success',
+                title: 'Akun Terverifikasi! 🎉',
+                message: 'Selamat! Akun Anda telah diverifikasi oleh admin. Sekarang Anda dapat menerima pesanan.',
+              });
+            } else if (updated.revision_note && updated.revision_note !== old?.revision_note) {
+              CustomAlertTrigger.show({
+                type: 'warning',
+                title: 'Perbaikan Data Diperlukan',
+                message: 'Admin meminta perbaikan pada data pendaftaran Anda. Silakan periksa dan kirim ulang.',
+                buttons: [{ text: 'Lihat', onPress: () => router.replace('/(auth)/register?continue=1') }],
+              });
+            }
+          }
+        )
+        .subscribe();
+
+    });
     
+    // Handle notification tap that opened the app (cold start)
+    (async () => {
+      try {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (response?.notification?.request?.content?.data?.orderData) {
+          const raw = response.notification.request.content.data.orderData;
+          const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          setIncomingOrder(orderData);
+        }
+      } catch (e) {
+        console.warn('Failed to process cold-start notification', e);
+      }
+    })();
+
     // Listen for notification interactions (Foreground)
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const notification = response.notification;
@@ -64,6 +126,8 @@ export default function TabLayout() {
 
     return () => {
       subscription.remove();
+      unsubscribeDeactivation();
+      if (verifyChannel) supabase.removeChannel(verifyChannel);
     };
   }, []);
 

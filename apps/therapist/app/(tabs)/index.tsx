@@ -54,7 +54,8 @@ export default function DashboardScreen() {
     todayEarnings: 0,
     todayOrders: 0,
     rating: 5.0,
-    totalHours: 0
+    totalHours: 0,
+    totalTreatments: 0
   });
   const { fetchProfile } = useTherapistStore();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -156,7 +157,7 @@ export default function DashboardScreen() {
 
       const { data: todayData, error: todayError } = await supabase
         .from('orders')
-        .select('total_price, service_price, service_fee, status, created_at, duration')
+        .select('total_price, service_price, service_fee, status, created_at, duration, services(price_type)')
         .eq('therapist_id', profile.id)
         .gte('created_at', startOfDay.toISOString());
 
@@ -177,13 +178,16 @@ export default function DashboardScreen() {
         return sum + share;
       }, 0);
 
-      // Calculate Total Hours Today from duration column
-      const totalHoursToday = completedToday.reduce((sum, o) => sum + (Number(o.duration) || 0), 0) / 60;
+      // Calculate Total Hours/Treatments Today
+      const durationOrders = completedToday.filter(o => (o.services as any)?.price_type !== 'treatment');
+      const treatmentOrders = completedToday.filter(o => (o.services as any)?.price_type === 'treatment');
+      const totalHoursToday = durationOrders.reduce((sum, o) => sum + (Number(o.duration) || 0), 0) / 60;
+      const totalTreatmentsToday = treatmentOrders.length;
 
       // 2. Ambil Pesanan Terbaru Hari Ini (Limit 3)
       const { data: recentOrders, error: oError } = await supabase
         .from('orders')
-        .select('*, users(full_name, avatar_url), services(name, duration_min)')
+        .select('*, users(full_name, avatar_url), services(name, duration_min, price_type)')
         .eq('therapist_id', profile.id)
         .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false })
@@ -194,9 +198,10 @@ export default function DashboardScreen() {
       setOrders(recentOrders || []);
       setDashboardStats({
         todayEarnings: earnings,
-        todayOrders: completedToday.length, // Only count completed orders for the stat
+        todayOrders: completedToday.length,
         rating: Number(profile.rating) || 5.0,
-        totalHours: totalHoursToday // Display hours from today's completed orders
+        totalHours: totalHoursToday,
+        totalTreatments: totalTreatmentsToday
       });
     } catch (error) {
       console.error('Dashboard Fetch Error:', error);
@@ -217,11 +222,13 @@ export default function DashboardScreen() {
 
   const styles = getStyles(t);
 
+  const totalJamValue = dashboardStats.totalHours > 0 ? `${dashboardStats.totalHours.toFixed(1)} jam` : '';
+  const totalTreatValue = dashboardStats.totalTreatments > 0 ? `${dashboardStats.totalTreatments} Treat` : '';
   const stats = [
     { label: 'Pendapatan', value: `Rp ${dashboardStats.todayEarnings.toLocaleString('id-ID')}`, icon: 'cash-outline', color: '#10B981' },
     { label: 'Pesanan', value: dashboardStats.todayOrders.toString(), icon: 'bag-outline', color: t.secondary },
     { label: 'Rating', value: dashboardStats.rating.toFixed(1), icon: 'star-outline', color: '#F59E0B' },
-    { label: 'Total Jam', value: `${dashboardStats.totalHours} jam`, icon: 'time-outline', color: '#06B6D4' },
+    { label: 'Total Jam', value: totalJamValue, subValue: totalTreatValue, icon: 'time-outline', color: '#06B6D4' },
   ];
 
   if (loading && profileLoading) {
@@ -330,17 +337,52 @@ export default function DashboardScreen() {
 
         {/* Stats */}
         <View style={styles.statsGrid}>
-          {stats.map((s) => (
-            <View key={s.label} style={[styles.statCard, { borderWidth: 1, borderColor: t.border }]}>
-              <View style={[styles.statIcon, { backgroundColor: s.color + '25' }]}>
-                <Ionicons name={s.icon as any} size={22} color={s.color} />
+          <View style={{ flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.md }}>
+            {stats.slice(0, 2).map((s, i) => (
+              <View key={s.label} style={[styles.statCard, { flex: i === 0 ? 1.4 : 0.6, borderWidth: 1, borderColor: t.border }]}>
+                <View style={[styles.statIcon, { backgroundColor: s.color + '25' }]}>
+                  <Ionicons name={s.icon as any} size={22} color={s.color} />
+                </View>
+                <View style={styles.statInfo}>
+                  <Text style={styles.statValue}>{s.value}</Text>
+                  <Text style={styles.statLabel}>{s.label}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+            <View key={stats[2].label} style={[styles.statCard, { flex: 0.6, borderWidth: 1, borderColor: t.border }]}>
+              <View style={[styles.statIcon, { backgroundColor: stats[2].color + '25' }]}>
+                <Ionicons name={stats[2].icon as any} size={22} color={stats[2].color} />
               </View>
               <View style={styles.statInfo}>
-                <Text style={styles.statValue}>{s.value}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
+                <Text style={styles.statValue}>{stats[2].value}</Text>
+                <Text style={styles.statLabel}>{stats[2].label}</Text>
               </View>
             </View>
-          ))}
+            <View key={stats[3].label} style={[styles.statCard, { flex: 1.4, borderWidth: 1, borderColor: t.border }]}>
+              <View style={[styles.statIcon, { backgroundColor: stats[3].color + '25' }]}>
+                <Ionicons name={stats[3].icon as any} size={22} color={stats[3].color} />
+              </View>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                {stats[3].value ? (
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={styles.statValue}>{stats[3].value}</Text>
+                    <Text style={styles.statLabel}>Total Jam</Text>
+                  </View>
+                ) : null}
+                {stats[3].value && stats[3].subValue ? (
+                  <View style={{ width: 1, height: 36, backgroundColor: t.border }} />
+                ) : null}
+                {stats[3].subValue ? (
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={styles.statValue}>{stats[3].subValue}</Text>
+                    <Text style={styles.statLabel}>Total Treat</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Recent Orders */}
@@ -370,7 +412,7 @@ export default function DashboardScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.orderName}>{order.users?.full_name || 'Pelanggan'}</Text>
-                  <Text style={styles.orderService}>{order.services?.name || 'Pijat Relaksasi'} · {order.duration || 60} menit</Text>
+                  <Text style={styles.orderService}>{order.services?.name || 'Pijat Relaksasi'} · {(order as any).services?.price_type === 'treatment' ? 'Treatment' : `${order.duration || 60} menit`}</Text>
                 </View>
                 <View style={[styles.orderBadge, { backgroundColor: (STATUS_COLOR[order.status] || t.textMuted) + '15' }]}>
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: STATUS_COLOR[order.status] || t.textMuted, marginRight: 5 }} />
@@ -472,8 +514,8 @@ const getStyles = (t: any) => StyleSheet.create({
   
   addBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', shadowColor: t.secondary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, marginBottom: SPACING.xl },
-  statCard: { flex: 1, minWidth: '45%', backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  statsGrid: { flexDirection: 'column', marginBottom: SPACING.xl },
+  statCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   statIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   statInfo: { gap: 2 },
   statValue: { ...TYPOGRAPHY.h4, color: t.text, fontFamily: 'Inter_700Bold' },

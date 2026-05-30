@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   scrollContent: {
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: 'rgba(255,255,255,0.55)',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     fontSize: 28,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: '#FFFFFF',
   },
 
@@ -367,14 +367,14 @@ const styles = StyleSheet.create({
   },
   statsLabel: {
     fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 4,
   },
   statsValue: {
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
 
   // Transactions
@@ -389,12 +389,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 15,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   seeAll: {
     fontSize: 13,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: GOLD,
   },
   txList: {
@@ -427,13 +427,13 @@ const styles = StyleSheet.create({
   },
   txTitle: {
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_DARK,
     marginBottom: 3,
   },
   txDate: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   txRight: {
@@ -443,6 +443,6 @@ const styles = StyleSheet.create({
   },
   txAmount: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
 });

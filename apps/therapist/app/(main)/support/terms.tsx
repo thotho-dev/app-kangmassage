@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
 
@@ -6,12 +7,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, TYPOGRAPHY } from '@/constants/Theme';
+import { getAppSettings } from '@/lib/appSettings';
 
 export default function TermsOfServiceScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
   
   const router = useRouter();
+  const [platformName, setPlatformName] = useState('Kang Massage');
+
+  useEffect(() => {
+    getAppSettings().then(s => setPlatformName(s.platform_name));
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -26,7 +33,7 @@ export default function TermsOfServiceScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.content}>
           <Text style={styles.bold}>1. Pendahuluan</Text>{'\n'}
-          Selamat datang di Kang Massage. Dengan mendaftar sebagai mitra terapis, Anda menyetujui syarat dan ketentuan yang ditetapkan di bawah ini. Harap baca dengan saksama.
+          Selamat datang di {platformName}. Dengan mendaftar sebagai mitra terapis, Anda menyetujui syarat dan ketentuan yang ditetapkan di bawah ini. Harap baca dengan saksama.
           {'\n\n'}
           <Text style={styles.bold}>2. Kualifikasi Mitra Terapis</Text>{'\n'}
           Anda harus berusia minimal 18 tahun, memiliki identitas resmi (KTP), dan memiliki sertifikasi atau pengalaman yang memadai dalam bidang pijat atau relaksasi yang ditawarkan.
@@ -35,13 +42,22 @@ export default function TermsOfServiceScreen() {
           - Menyediakan layanan dengan profesional dan sopan.{'\n'}
           - Tiba di lokasi pelanggan tepat waktu.{'\n'}
           - Menjaga kerahasiaan informasi pelanggan.{'\n'}
-          - Tidak melakukan tindakan yang melanggar hukum, etika, atau norma kesopanan.
+          - Tidak melakukan tindakan yang melanggar hukum, etika, atau norma kesusilaan.{'\n'}
+          - Dilarang keras melakukan tindak pidana, kejahatan, penipuan, pengancaman, kekerasan fisik, pelecehan seksual, tindakan asusila, atau perbuatan melanggar hukum lainnya.{'\n'}
+          - Pelanggaran terhadap ketentuan di atas akan mengakibatkan pemutusan kemitraan permanen, penghapusan akun, dan pelaporan kepada pihak berwajib.
           {'\n\n'}
           <Text style={styles.bold}>4. Komisi dan Pembayaran</Text>{'\n'}
-          Kang Massage berhak memotong komisi sebesar 20% dari total nilai pesanan yang berhasil diselesaikan. Pembayaran bersih (80%) akan masuk ke dompet aplikasi dan dapat ditarik ke rekening bank yang terdaftar.
+          Komisi platform bersifat dinamis berdasarkan tier mitra:{'\n'}
+          - Bronze: 27%{'\n'}
+          - Silver: 25%{'\n'}
+          - Gold: 23%{'\n'}
+          - Platinum: 21%{'\n'}
+          - Diamond: 20%{'\n'}
+          Semakin tinggi tier, semakin kecil potongan komisi. Selain itu, mitra yang berhasil memenuhi target pesanan dan pendapatan pada masa evaluasi akan mendapatkan Reward Target yang otomatis ditambahkan ke saldo wallet. Pembayaran bersih akan masuk ke dompet aplikasi dan dapat ditarik ke rekening bank yang terdaftar.
           {'\n\n'}
-          <Text style={styles.bold}>5. Penangguhan Akun</Text>{'\n'}
-          Kang Massage berhak menangguhkan atau menghapus akun Anda secara sepihak jika ditemukan pelanggaran terhadap syarat dan ketentuan ini, atau jika Anda menerima komplain serius dari pelanggan.
+          <Text style={styles.bold}>5. Penangguhan & Pemutusan Akun</Text>{'\n'}
+          {platformName} berhak menangguhkan, membekukan, atau menghapus akun Anda secara sepihak jika ditemukan pelanggaran terhadap syarat dan ketentuan ini, termasuk namun tidak terbatas pada: pelanggaran hukum pidana, tindakan asusila, kekerasan, penipuan, pelanggaran privasi, komplain serius dari pelanggan, atau pelanggaran berulang terhadap standar layanan.
+
         </Text>
       </ScrollView>
     </View>

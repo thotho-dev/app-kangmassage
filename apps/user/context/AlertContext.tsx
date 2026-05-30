@@ -160,13 +160,13 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 10,
     textAlign: 'center',
   },
   alertMessage: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     lineHeight: 20,
     textAlign: 'center',
   },
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   alertBtnText: {
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   txtPrimary: {
     color: '#FFFFFF',

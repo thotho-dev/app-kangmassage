@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
   suggestionList: {
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   suggestionText: {
     flex: 1,
     fontSize: 13,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
   myLocationBtn: {
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginBottom: 20,
   },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   },
   addressMain: {
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_MUTED,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   },
   addressSub: {
     fontSize: 15,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
   confirmBtn: {
@@ -529,8 +529,8 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: 'Inter-Bold',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
 });
 

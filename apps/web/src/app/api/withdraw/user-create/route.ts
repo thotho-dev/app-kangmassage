@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     }]);
 
     // Xendit Disbursements Integration
-    const secretKey = process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const bankMapping: Record<string, string> = {

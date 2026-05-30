@@ -52,10 +52,15 @@ Enums: `user_role`, `order_status` (pending → accepted → on_the_way → in_p
 
 Mobile apps use hardcoded Supabase creds — no env setup needed.
 
-### Gemini AI
+### Puter AI
 
-Support chat uses Gemini Flash (free tier) via `apps/web/src/app/api/chat-ai/route.ts`.
-Set `GEMINI_API_KEY` in `.env.local`. Get free key at https://aistudio.google.com/apikey
+Support chat uses Puter.js (500+ models, gratis via user-pays model) — **client-side** langsung dari therapist app.
+`apps/therapist/app/(main)/support/chat.tsx` panggil Puter API langsung via fetch.
+Set `PUTER_AUTH_TOKEN` di `apps/therapist/lib/config.ts`.
+Dapatkan token dengan membuat app di https://puter.com.
+Default model: `qwen/qwen3.6-plus-preview:free` (gratis tanpa batas via Puter). Bisa diganti ke model lain di chat.tsx.
+
+Server-side fallback via `apps/web/src/app/api/chat-ai/route.ts` (untuk admin dashboard).
 
 ## Design system
 

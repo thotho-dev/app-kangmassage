@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getAppSettings } from '@/lib/settings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +20,8 @@ export async function POST(req: NextRequest) {
     const external_id = order.order_number;
 
     // Xendit Invoice Integration
-    const secretKey = process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const settings = await getAppSettings();
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     // INTERCEPT FOR LOCAL SANDBOX
@@ -51,9 +53,14 @@ export async function POST(req: NextRequest) {
       'mandiri_va': ['MANDIRI'],
       'bni_va': ['BNI'],
       'bri_va': ['BRI'],
-      'gopay': ['QRIS'],
+      'permata_va': ['PERMATA'],
+      'bsi_va': ['BSI'],
+      'cimb_va': ['CIMB'],
       'qris': ['QRIS'],
       'shopeepay': ['SHOPEEPAY'],
+      'dana': ['DANA'],
+      'ovo': ['OVO'],
+      'linkaja': ['LINKAJA'],
     };
 
     const preferredMethods = paymentMethodsMap[payment_method.toLowerCase()];

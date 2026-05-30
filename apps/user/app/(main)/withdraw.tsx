@@ -139,7 +139,7 @@ export default function WithdrawScreen() {
           <Text style={styles.successTitle}>Penarikan Berhasil!</Text>
           <Text style={styles.successDesc}>
             Permintaan penarikan sebesar{'\n'}
-            <Text style={{ fontFamily: 'Inter-Bold', color: TEXT_DARK }}>
+            <Text style={{ fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK }}>
               Rp {getRawAmount().toLocaleString('id-ID')}
             </Text>
             {'\n'}telah dikirim ke {selectedBankName} ({accountNumber}).
@@ -334,14 +334,14 @@ export default function WithdrawScreen() {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: TEXT_DARK, fontFamily: 'Inter-Bold' }]}>Total Dipotong</Text>
-                <Text style={[styles.summaryValue, { color: ERROR, fontSize: 18, fontFamily: 'Inter-Bold' }]}>
+                <Text style={[styles.summaryLabel, { color: TEXT_DARK, fontFamily: 'PlusJakartaSans-Bold' }]}>Total Dipotong</Text>
+                <Text style={[styles.summaryValue, { color: ERROR, fontSize: 18, fontFamily: 'PlusJakartaSans-Bold' }]}>
                   Rp {(getRawAmount() + ADMIN_FEE).toLocaleString('id-ID')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: SUCCESS }]}>Dana Diterima</Text>
-                <Text style={[styles.summaryValue, { color: SUCCESS, fontFamily: 'Inter-Bold' }]}>
+                <Text style={[styles.summaryValue, { color: SUCCESS, fontFamily: 'PlusJakartaSans-Bold' }]}>
                   Rp {getRawAmount().toLocaleString('id-ID')}
                 </Text>
               </View>
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
   },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
@@ -430,17 +430,17 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   balanceLabel: {
-    fontSize: 9, fontFamily: 'Inter-Bold',
+    fontSize: 9, fontFamily: 'PlusJakartaSans-Bold',
     color: 'rgba(255,255,255,0.55)',
     letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4,
   },
   balanceAmount: {
-    fontSize: 22, fontFamily: 'Inter-Bold', color: '#FFFFFF',
+    fontSize: 22, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF',
   },
 
   section: { marginBottom: 24 },
   sectionTitle: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold',
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED, marginBottom: 12,
   },
 
@@ -451,13 +451,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
   },
   inputCardError: { borderColor: ERROR },
-  currency: { fontSize: 24, fontFamily: 'Inter-Bold', color: TEXT_DARK },
+  currency: { fontSize: 24, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK },
   input: {
-    fontSize: 24, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 24, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
     flex: 1, padding: 0,
   },
   minText: {
-    fontSize: 11, fontFamily: 'Inter-Medium',
+    fontSize: 11, fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED, marginTop: 6, marginLeft: 4,
   },
   errorRow: {
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     marginTop: 6, marginLeft: 4,
   },
   errorText: {
-    fontSize: 11, fontFamily: 'Inter-Medium', color: ERROR,
+    fontSize: 11, fontFamily: 'PlusJakartaSans-Medium', color: ERROR,
   },
 
   presetGrid: {
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     borderColor: PURPLE, backgroundColor: `${PURPLE}10`,
   },
   presetText: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', color: TEXT_MUTED,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_MUTED,
   },
   presetTextActive: { color: PURPLE },
 
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     borderColor: PURPLE, backgroundColor: `${PURPLE}08`,
   },
   bankBtnText: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', color: TEXT_MUTED,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_MUTED,
   },
   bankBtnTextActive: { color: PURPLE },
 
@@ -506,12 +506,12 @@ const styles = StyleSheet.create({
     padding: 16, borderWidth: 1, borderColor: BORDER,
   },
   fieldLabel: {
-    fontSize: 11, fontFamily: 'Inter-SemiBold',
+    fontSize: 11, fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED, marginBottom: 8, textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   fieldInput: {
-    fontSize: 16, fontFamily: 'Inter-SemiBold', color: TEXT_DARK,
+    fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_DARK,
     padding: 0,
   },
 
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   summaryTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK, marginBottom: 16,
   },
   summaryRow: {
@@ -529,10 +529,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 8,
   },
   summaryLabel: {
-    fontSize: 13, fontFamily: 'Inter-Medium', color: TEXT_MUTED,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-Medium', color: TEXT_MUTED,
   },
   summaryValue: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', color: TEXT_DARK,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_DARK,
   },
   summaryDivider: {
     height: 1, backgroundColor: BORDER, marginVertical: 12,
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 10,
   },
   submitBtnText: {
-    fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF',
   },
 
   successContainer: {
@@ -561,16 +561,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   successTitle: {
-    fontSize: 22, fontFamily: 'Inter-Bold',
+    fontSize: 22, fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK, marginBottom: 12,
   },
   successDesc: {
-    fontSize: 14, fontFamily: 'Inter-Medium',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED, textAlign: 'center', lineHeight: 22,
     marginBottom: 12,
   },
   successNote: {
-    fontSize: 12, fontFamily: 'Inter-Medium',
+    fontSize: 12, fontFamily: 'PlusJakartaSans-Medium',
     color: GOLD, textAlign: 'center',
     marginBottom: 32, backgroundColor: '#FFFBEB',
     paddingHorizontal: 16, paddingVertical: 10,
@@ -583,6 +583,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16, borderRadius: 28,
   },
   gradientBtnText: {
-    fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF',
   },
 });

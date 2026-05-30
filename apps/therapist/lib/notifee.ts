@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Konfigurasi handler notifikasi agar selalu muncul di foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -30,6 +29,13 @@ export const initializeNotifee = async () => {
     }
 
     if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'default',
+      });
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.ORDERS, {
         name: 'Pesanan Baru',
         importance: Notifications.AndroidImportance.MAX,
@@ -45,11 +51,10 @@ export const initializeNotifee = async () => {
 export const displayOrderNotification = async (order: any) => {
   const userName = order.users?.full_name || 'Pelanggan';
   
-  console.log(`[DEBUG Notif] Mencoba menampilkan notif untuk pesanan ${order.id} dari ${userName}`);
   try {
     const notifId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🔔 Pesanan Baru Masuk!',
+        title: 'Pesanan Baru Masuk!',
         body: `Pelanggan ${userName} sedang mencari therapist. Ketuk untuk detail.`,
         data: {
           orderId: order.id,
@@ -57,18 +62,10 @@ export const displayOrderNotification = async (order: any) => {
         },
         sound: true,
       },
-      trigger: null, // Munculkan secara langsung (immediate local notification)
+      trigger: null,
     });
-    console.log(`[DEBUG Notif] Berhasil! ID Notifikasi: ${notifId}`);
+    console.log(`[Notif] Local notification sent: ${notifId}`);
   } catch (e) {
-    console.error('[DEBUG Notif] Gagal menampilkan notifikasi:', e);
+    console.error('[Notif] Gagal menampilkan notifikasi:', e);
   }
-};
-
-// Dummy exports untuk menghindari error di file yang mengimpor Notifee EventType
-export const EventType = { ACTION_PRESS: 1, PRESS: 1 };
-export default {
-  onForegroundEvent: (callback?: any) => { return () => {}; },
-  onBackgroundEvent: (callback?: any) => {},
-  cancelNotification: async (id: string) => {}
 };

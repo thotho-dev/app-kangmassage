@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings, Bell, Shield, Globe, MapPin, Star, Wallet, Landmark, Save, Loader2, CheckCircle2, AlertCircle, Sliders, Image as ImageIcon } from 'lucide-react';
+import { Settings, Bell, Shield, Globe, MapPin, Star, Wallet, Landmark, Save, Loader2, CheckCircle2, AlertCircle, Sliders, Image as ImageIcon, Bot, CreditCard } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -30,6 +30,11 @@ type AppSettings = {
   support_whatsapp: string;
   chat_link: string;
   logo_url: string | null;
+  puter_auth_token: string;
+  puter_model_name: string;
+  puter_ocr_model_name: string;
+  xendit_secret_key: string;
+  xendit_webhook_verification_token: string;
 };
 
 const defaultSettings: AppSettings = {
@@ -54,9 +59,14 @@ const defaultSettings: AppSettings = {
   support_whatsapp: '',
   chat_link: '',
   logo_url: null,
+  puter_auth_token: '',
+  puter_model_name: 'deepseek/deepseek-v4-flash',
+  puter_ocr_model_name: 'z-ai/glm-4.5-air:free',
+  xendit_secret_key: '',
+  xendit_webhook_verification_token: '',
 };
 
-type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'notifications' | 'security';
+type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
 
 const tabs: { key: TabKey; label: string; icon: any }[] = [
   { key: 'general', label: 'general', icon: Settings },
@@ -65,6 +75,8 @@ const tabs: { key: TabKey; label: string; icon: any }[] = [
   { key: 'topup', label: 'topup_settings', icon: Wallet },
   { key: 'withdrawal', label: 'withdrawal_settings', icon: Landmark },
   { key: 'order_fees', label: 'order_fee_settings', icon: Sliders },
+  { key: 'payment', label: 'payment_gateway', icon: CreditCard },
+  { key: 'ai', label: 'ai_settings', icon: Bot },
   { key: 'notifications', label: 'notifications', icon: Bell },
   { key: 'security', label: 'security', icon: Shield },
 ];
@@ -535,6 +547,95 @@ export default function SettingsPage() {
                     />
                   </div>
                   <p className="text-xs text-text-muted/60 mt-1">{t('order_fee_therapist_desc')}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payment Gateway */}
+          {activeTab === 'payment' && (
+            <div className="glass-card p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600/30 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-emerald-400" />
+                </div>
+                <h2 className="font-semibold text-text-primary">{t('payment_gateway')}</h2>
+              </div>
+              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi API key untuk payment gateway Xendit.</p>
+              <div className="space-y-4 max-w-lg">
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key</label>
+                  <textarea
+                    value={settings.xendit_secret_key}
+                    onChange={e => updateField('xendit_secret_key', e.target.value)}
+                    className="input-field min-h-[80px] font-mono text-xs"
+                    placeholder="xnd_production_..."
+                    rows={2}
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">Secret key untuk environment production Xendit.</p>
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Webhook Verification Token</label>
+                  <textarea
+                    value={settings.xendit_webhook_verification_token}
+                    onChange={e => updateField('xendit_webhook_verification_token', e.target.value)}
+                    className="input-field min-h-[80px] font-mono text-xs"
+                    placeholder="webhook_verification_token"
+                    rows={2}
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">Token untuk verifikasi webhook callback Xendit.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI Settings */}
+          {activeTab === 'ai' && (
+            <div className="glass-card p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-purple-600/30 flex items-center justify-center">
+                  <Bot className="w-5 h-5 text-purple-400" />
+                </div>
+                <h2 className="font-semibold text-text-primary">{t('ai_settings')}</h2>
+              </div>
+              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi untuk AI live chat therapist app.</p>
+              <div className="space-y-4 max-w-lg">
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Puter Auth Token</label>
+                  <textarea
+                    value={settings.puter_auth_token}
+                    onChange={e => updateField('puter_auth_token', e.target.value)}
+                    className="input-field min-h-[80px] font-mono text-xs"
+                    placeholder="eyJhbGciOiJIUzI1NiIs..."
+                    rows={3}
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">Token autentikasi dari Puter AI.</p>
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Model AI (Chat Support)</label>
+                  <input
+                    type="text"
+                    value={settings.puter_model_name}
+                    onChange={e => updateField('puter_model_name', e.target.value)}
+                    className="input-field font-mono text-sm"
+                    placeholder="deepseek/deepseek-v4-flash"
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">
+                    Model untuk chat support therapist. Contoh: <code>deepseek/deepseek-v4-flash</code>, <code>gemini-2.5-flash</code>
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Model AI (OCR KTP)</label>
+                  <input
+                    type="text"
+                    value={settings.puter_ocr_model_name}
+                    onChange={e => updateField('puter_ocr_model_name', e.target.value)}
+                    className="input-field font-mono text-sm"
+                    placeholder="z-ai/glm-4.5-air:free"
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">
+                    Model untuk OCR KTP. Contoh: <code>z-ai/glm-4.5-air:free</code>, <code>gpt-4o-mini</code>
+                  </p>
                 </div>
               </div>
             </div>

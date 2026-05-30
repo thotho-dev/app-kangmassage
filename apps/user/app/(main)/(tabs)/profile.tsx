@@ -842,7 +842,7 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '600',
   },
@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: COLORS.error,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '700',
   },
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalTitle: {
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 20,
   },
   formContainer: {
@@ -951,12 +951,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   changePhotoText: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 13,
     color: COLORS.primary[500],
   },
   inputLabel: {
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-Medium',
     fontSize: 13,
     marginBottom: 6,
   },
@@ -965,7 +965,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 14,
   },
   saveBtn: {
@@ -977,7 +977,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     color: 'white',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 15,
   },
 
@@ -1008,12 +1008,12 @@ const styles = StyleSheet.create({
   walletLabel: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
   },
   walletValue: {
     color: 'white',
     fontSize: 22,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginTop: 4,
   },
   topupBtn: {
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
   },
   topupText: {
     color: COLORS.primary[600],
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 13,
   },
   payList: {
@@ -1037,11 +1037,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   payTitle: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 15,
   },
   paySub: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 12,
   },
 
@@ -1056,16 +1056,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   secLabel: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 12,
   },
   secValue: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 15,
     marginTop: 2,
   },
   secNotice: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 11,
     lineHeight: 16,
     opacity: 0.6,
@@ -1083,11 +1083,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   notifLabel: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 15,
   },
   notifSub: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 12,
     marginTop: 2,
     maxWidth: '90%',
@@ -1098,8 +1098,8 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   faqHeader: {
-    fontFamily: 'Inter-Bold',
-    fontSize: 16,
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 14,
     marginBottom: 16,
   },
   faqCard: {
@@ -1109,12 +1109,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   faqQuestion: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontSize: 14,
     marginBottom: 6,
   },
   faqAnswer: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 12,
     lineHeight: 18,
   },
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   reviewSubtitle: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 20,
@@ -1147,7 +1147,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     height: 100,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 14,
     textAlignVertical: 'top',
     marginBottom: 16,
@@ -1158,12 +1158,12 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   successTitle: {
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 20,
     marginTop: 16,
   },
   successSub: {
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 13,
     textAlign: 'center',
     marginTop: 6,

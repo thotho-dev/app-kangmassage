@@ -17,6 +17,7 @@ interface TherapistProfile {
   today_earnings: number; // Added today_earnings
   today_orders: number;   // Added today_orders
   total_orders: number;   // Added total_orders
+  total_reviews: number;
   rating: number;         // Added rating
   total_hours: number;    // Added total_hours
   tier: string;           // Added tier
@@ -40,6 +41,7 @@ interface TherapistState {
   loading: boolean;
   incomingOrder: any | null;
   welcomeMessage: string | null;
+  _deactivationUnsub: (() => void) | null;
   setProfile: (profile: any) => void;
   setIsOnline: (isOnline: boolean) => void;
   setIncomingOrder: (order: any | null) => void;
@@ -49,14 +51,46 @@ interface TherapistState {
   setOffline: () => Promise<void>;
   updatePushToken: (token: string) => Promise<void>;
   updateProfile: (updates: Partial<TherapistProfile>) => Promise<void>;
+  subscribeToDeactivation: (onDeactivated: () => void) => void;
+  unsubscribeDeactivation: () => void;
 }
 
 export const useTherapistStore = create<TherapistState>((set, get) => ({
+  _deactivationUnsub: null as (() => void) | null,
+
+  subscribeToDeactivation: (onDeactivated: () => void) => {
+    const { profile, _deactivationUnsub } = get();
+    _deactivationUnsub?.();
+    if (!profile?.id) return;
+
+    const sub = supabase
+      .channel('therapist-deactivation')
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'therapists', filter: `id=eq.${profile.id}` },
+        (payload) => {
+          const newRecord = payload.new as any;
+          if (newRecord.is_active === false) {
+            get()._deactivationUnsub?.();
+            onDeactivated();
+          }
+        }
+      )
+      .subscribe();
+
+    set({ _deactivationUnsub: () => sub.unsubscribe() });
+  },
+
+  unsubscribeDeactivation: () => {
+    const { _deactivationUnsub } = get();
+    _deactivationUnsub?.();
+    set({ _deactivationUnsub: null });
+  },
   profile: null,
   isOnline: false,
   loading: false,
   incomingOrder: null,
   welcomeMessage: null,
+  _deactivationUnsub: null,
   setProfile: (profile) => set({ profile, isOnline: profile?.status === 'online' }),
   setIsOnline: (isOnline) => set({ isOnline }),
   setIncomingOrder: (incomingOrder) => set({ incomingOrder }),
@@ -75,7 +109,22 @@ export const useTherapistStore = create<TherapistState>((set, get) => ({
         .single();
 
       if (error) throw error;
-      set({ profile: data, isOnline: data.status === 'online' });
+
+      // Auto logout if account is deactivated
+      if (data.is_active === false) {
+        await supabase.from('therapists').update({ status: 'offline' }).eq('id', data.id);
+        await supabase.auth.signOut();
+        set({ profile: null, isOnline: false });
+        return;
+      }
+
+      // Unverified therapists always offline
+      if (data.is_verified === false && data.status === 'online') {
+        await supabase.from('therapists').update({ status: 'offline' }).eq('id', data.id);
+        set({ profile: { ...data, status: 'offline' }, isOnline: false });
+      } else {
+        set({ profile: data, isOnline: data.status === 'online' });
+      }
     } catch (error) {
       console.error('Error fetching therapist profile:', error);
     } finally {
@@ -103,6 +152,12 @@ export const useTherapistStore = create<TherapistState>((set, get) => ({
   toggleOnline: async () => {
     const { profile, isOnline } = get();
     if (!profile) return;
+
+    // Unverified therapists tidak bisa online
+    if (!profile.is_verified) {
+      set({ isOnline: false, profile: { ...profile, status: 'offline' } });
+      throw new Error('Akun belum diverifikasi oleh admin');
+    }
 
     const newStatus = isOnline ? 'offline' : 'online';
     

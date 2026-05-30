@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useThemeColors } from '@/store/themeStore';
 
 
@@ -7,11 +7,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { getAppSettings } from '@/lib/appSettings';
 
 const FAQS = [
   { q: 'Bagaimana cara menarik saldo (withdraw)?', a: 'Pencairan saldo dapat dilakukan melalui menu Pendapatan. Pastikan Anda telah menambahkan rekening bank yang valid. Proses penarikan biasanya memakan waktu 1x24 jam kerja.' },
   { q: 'Mengapa akun saya ditangguhkan?', a: 'Penangguhan akun biasanya terjadi karena pelanggaran Syarat & Ketentuan, seperti membatalkan pesanan terlalu sering atau menerima banyak ulasan buruk. Hubungi Support untuk informasi lebih lanjut.' },
-  { q: 'Bagaimana sistem komisi bekerja?', a: 'Platform PijatPro mengambil komisi sebesar 20% dari setiap transaksi yang berhasil. Sisa 80% akan masuk ke saldo dompet Anda.' },
+  { q: 'Bagaimana sistem komisi bekerja?', a: 'Komisi platform bersifat dinamis berdasarkan tier mitra: Bronze 27%, Silver 25%, Gold 23%, Platinum 21%, Diamond 20%. Semakin tinggi tier, semakin kecil potongannya. Cek detail tier di Profil -> Info Tier.' },
   { q: 'Apakah saya bisa memilih pesanan?', a: 'Ya, Anda memiliki opsi untuk menerima atau menolak pesanan yang masuk. Namun, menolak pesanan terlalu sering dapat mempengaruhi performa dan rating Anda di sistem.' },
   { q: 'Bagaimana cara mengubah layanan yang saya tawarkan?', a: 'Saat ini, perubahan jenis layanan harus melalui proses verifikasi. Silakan hubungi tim Support kami dengan melampirkan sertifikat keahlian baru Anda.' },
 ];
@@ -22,6 +23,11 @@ export default function FAQScreen() {
   
   const router = useRouter();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
+  const [platformName, setPlatformName] = useState('Kang Massage');
+
+  useEffect(() => {
+    getAppSettings().then(s => setPlatformName(s.platform_name));
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -54,7 +60,7 @@ export default function FAQScreen() {
               {isExpanded && (
                 <View style={styles.answerWrap}>
                   <View style={styles.divider} />
-                  <Text style={styles.answer}>{faq.a}</Text>
+                  <Text style={styles.answer}>{faq.a.replace('{name}', platformName)}</Text>
                 </View>
               )}
             </TouchableOpacity>

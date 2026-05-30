@@ -37,8 +37,9 @@ const PAYMENT_GROUPS = [
     icon: QrCode,
     items: [
       { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png') },
-      { id: 'gopay', name: 'GoPay / QRIS', image: require('@/assets/Gopay.png') },
       { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png') },
+      { id: 'ovo', name: 'OVO', image: require('@/assets/ovo.png') },
+      { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png') },
     ]
   },
   {
@@ -50,6 +51,9 @@ const PAYMENT_GROUPS = [
       { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: require('@/assets/mandiri.png') },
       { id: 'bni_va', name: 'BNI Virtual Account', image: require('@/assets/bni.png') },
       { id: 'bri_va', name: 'BRI Virtual Account', image: require('@/assets/bri.png') },
+      { id: 'permata_va', name: 'Permata Virtual Account', image: require('@/assets/permata.png') },
+      { id: 'bsi_va', name: 'BSI Virtual Account', image: require('@/assets/bsi.png') },
+      { id: 'cimb_va', name: 'CIMB Virtual Account', image: require('@/assets/cimb.png') },
     ]
   },
   {
@@ -301,8 +305,8 @@ export default function TopupScreen() {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: TEXT_DARK, fontFamily: 'Inter-Bold' }]}>Total Bayar</Text>
-                <Text style={[styles.summaryValue, { color: PURPLE, fontSize: 18, fontFamily: 'Inter-Bold' }]}>
+                <Text style={[styles.summaryLabel, { color: TEXT_DARK, fontFamily: 'PlusJakartaSans-Bold' }]}>Total Bayar</Text>
+                <Text style={[styles.summaryValue, { color: PURPLE, fontSize: 18, fontFamily: 'PlusJakartaSans-Bold' }]}>
                   Rp {(getRawAmount() + ADMIN_FEE).toLocaleString('id-ID')}
                 </Text>
               </View>
@@ -368,7 +372,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
   },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
@@ -397,18 +401,18 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   balanceLabel: {
-    fontSize: 9, fontFamily: 'Inter-Bold',
+    fontSize: 9, fontFamily: 'PlusJakartaSans-Bold',
     color: 'rgba(255,255,255,0.55)',
     letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4,
   },
   balanceAmount: {
-    fontSize: 22, fontFamily: 'Inter-Bold', color: '#FFFFFF',
+    fontSize: 22, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF',
   },
 
   // Section
   section: { marginBottom: 24 },
   sectionTitle: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold',
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED, marginBottom: 12,
   },
 
@@ -421,14 +425,14 @@ const styles = StyleSheet.create({
   },
   inputCardError: { borderColor: ERROR },
   currency: {
-    fontSize: 24, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 24, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
   },
   input: {
-    fontSize: 24, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 24, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
     flex: 1, padding: 0,
   },
   minText: {
-    fontSize: 11, fontFamily: 'Inter-Medium',
+    fontSize: 11, fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED, marginTop: 6, marginLeft: 4,
   },
 
@@ -445,7 +449,7 @@ const styles = StyleSheet.create({
     borderColor: PURPLE, backgroundColor: `${PURPLE}10`,
   },
   presetText: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', color: TEXT_MUTED,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_MUTED,
   },
   presetTextActive: { color: PURPLE },
 
@@ -468,7 +472,7 @@ const styles = StyleSheet.create({
     backgroundColor: `${PURPLE}08`,
   },
   groupTitle: {
-    fontSize: 14, fontFamily: 'Inter-SemiBold',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_DARK, flex: 1,
   },
   groupContent: { padding: 8, gap: 4 },
@@ -482,7 +486,7 @@ const styles = StyleSheet.create({
   },
   paymentLogo: { width: 32, height: 32, resizeMode: 'contain' },
   methodName: {
-    fontSize: 13, fontFamily: 'Inter-Medium',
+    fontSize: 13, fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK, flex: 1,
   },
   radio: {
@@ -503,7 +507,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   summaryTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK, marginBottom: 16,
   },
   summaryRow: {
@@ -511,10 +515,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 8,
   },
   summaryLabel: {
-    fontSize: 13, fontFamily: 'Inter-Medium', color: TEXT_MUTED,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-Medium', color: TEXT_MUTED,
   },
   summaryValue: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', color: TEXT_DARK,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_DARK,
   },
   summaryDivider: {
     height: 1, backgroundColor: BORDER,
@@ -531,6 +535,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 10,
   },
   submitBtnText: {
-    fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF',
   },
 });

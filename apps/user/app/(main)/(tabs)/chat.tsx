@@ -150,7 +150,7 @@ export default function ChatScreen() {
               )}
             </View>
             <TouchableOpacity onPress={toggleSearch} style={styles.cancelSearch}>
-              <Text style={{ color: PURPLE, fontFamily: 'Inter-SemiBold' }}>Batal</Text>
+              <Text style={{ color: PURPLE, fontFamily: 'PlusJakartaSans-SemiBold' }}>Batal</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -259,11 +259,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 26,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   headerSubtitle: {
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     marginTop: 2,
   },
   searchButton: {
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     paddingHorizontal: 10,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 14,
   },
   cancelSearch: {
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     marginRight: 6,
   },
   activeBadge: {
@@ -365,11 +365,11 @@ const styles = StyleSheet.create({
   activeBadgeText: {
     color: '#0369A1',
     fontSize: 8,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   time: {
     fontSize: 11,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
   },
   messageRow: {
     flexDirection: 'row',
@@ -378,12 +378,12 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 13,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     flex: 1,
     marginRight: 10,
   },
   unreadMessage: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-SemiBold',
   },
   unreadBadge: {
     backgroundColor: PURPLE,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   unreadText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   emptyState: {
     marginTop: 120,
@@ -415,12 +415,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     textAlign: 'center',
     lineHeight: 20,
   },

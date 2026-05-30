@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
   },
   scrollContent: { padding: 20, paddingBottom: 60 },
 
@@ -198,10 +198,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#FDE68A',
   },
   statusText: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold', color: '#92400E',
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: '#92400E',
   },
   paymentMethodLabel: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold',
+    fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED, textAlign: 'center', marginBottom: 16,
   },
 
@@ -216,10 +216,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   invoiceTitle: {
-    fontSize: 18, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
   },
   invoiceDesc: {
-    fontSize: 13, fontFamily: 'Inter-Medium',
+    fontSize: 13, fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED, textAlign: 'center', lineHeight: 20,
   },
   amountRow: {
@@ -228,10 +228,10 @@ const styles = StyleSheet.create({
     backgroundColor: BG, padding: 16, borderRadius: 16,
   },
   amountLabel: {
-    fontSize: 14, fontFamily: 'Inter-Medium', color: TEXT_MUTED,
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Medium', color: TEXT_MUTED,
   },
   amountValue: {
-    fontSize: 20, fontFamily: 'Inter-Bold', color: TEXT_DARK,
+    fontSize: 20, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
   },
   payNowBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2, shadowRadius: 8,
   },
   payNowBtnText: {
-    fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF',
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF',
   },
 
   instrCard: {
@@ -250,10 +250,10 @@ const styles = StyleSheet.create({
     gap: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 20,
   },
   stepTitle: {
-    fontSize: 14, fontFamily: 'Inter-Bold', color: TEXT_DARK, marginBottom: 4,
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK, marginBottom: 4,
   },
   instrStep: {
-    fontSize: 13, fontFamily: 'Inter-Medium', color: TEXT_MUTED, lineHeight: 22,
+    fontSize: 13, fontFamily: 'PlusJakartaSans-Medium', color: TEXT_MUTED, lineHeight: 22,
   },
 
   checkBtn: {
@@ -265,13 +265,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2, shadowRadius: 8,
   },
   checkBtnText: {
-    fontSize: 15, fontFamily: 'Inter-Bold', color: '#FFFFFF',
+    fontSize: 15, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF',
   },
   backWalletBtn: {
     alignItems: 'center', paddingVertical: 14,
     borderRadius: 16, borderWidth: 1.5, borderColor: BORDER,
   },
   backWalletBtnText: {
-    fontSize: 14, fontFamily: 'Inter-SemiBold', color: TEXT_MUTED,
+    fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_MUTED,
   },
 });

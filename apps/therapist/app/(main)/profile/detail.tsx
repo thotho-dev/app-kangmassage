@@ -16,13 +16,13 @@ export default function ProfileDetailScreen() {
     { label: 'Nama Lengkap', value: profile?.full_name, icon: 'person-outline' },
     { label: 'Nomor Telepon', value: profile?.phone, icon: 'call-outline' },
     { label: 'Email', value: profile?.email || 'Belum diatur', icon: 'mail-outline' },
-    { label: 'Gender', value: profile?.gender === 'male' ? 'Laki-laki' : (profile?.gender === 'female' ? 'Perempuan' : 'Tidak ditentukan'), icon: 'transgender-outline' },
+    { label: 'Gender', value: (profile?.gender === 'male' ? 'LAKI-LAKI' : profile?.gender === 'female' ? 'PEREMPUAN' : 'TIDAK DITENTUKAN'), icon: 'transgender-outline' },
     { label: 'Tanggal Bergabung', value: new Date(profile?.created_at || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }), icon: 'calendar-outline' },
   ];
 
   const documentItems = [
-    { label: 'NIK (No. KTP)', value: profile?.nik || 'Terverifikasi', icon: 'card-outline' },
-    { label: 'Sertifikasi', value: profile?.is_verified ? 'Terapis Berlisensi' : 'Dalam Proses', icon: 'ribbon-outline' },
+    { label: 'NIK (No. KTP)', value: profile?.nik || 'Belum diisi', icon: 'card-outline' },
+    { label: 'Terapis Terverifikasi', value: profile?.is_verified ? 'Terverifikasi' : 'Dalam Proses', icon: 'ribbon-outline' },
   ];
 
   return (
@@ -47,9 +47,6 @@ export default function ProfileDetailScreen() {
                 <Text style={styles.avatarText}>{profile?.full_name?.charAt(0) || '?'}</Text>
               </View>
             )}
-            <TouchableOpacity style={styles.changePhotoBtn}>
-              <Ionicons name="camera" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
           <Text style={styles.profileName}>{profile?.full_name}</Text>
           <Text style={styles.profileStatus}>Mitra Terapis Aktif</Text>
@@ -114,6 +111,11 @@ export default function ProfileDetailScreen() {
                   <Text style={styles.infoLabel}>{item.label}</Text>
                   <Text style={styles.infoValue}>{item.value}</Text>
                 </View>
+                {index === 0 && profile?.nik ? (
+                  <Ionicons name="checkmark-circle" size={20} color={t.success} />
+                ) : index === 0 ? (
+                  <Ionicons name="close-circle" size={20} color={t.danger} />
+                ) : null}
                 {index === 1 && profile?.is_verified && (
                   <Ionicons name="checkmark-circle" size={20} color={t.success} />
                 )}
@@ -122,14 +124,7 @@ export default function ProfileDetailScreen() {
           </View>
         </View>
 
-        {/* Edit Button */}
-        <TouchableOpacity style={[styles.submitBtn, { backgroundColor: t.primary }]}>
-          <Text style={styles.submitBtnText}>Ajukan Perubahan Data</Text>
-        </TouchableOpacity>
-        
-        <Text style={styles.footerNote}>
-          Perubahan data inti memerlukan verifikasi dari tim admin kami.
-        </Text>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -151,12 +146,6 @@ const getStyles = (t: any) => StyleSheet.create({
   avatarWrap: { position: 'relative', marginBottom: SPACING.md },
   avatar: { width: 100, height: 100, borderRadius: 32 },
   avatarText: { ...TYPOGRAPHY.h1, color: '#FFFFFF', fontSize: 40 },
-  changePhotoBtn: { 
-    position: 'absolute', bottom: -5, right: -5, 
-    width: 36, height: 36, borderRadius: 18, 
-    backgroundColor: t.primary, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: t.background
-  },
   profileName: { ...TYPOGRAPHY.h3, color: t.text, marginBottom: 2 },
   profileStatus: { ...TYPOGRAPHY.caption, color: t.textSecondary },
   
@@ -188,14 +177,5 @@ const getStyles = (t: any) => StyleSheet.create({
   infoLabel: { ...TYPOGRAPHY.caption, color: t.textSecondary, marginBottom: 2 },
   infoValue: { ...TYPOGRAPHY.body, color: t.text, fontFamily: 'Inter_600SemiBold' },
   
-  submitBtn: { 
-    height: 56, borderRadius: RADIUS.xl, 
-    alignItems: 'center', justifyContent: 'center', 
-    marginTop: SPACING.md,
-    shadowColor: t.primary, shadowOffset: { width: 0, height: 4 }, 
-    shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 
-  },
-  submitBtnText: { ...TYPOGRAPHY.body, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
-  footerNote: { ...TYPOGRAPHY.caption, color: t.textMuted, textAlign: 'center', marginTop: SPACING.md, paddingHorizontal: SPACING.xl },
 });
 

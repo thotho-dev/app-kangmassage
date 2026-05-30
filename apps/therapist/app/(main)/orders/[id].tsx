@@ -15,6 +15,7 @@ import { getAppSettings } from '@/lib/appSettings';
 import { useAlert } from '@/components/CustomAlert';
 import { useTherapistStore } from '@/store/therapistStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { API_URL } from '@/lib/config';
 
 import * as Location from 'expo-location';
 // import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -173,8 +174,11 @@ export default function OrderDetailScreen() {
   const [calculatedDistance, setCalculatedDistance] = useState<string | null>(null);
   const [isMapFull, setIsMapFull] = useState(false);
   const [qrisModalVisible, setQrisModalVisible] = useState(false);
-  const [checkingQris, setCheckingQris] = useState(false);
+  const [qrisState, setQrisState] = useState<'idle' | 'loading' | 'ready' | 'checking' | 'paid' | 'error'>('idle');
+  const [qrisData, setQrisData] = useState<{ qr_code_url: string | null; invoice_url: string | null; external_id: string; amount: number } | null>(null);
+  const [qrisError, setQrisError] = useState<string | null>(null);
   const [remainingTime, setRemainingTime] = useState<string>('');
+  const [serviceRemaining, setServiceRemaining] = useState<string>('');
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -212,6 +216,37 @@ export default function OrderDetailScreen() {
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, [order]);
+
+  // In-progress service countdown timer from logs (duration-based only)
+  useEffect(() => {
+    if (!logs || !order || order.status !== 'in_progress') {
+      setServiceRemaining('');
+      return;
+    }
+    if (order.services?.price_type && order.services.price_type !== 'duration') {
+      setServiceRemaining('');
+      return;
+    }
+    const inProgressLog = logs.find(l => l.status === 'in_progress');
+    if (!inProgressLog) {
+      setServiceRemaining('');
+      return;
+    }
+    const startTime = new Date(inProgressLog.created_at).getTime();
+    const durationMinutes = order.services?.duration_min || order.duration || 60;
+    const endTime = startTime + durationMinutes * 60 * 1000;
+    const update = () => {
+      const now = Date.now();
+      const diff = Math.max(0, endTime - now);
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setServiceRemaining(`${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [order?.status, logs, order?.services?.price_type]);
 
   const fetchOrder = useCallback(async () => {
     if (!id || typeof id !== 'string') {
@@ -336,8 +371,6 @@ export default function OrderDetailScreen() {
     };
   }, [fetchOrder, id, order?.status]);
 
-
-
   const handleManualRefresh = async () => {
     // 1. Fetch latest order data
     await fetchOrder();
@@ -393,6 +426,46 @@ export default function OrderDetailScreen() {
     
     // 3. Trigger Map WebView reload
     setRefreshKey(prev => prev + 1);
+  };
+
+  const generateQris = async () => {
+    if (!order || !profile) return;
+    setQrisState('loading');
+    setQrisError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/payments/qris-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: order.id, therapist_id: profile.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal generate QRIS');
+      setQrisData(json.data);
+      setQrisState('ready');
+    } catch (err: any) {
+      setQrisError(err.message);
+      setQrisState('error');
+    }
+  };
+
+  const checkQrisPayment = async () => {
+    if (!order) return;
+    setQrisState('checking');
+    try {
+      const { data } = await supabase.from('orders').select('payment_status').eq('id', order.id).single();
+      if (data?.payment_status === 'paid') {
+        setQrisState('paid');
+        setQrisModalVisible(false);
+        showAlert('success', 'Pembayaran Berhasil', `Pembayaran QRIS sebesar Rp ${(order.total_price || 0).toLocaleString('id-ID')} telah sukses terdeteksi! Silakan geser tombol konfirmasi untuk menyelesaikan pesanan.`);
+        await fetchOrder();
+      } else {
+        setQrisState('ready');
+        showAlert('error', 'Belum Dibayar', 'Pembayaran belum terdeteksi. Silakan coba lagi setelah pelanggan melakukan pembayaran.');
+      }
+    } catch (err: any) {
+      setQrisState('ready');
+      showAlert('error', 'Gagal', err.message || 'Gagal mengecek status pembayaran.');
+    }
   };
 
   const advanceStatus = async () => {
@@ -498,7 +571,7 @@ export default function OrderDetailScreen() {
             const therapistShare = servicePrice - commissionAmount;
             
             const pMethod = String(freshOrder.payment_method || '').toLowerCase();
-            const isCash = pMethod === 'tunai' || pMethod === 'cash';
+            const isCash = (pMethod === 'tunai' || pMethod === 'cash') && freshOrder.payment_status !== 'paid';
 
             const currentBalance = Number(therapistData.wallet_balance) || 0;
             
@@ -697,6 +770,25 @@ export default function OrderDetailScreen() {
     const { error: finalErr } = await supabase.from('orders').update(orderUpdate).eq('id', order.id);
     if (finalErr) throw finalErr;
 
+    // Send push notification to user
+    try {
+      const NOTIF_MAP: Record<string, { title: string; body: string }> = {
+        on_the_way: { title: 'Terapis Menuju Lokasi', body: `Terapis ${profile?.full_name} sedang dalam perjalanan menuju lokasi Anda.` },
+        arrived: { title: 'Terapis Tiba di Lokasi', body: 'Terapis telah tiba di lokasi Anda.' },
+        in_progress: { title: 'Layanan Dimulai', body: 'Layanan pijat sedang berlangsung.' },
+        completed: { title: 'Pesanan Selesai', body: 'Pesanan Anda telah selesai. Terima kasih telah menggunakan Kang Massage!' },
+      };
+      const msg = NOTIF_MAP[nextStatus];
+      if (msg && order.user_id) {
+        fetch(`${API_URL}/api/notifications/send`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: order.user_id, ...msg, type: `order_${nextStatus}`, data: { order_id: order.id } }),
+        }).catch((err: any) => console.warn('Push notif error:', err?.message));
+      }
+    } catch (e) {
+      console.warn('Push notification error:', e);
+    }
+
     // Refresh both order and global therapist profile
     await fetchOrder(); 
     if (nextStatus === 'completed') {
@@ -807,7 +899,7 @@ export default function OrderDetailScreen() {
         contentContainerStyle={isMapFull ? { flex: 1 } : styles.scroll} 
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
       >
-        {order.status !== 'completed' && order.status !== 'cancelled' && (
+        {order.status === 'on_the_way' && (
           <Animated.View style={[
             styles.mapContainer, 
             isMapFull ? { height: Dimensions.get('window').height * 0.9, marginHorizontal: 0, marginTop: 0, borderRadius: 0 } : { borderRadius: RADIUS.xl, marginHorizontal: SPACING.lg, marginTop: SPACING.sm, overflow: 'hidden', backgroundColor: t.border },
@@ -958,30 +1050,59 @@ export default function OrderDetailScreen() {
 
         {!isMapFull && (
           <>
-            <View style={styles.customerCard}>
-              <View style={styles.avatar}><Text style={styles.avatarText}>{custName[0]}</Text></View>
-              <View style={{ flex: 1 }}><Text style={styles.customerName}>{custName}</Text><Text style={styles.serviceLabel}>{order.services?.name || 'Layanan'}</Text></View>
-              <TouchableOpacity 
-                style={[styles.callBtn, (order.status === 'completed' || order.status === 'cancelled') && { opacity: 0.3 }]} 
-                onPress={() => {
-                  if (order.status === 'completed' || order.status === 'cancelled') {
-                    showAlert('info', 'Selesai', 'Anda tidak dapat menghubungi pelanggan untuk pesanan yang sudah selesai atau dibatalkan.');
-                  } else {
-                    Linking.openURL(`tel:${order.users?.phone}`);
-                  }
-                }}
-                disabled={order.status === 'completed' || order.status === 'cancelled'}
-              >
-                <Ionicons name="call" size={20} color={t.success} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.chatBtn, (order.status === 'completed' || order.status === 'cancelled') && { opacity: 0.3 }]} 
-                onPress={handleChat}
-                disabled={order.status === 'completed' || order.status === 'cancelled'}
-              >
-                <Ionicons name="chatbubble" size={20} color={t.secondary} />
-              </TouchableOpacity>
-            </View>
+            {order.status !== 'in_progress' && (
+              <View style={styles.customerCard}>
+                <View style={styles.avatar}><Text style={styles.avatarText}>{custName[0]}</Text></View>
+                <View style={{ flex: 1 }}><Text style={styles.customerName}>{custName}</Text><Text style={styles.serviceLabel}>{order.services?.name || 'Layanan'}</Text></View>
+                <TouchableOpacity 
+                  style={[styles.callBtn, (order.status === 'completed' || order.status === 'cancelled') && { opacity: 0.3 }]} 
+                  onPress={() => {
+                    if (order.status === 'completed' || order.status === 'cancelled') {
+                      showAlert('info', 'Selesai', 'Anda tidak dapat menghubungi pelanggan untuk pesanan yang sudah selesai atau dibatalkan.');
+                    } else {
+                      Linking.openURL(`tel:${order.users?.phone}`);
+                    }
+                  }}
+                  disabled={order.status === 'completed' || order.status === 'cancelled'}
+                >
+                  <Ionicons name="call" size={20} color={t.success} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.chatBtn, (order.status === 'completed' || order.status === 'cancelled') && { opacity: 0.3 }]} 
+                  onPress={handleChat}
+                  disabled={order.status === 'completed' || order.status === 'cancelled'}
+                >
+                  <Ionicons name="chatbubble" size={20} color={t.secondary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {order.status === 'in_progress' && (
+              <View style={[styles.timerCard, { backgroundColor: t.surface, borderColor: t.success + '40' }]}>
+                <View style={styles.timerHeader}>
+                  <Ionicons name="time-outline" size={20} color={t.success} />
+                  <Text style={[styles.timerTitle, { color: t.success }]}>
+                    {order.services?.price_type === 'duration' ? 'Sisa Waktu Pelayanan' : 'Status Pelayanan'}
+                  </Text>
+                </View>
+                {order.services?.price_type === 'duration' ? (
+                  <>
+                    <Text style={[styles.timerDisplay, { color: t.text }]}>{serviceRemaining || '00:00:00'}</Text>
+                    <Text style={[styles.timerSub, { color: t.textSecondary }]}>
+                      Durasi: {order.services?.duration_min || order.duration || 60} Menit
+                    </Text>
+                  </>
+                ) : (
+                  <View style={styles.treatmentStatusContainer}>
+                    <Ionicons name="sparkles" size={32} color={t.success} />
+                    <Text style={[styles.treatmentStatusText, { color: t.text }]}>Sedang Treatment</Text>
+                    <Text style={[styles.timerSub, { color: t.textSecondary }]}>
+                      Layanan sedang berlangsung
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             <Accordion title="Detail Pesanan" icon="information-circle-outline" color={t.primary} t={t}>
               <View style={styles.accContent}>
@@ -1016,7 +1137,7 @@ export default function OrderDetailScreen() {
                   </View>
                   <View>
                     <Text style={styles.detailLabel}>DURASI LAYANAN</Text>
-                    <Text style={styles.detailValue}>{order.services?.duration_min || order.duration || 60} Menit</Text>
+                    <Text style={styles.detailValue}>{order.services?.price_type === 'treatment' ? '1 Treatment' : `${order.services?.duration_min || order.duration || 60} Menit`}</Text>
                   </View>
                 </View>
 
@@ -1111,9 +1232,9 @@ export default function OrderDetailScreen() {
                   
                   <View style={styles.payRow}>
                     <Text style={styles.payLabel}>Metode</Text>
-                    <View style={[styles.payBadge, { backgroundColor: order.payment_method === 'midtrans' ? t.secondary + '15' : t.success + '15' }]}>
-                      <Text style={[styles.payBadgeText, { color: order.payment_method === 'midtrans' ? t.secondary : t.success }]}>
-                        {order.payment_method === 'midtrans' ? 'E-WALLET' : 'CASH / TUNAI'}
+                    <View style={[styles.payBadge, { backgroundColor: order.payment_method === 'midtrans' || order.payment_method === 'qris' || order.payment_method === 'saldo' ? t.secondary + '15' : t.success + '15' }]}>
+                      <Text style={[styles.payBadgeText, { color: order.payment_method === 'midtrans' || order.payment_method === 'qris' || order.payment_method === 'saldo' ? t.secondary : t.success }]}>
+                        {order.payment_method === 'saldo' ? 'SALDO' : order.payment_method === 'qris' ? 'QRIS' : order.payment_method === 'midtrans' ? 'E-WALLET' : 'CASH / TUNAI'}
                       </Text>
                     </View>
                   </View>
@@ -1161,14 +1282,17 @@ export default function OrderDetailScreen() {
                     </Text>
                   )}
 
-                  {order.payment_method !== 'midtrans' && (order.status === 'accepted' || order.status === 'on_site' || order.status === 'in_progress') && (
+                  {order.payment_method !== 'midtrans' && (
                     <TouchableOpacity 
-                      style={[styles.qrisBtn, { backgroundColor: t.primary }]}
-                      onPress={() => setQrisModalVisible(true)}
+                      style={[styles.qrisBtn, { backgroundColor: order.status === 'in_progress' ? t.primary : t.border }]}
+                      onPress={() => order.status === 'in_progress' && setQrisModalVisible(true)}
                       activeOpacity={0.8}
+                      disabled={order.status !== 'in_progress'}
                     >
-                      <Ionicons name="qr-code-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.qrisBtnText}>Tampilkan QRIS Pembayaran</Text>
+                      <Ionicons name="qr-code-outline" size={16} color={order.status === 'in_progress' ? '#FFFFFF' : t.textMuted} />
+                      <Text style={[styles.qrisBtnText, { color: order.status === 'in_progress' ? '#FFFFFF' : t.textMuted }]}>
+                        {order.status === 'in_progress' ? 'Tampilkan QRIS Pembayaran' : 'QRIS (Tunggu Sedang Berlangsung)'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1252,7 +1376,12 @@ export default function OrderDetailScreen() {
         visible={qrisModalVisible}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setQrisModalVisible(false)}
+        onRequestClose={() => {
+          setQrisModalVisible(false);
+          setQrisState('idle');
+          setQrisData(null);
+          setQrisError(null);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: t.surface }]}>
@@ -1264,7 +1393,12 @@ export default function OrderDetailScreen() {
               <Text style={[styles.qrisModalTitle, { color: t.text }]}>QRIS Pembayaran Mitra</Text>
               <TouchableOpacity 
                 style={[styles.modalCloseBtn, { backgroundColor: t.border }]}
-                onPress={() => setQrisModalVisible(false)}
+                onPress={() => {
+                  setQrisModalVisible(false);
+                  setQrisState('idle');
+                  setQrisData(null);
+                  setQrisError(null);
+                }}
               >
                 <Ionicons name="close" size={20} color={t.text} />
               </TouchableOpacity>
@@ -1274,83 +1408,111 @@ export default function OrderDetailScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}
             >
-              {/* QRIS Standard Slip Header */}
-              <View style={styles.qrisReceiptHeader}>
-                <View style={styles.qrisReceiptLogoRow}>
-                  {/* Left GPN Eagle Emblem Logo */}
-                  <View style={styles.gpnEmblem}>
-                    <Ionicons name="shield" size={12} color="#0E7490" style={{ marginRight: 2 }} />
-                    <Text style={styles.gpnEmblemText}>GPN</Text>
+              {qrisState === 'idle' || qrisState === 'error' ? (
+                <>
+                  <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: SPACING.lg }}>
+                    <Ionicons name="qr-code-outline" size={80} color={t.primary} style={{ marginBottom: 20 }} />
+                    <Text style={[styles.qrisModalTitle, { color: t.text, marginBottom: 12 }]}>
+                      {qrisState === 'error' ? 'Gagal Generate QRIS' : 'QRIS Pembayaran'}
+                    </Text>
+                    <Text style={[styles.scanHintText, { color: t.textSecondary, textAlign: 'center', marginBottom: 24 }]}>
+                      {qrisState === 'error'
+                        ? qrisError || 'Terjadi kesalahan. Silakan coba lagi.'
+                        : 'Generate kode QRIS untuk menerima pembayaran dari pelanggan melalui E-Wallet atau M-Banking.'}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.qrisBtnBig, { backgroundColor: t.primary }]}
+                      onPress={generateQris}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.qrisBtnBigText}>Generate QRIS</Text>
+                    </TouchableOpacity>
                   </View>
-                  
-                  {/* Right QRIS standard Logo */}
-                  <View style={styles.qrisStandardLogo}>
-                    <Text style={[styles.qrisLogoTxtPart, { color: '#019FD9' }]}>QR</Text>
-                    <Text style={[styles.qrisLogoTxtPart, { color: '#ED2C24' }]}>IS</Text>
-                  </View>
+                </>
+              ) : qrisState === 'loading' ? (
+                <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+                  <ActivityIndicator size="large" color={t.primary} />
+                  <Text style={[styles.scanHintText, { color: t.textSecondary, marginTop: 16 }]}>
+                    Menghasilkan kode QRIS...
+                  </Text>
                 </View>
-                <Text style={[styles.receiptMerchantName, { color: t.text }]}>KANG MASSAGE MITRA</Text>
-                <Text style={styles.receiptMerchantNmid}>NMID : ID10260518992</Text>
-              </View>
+              ) : qrisState === 'ready' || qrisState === 'checking' ? (
+                <>
+                  {/* QRIS Standard Slip Header */}
+                  <View style={styles.qrisReceiptHeader}>
+                    <View style={styles.qrisReceiptLogoRow}>
+                      <View style={styles.gpnEmblem}>
+                        <Ionicons name="shield" size={12} color="#0E7490" style={{ marginRight: 2 }} />
+                        <Text style={styles.gpnEmblemText}>GPN</Text>
+                      </View>
+                      <View style={styles.qrisStandardLogo}>
+                        <Text style={[styles.qrisLogoTxtPart, { color: '#019FD9' }]}>QR</Text>
+                        <Text style={[styles.qrisLogoTxtPart, { color: '#ED2C24' }]}>IS</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.receiptMerchantName, { color: t.text }]}>KANG MASSAGE MITRA</Text>
+                    <Text style={styles.receiptMerchantNmid}>NMID : ID10260518992</Text>
+                  </View>
 
-              {/* Order Amount Info */}
-              <View style={styles.receiptAmountCard}>
-                <Text style={styles.amountLabel}>TOTAL BILL / TAGIHAN</Text>
-                <Text style={[styles.amountValue, { color: t.text }]}>
-                  Rp {(order?.total_price || 0).toLocaleString('id-ID')}
-                </Text>
-                <Text style={styles.receiptOrderNumber}>Order No: {order?.order_number || 'KM-ORDER'}</Text>
-              </View>
+                  {/* Order Amount Info */}
+                  <View style={styles.receiptAmountCard}>
+                    <Text style={styles.amountLabel}>TOTAL BILL / TAGIHAN</Text>
+                    <Text style={[styles.amountValue, { color: t.text }]}>
+                      Rp {(order?.total_price || 0).toLocaleString('id-ID')}
+                    </Text>
+                    <Text style={styles.receiptOrderNumber}>Order No: {order?.order_number || 'KM-ORDER'}</Text>
+                  </View>
 
-              {/* QRIS Code Image */}
-              <View style={[styles.qrisCodeBorder, { borderColor: t.border }]}>
-                <Image
-                  source={{ 
-                    uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021226590016ID.CO.KANGMASSAGE.WWW0118936001230000000002030035204651153033605802ID5920Kang%20Massage%20Mitra6007Jakarta61051234562070703A016304CA1F`
-                  }}
-                  style={styles.qrisImage}
-                />
-                
-                {/* QRIS corner markings decoration */}
-                <View style={[styles.qrisCorner, styles.cornerTL]} />
-                <View style={[styles.qrisCorner, styles.cornerTR]} />
-                <View style={[styles.qrisCorner, styles.cornerBL]} />
-                <View style={[styles.qrisCorner, styles.cornerBR]} />
-              </View>
+                  {/* Dynamic QRIS Code Image */}
+                  <View style={[styles.qrisCodeBorder, { borderColor: t.border }]}>
+                    {qrisData?.qr_code_url ? (
+                      <Image source={{ uri: qrisData.qr_code_url }} style={styles.qrisImage} />
+                    ) : (
+                      <View style={[styles.qrisImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: t.background }]}>
+                        <Ionicons name="qr-code" size={120} color={t.textSecondary} />
+                      </View>
+                    )}
+                    <View style={[styles.qrisCorner, styles.cornerTL]} />
+                    <View style={[styles.qrisCorner, styles.cornerTR]} />
+                    <View style={[styles.qrisCorner, styles.cornerBL]} />
+                    <View style={[styles.qrisCorner, styles.cornerBR]} />
+                  </View>
 
-              <Text style={[styles.scanHintText, { color: t.textSecondary }]}>
-                Arahkan aplikasi pemindai E-Wallet atau M-Banking Anda ke kode QR di atas untuk menyelesaikan transaksi.
-              </Text>
+                  <Text style={[styles.scanHintText, { color: t.textSecondary }]}>
+                    Arahkan aplikasi pemindai E-Wallet atau M-Banking Anda ke kode QR di atas untuk menyelesaikan transaksi.
+                  </Text>
 
-              {/* Status Action Buttons */}
-              <View style={{ width: '100%', paddingHorizontal: SPACING.md, marginTop: SPACING.md }}>
-                <TouchableOpacity 
-                  style={[styles.qrisCheckBtn, { backgroundColor: t.success }]}
-                  onPress={async () => {
-                    setCheckingQris(true);
-                    setTimeout(() => {
-                      setCheckingQris(false);
-                      setQrisModalVisible(false);
-                      showAlert(
-                        'success',
-                        'Pembayaran Berhasil',
-                        'Pembayaran QRIS sebesar Rp ' + (order?.total_price || 0).toLocaleString('id-ID') + ' telah sukses terdeteksi! Silakan geser tombol konfirmasi untuk menyelesaikan pesanan.'
-                      );
-                    }, 1500);
-                  }}
-                  disabled={checkingQris}
-                  activeOpacity={0.8}
-                >
-                  {checkingQris ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="sync-outline" size={18} color="#FFFFFF" />
-                      <Text style={styles.qrisCheckBtnText}>Cek Status Pembayaran</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
+                  {/* Status Action Buttons */}
+                  <View style={{ width: '100%', paddingHorizontal: SPACING.md, marginTop: SPACING.md, gap: 10 }}>
+                    <TouchableOpacity 
+                      style={[styles.qrisCheckBtn, { backgroundColor: t.success }]}
+                      onPress={checkQrisPayment}
+                      disabled={qrisState === 'checking'}
+                      activeOpacity={0.8}
+                    >
+                      {qrisState === 'checking' ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="sync-outline" size={18} color="#FFFFFF" />
+                          <Text style={styles.qrisCheckBtnText}>Cek Status Pembayaran</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    {qrisData?.invoice_url && (
+                      <TouchableOpacity
+                        style={[styles.qrisCheckBtn, { backgroundColor: t.primary }]}
+                        onPress={() => Linking.openURL(qrisData.invoice_url!)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="globe-outline" size={18} color="#FFFFFF" />
+                        <Text style={styles.qrisCheckBtnText}>Buka Halaman Pembayaran</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </>
+              ) : null}
             </ScrollView>
           </View>
         </View>
@@ -1404,6 +1566,13 @@ function getStyles(t: any) {
     shadowOpacity: 0.2,
     shadowRadius: 3 
   },
+  timerCard: { marginHorizontal: SPACING.lg, marginBottom: SPACING.sm, borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1.5, alignItems: 'center' },
+  timerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  timerTitle: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  timerDisplay: { fontSize: 42, fontFamily: 'Inter_800ExtraBold', letterSpacing: 4, marginBottom: 6 },
+  timerSub: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  treatmentStatusContainer: { alignItems: 'center', gap: 8, paddingVertical: 8 },
+  treatmentStatusText: { fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 },
   customerCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: t.surface, margin: SPACING.lg, borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1, borderColor: t.border },
   avatar: { width: 48, height: 48, borderRadius: 14, backgroundColor: t.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' },
@@ -1487,6 +1656,25 @@ function getStyles(t: any) {
     color: '#FFFFFF',
     fontFamily: 'Inter_700Bold',
     fontSize: 12,
+  },
+  qrisBtnBig: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: RADIUS.full,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  qrisBtnBigText: {
+    color: '#FFFFFF',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 15,
   },
   modalOverlay: {
     flex: 1,

@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useThemeColors } from '@/store/themeStore';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import * as SecureStore from 'expo-secure-store';
+
+const SETTINGS_STORE_KEY = 'notification_settings';
 
 const SETTINGS = [
   { id: 'new_order', label: 'Pesanan Baru', desc: 'Notifikasi saat ada pelanggan yang memesan', icon: 'bag-outline', color: '#F97316', enabled: true },
@@ -19,16 +22,43 @@ export default function NotificationSettingsScreen() {
   const t = useThemeColors();
   const styles = getStyles(t);
   const router = useRouter();
-  const [settings, setSettings] = useState(
-    SETTINGS.reduce((acc, s) => ({ ...acc, [s.id]: s.enabled }), {} as Record<string, boolean>)
-  );
+  const defaults = SETTINGS.reduce((acc, s) => ({ ...acc, [s.id]: s.enabled }), {} as Record<string, boolean>);
+  const [settings, setSettings] = useState<Record<string, boolean>>(defaults);
   const [allEnabled, setAllEnabled] = useState(true);
 
-  const toggle = (id: string) => setSettings(prev => ({ ...prev, [id]: !prev[id] }));
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await SecureStore.getItemAsync(SETTINGS_STORE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setSettings(prev => ({ ...prev, ...parsed }));
+          const allOn = Object.values(parsed).every(Boolean);
+          setAllEnabled(allOn);
+        }
+      } catch { }
+    })();
+  }, []);
+
+  const persist = async (updated: Record<string, boolean>) => {
+    try {
+      await SecureStore.setItemAsync(SETTINGS_STORE_KEY, JSON.stringify(updated));
+    } catch { }
+  };
+
+  const toggle = (id: string) => {
+    setSettings(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      persist(next);
+      return next;
+    });
+  };
   const toggleAll = () => {
     const next = !allEnabled;
     setAllEnabled(next);
-    setSettings(SETTINGS.reduce((acc, s) => ({ ...acc, [s.id]: next }), {}));
+    const updated = SETTINGS.reduce((acc, s) => ({ ...acc, [s.id]: next }), {} as Record<string, boolean>);
+    setSettings(updated);
+    persist(updated);
   };
 
   return (

@@ -1,131 +1,190 @@
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
-  StyleSheet, 
+import React, { useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
   StatusBar,
   Dimensions,
-  Image
+  Image,
+  ListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Clock, Star, MapPin } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import { SERVICES } from '@/constants/Services';
 import { useServices } from '@/hooks/useServices';
-import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
-import { useTheme } from '@/context/ThemeContext';
+import { COLORS, FONTS } from '@/constants/Theme';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
+const NUM_COLS = 2;
+const HORIZONTAL_PAD = 16;
+const GAP = 14;
+const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PAD * 2 - GAP) / NUM_COLS;
 
 const TEXT_DARK = '#1A1A2E';
 const TEXT_MUTED = '#6B7280';
-const PURPLE = '#240080';
 const BG = '#F5F5F7';
-const CARD_BG = '#FFFFFF';
-const BORDER = '#EFEFEF';
 
+// ── Types ────────────────────────────────────────────────────────────────────
+type Service = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image?: string;
+  icon?: string;
+};
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+function ServiceCard({ item, onPress }: { item: Service; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={onPress}
+      style={styles.card}
+    >
+      {/* Image */}
+      <Image
+        source={{
+          uri: item.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
+        }}
+        style={styles.cardImage}
+      />
+
+      {/* Emoji badge */}
+      {item.icon ? (
+        <View style={styles.iconBadge}>
+          <Text style={styles.iconEmoji}>{item.icon}</Text>
+        </View>
+      ) : null}
+
+      {/* Info */}
+      <View style={styles.cardBody}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {item.name}
+        </Text>
+
+        <Text style={styles.cardDesc} numberOfLines={2}>
+          {item.description}
+        </Text>
+
+        <View style={styles.priceRow}>
+          <Text style={styles.priceLabel}>Mulai</Text>
+          <Text style={styles.priceValue}>
+            Rp {item.price.toLocaleString('id-ID')}/Jam
+          </Text>
+        </View>
+
+        <View style={styles.selectBtn}>
+          <Text style={styles.selectBtnText}>Pilih</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <View style={[styles.card, { overflow: 'hidden' }]}>
+      <Skeleton width="100%" height={120} borderRadius={0} />
+      <View style={styles.cardBody}>
+        <Skeleton width="75%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+        <Skeleton width="100%" height={28} borderRadius={4} style={{ marginBottom: 10 }} />
+        <Skeleton width="50%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
+        <Skeleton width="70%" height={16} borderRadius={4} style={{ marginBottom: 12 }} />
+        <Skeleton width="100%" height={36} borderRadius={25} />
+      </View>
+    </View>
+  );
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 export default function ServicesScreen() {
   const router = useRouter();
   const { therapistId } = useLocalSearchParams();
-  const { theme, isDark } = useTheme();
   const { data: servicesData, isLoading } = useServices();
 
-  const displayServices = servicesData || SERVICES;
+  const displayServices: Service[] = servicesData || SERVICES;
+
+  const navigateToOrder = useCallback(
+    (serviceId: string) => {
+      router.push({
+        pathname: '/(main)/order',
+        params: { serviceId, therapistId, from: 'services' },
+      });
+    },
+    [router, therapistId]
+  );
+
+  const renderItem: ListRenderItem<Service> = useCallback(
+    ({ item }) => (
+      <ServiceCard item={item} onPress={() => navigateToOrder(item.id)} />
+    ),
+    [navigateToOrder]
+  );
+
+  const renderSkeletonItem = useCallback(
+    ({ index }: { index: number }) => <SkeletonCard key={index} />,
+    []
+  );
+
+  const keyExtractor = useCallback((item: Service) => item.id, []);
+
+  const ListHeader = (
+    <View style={styles.introSection}>
+      <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
+      <Text style={styles.introSubtitle}>
+        Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
+      </Text>
+    </View>
+  );
+
+  const skeletonData = Array.from({ length: 6 }, (_, i) => i);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => router.back()} 
-          style={styles.backButton}
-        >
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Layanan Kami</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.introSection}>
-          <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
-          <Text style={styles.introSubtitle}>
-            Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
-          </Text>
-        </View>
-
-        <View style={styles.grid}>
-          {isLoading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <View key={i} style={styles.serviceCard}>
-                <Skeleton width="100%" height={120} borderRadius={0} />
-                <View style={styles.serviceInfo}>
-                  <Skeleton width="80%" height={16} borderRadius={4} style={{ marginBottom: 8 }} />
-                  <Skeleton width="100%" height={32} borderRadius={4} style={{ marginBottom: 12 }} />
-                  <Skeleton width="40%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
-                  <Skeleton width="90%" height={16} borderRadius={4} />
-                </View>
-              </View>
-            ))
-          ) : (
-            displayServices.map((service: any) => (
-              <TouchableOpacity 
-                key={service.id}
-                activeOpacity={0.9}
-                onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
-                style={styles.serviceCard}
-              >
-                {/* Image */}
-                <Image
-                  source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
-                  style={styles.serviceImage}
-                />
-                
-                {/* Icon Overlay */}
-                <View style={styles.iconOverlay}>
-                  <Text style={styles.iconEmoji}>{service.icon}</Text>
-                </View>
-  
-                {/* Info */}
-                <View style={styles.serviceInfo}>
-                  <Text style={styles.serviceName} numberOfLines={1}>
-                    {service.name}
-                  </Text>
-                  
-                  <Text style={styles.serviceDescription} numberOfLines={2}>
-                    {service.description}
-                  </Text>
-  
-                  <View style={styles.priceContainer}>
-                    <Text style={styles.priceLabel}>Mulai</Text>
-                    <Text style={styles.priceText}>
-                      Rp {service.price.toLocaleString('id-ID')} /Jam
-                    </Text>
-                  </View>
-  
-                  <TouchableOpacity 
-                    style={styles.selectBtn}
-                    onPress={() => router.push({ pathname: '/(main)/order', params: { serviceId: service.id, therapistId, from: 'services' } })}
-                  >
-                    <Text style={styles.selectBtnText}>Pilih</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      {isLoading ? (
+        <FlatList
+          data={skeletonData}
+          keyExtractor={(item) => item.toString()}
+          numColumns={NUM_COLS}
+          renderItem={renderSkeletonItem}
+          ListHeaderComponent={ListHeader}
+          columnWrapperStyle={styles.columnWrapper}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
+        />
+      ) : (
+        <FlatList
+          data={displayServices}
+          keyExtractor={keyExtractor}
+          numColumns={NUM_COLS}
+          renderItem={renderItem}
+          ListHeaderComponent={ListHeader}
+          ListFooterComponent={<View style={{ height: 40 }} />}
+          columnWrapperStyle={styles.columnWrapper}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -135,18 +194,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BG,
   },
+
+  // ─ Header ──────────────────────────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 12,
-    paddingBottom: 15,
+    paddingBottom: 14,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#EFEFEF',
   },
-  backButton: {
+  backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -154,54 +215,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
+    fontFamily: FONTS.bold,
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
     color: TEXT_DARK,
   },
-  scrollContent: {
-    paddingBottom: 40,
+
+  // ─ List ────────────────────────────────────────────────────────────────────
+  listContent: {
+    paddingHorizontal: HORIZONTAL_PAD,
+    paddingBottom: 20,
   },
+  columnWrapper: {
+    gap: GAP,
+    marginBottom: GAP,
+  },
+
+  // ─ Intro ───────────────────────────────────────────────────────────────────
   introSection: {
-    paddingHorizontal: 24,
     paddingVertical: 20,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
   introTitle: {
+    fontFamily: FONTS.extraBold,
     fontSize: 24,
-    fontFamily: 'Inter-Bold',
     color: TEXT_DARK,
     marginBottom: 8,
   },
   introSubtitle: {
+    fontFamily: FONTS.regular,
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
     color: TEXT_MUTED,
     lineHeight: 20,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    gap: 16,
-  },
-  serviceCard: {
+
+  // ─ Card ────────────────────────────────────────────────────────────────────
+  card: {
     width: CARD_WIDTH,
-    backgroundColor: CARD_BG,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: '#EFEFEF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
   },
-  serviceImage: {
+  cardImage: {
     width: '100%',
     height: 120,
     backgroundColor: '#F5F5F7',
   },
-  iconOverlay: {
+  iconBadge: {
     position: 'absolute',
     top: 10,
     right: 10,
@@ -214,49 +281,49 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   iconEmoji: {
-    fontSize: 16,
+    fontSize: 14,
   },
-  serviceInfo: {
+  cardBody: {
     padding: 12,
   },
-  serviceName: {
+  cardName: {
+    fontFamily: FONTS.bold,
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
     color: TEXT_DARK,
     marginBottom: 4,
   },
-  serviceDescription: {
+  cardDesc: {
+    fontFamily: FONTS.regular,
     fontSize: 11,
-    fontFamily: 'Inter-Regular',
     color: TEXT_MUTED,
     lineHeight: 15,
     marginBottom: 10,
-    height: 30, // Keep cards uniform
+    height: 30,
   },
-  priceContainer: {
+  priceRow: {
     marginBottom: 12,
   },
   priceLabel: {
+    fontFamily: FONTS.medium,
     fontSize: 10,
-    fontFamily: 'Inter-Medium',
     color: TEXT_MUTED,
     marginBottom: 2,
   },
-  priceText: {
-    fontSize: 15,
-    fontFamily: 'Inter-Bold',
-    color: PURPLE,
+  priceValue: {
+    fontFamily: FONTS.bold,
+    fontSize: 14,
+    color: COLORS.primary[500],
   },
   selectBtn: {
-    backgroundColor: PURPLE,
+    backgroundColor: COLORS.primary[500],
     paddingVertical: 10,
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
   },
   selectBtnText: {
+    fontFamily: FONTS.bold,
     color: '#FFFFFF',
     fontSize: 13,
-    fontFamily: 'Inter-Bold',
   },
 });

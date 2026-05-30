@@ -20,9 +20,10 @@ const PAYMENT_GROUPS = [
     title: 'E-Wallet & QRIS',
     icon: 'qr-code-outline',
     items: [
-      { id: 'gopay', name: 'GoPay / QRIS', image: require('@/assets/Gopay.png') },
       { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png') },
       { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png') },
+      { id: 'ovo', name: 'OVO', image: require('@/assets/ovo.png') },
+      { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png') },
     ]
   },
   {
@@ -34,6 +35,9 @@ const PAYMENT_GROUPS = [
       { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: require('@/assets/mandiri.png') },
       { id: 'bni_va', name: 'BNI Virtual Account', image: require('@/assets/bni.png') },
       { id: 'bri_va', name: 'BRI Virtual Account', image: require('@/assets/bri.png') },
+      { id: 'permata_va', name: 'Permata Virtual Account', image: require('@/assets/permata.png') },
+      { id: 'bsi_va', name: 'BSI Virtual Account', image: require('@/assets/bsi.png') },
+      { id: 'cimb_va', name: 'CIMB Virtual Account', image: require('@/assets/cimb.png') },
     ]
   },
   {

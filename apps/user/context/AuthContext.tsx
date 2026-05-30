@@ -2,6 +2,18 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
+import { registerForPushNotificationsAsync } from '../lib/notifications';
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 interface Profile {
   id: string;
@@ -68,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (!error && data) {
       setProfile(data);
+      registerForPushNotificationsAsync(data.id);
     }
   };
 

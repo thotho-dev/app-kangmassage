@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useThemeColors } from '@/store/themeStore';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { WEB_API_URL } from '@/lib/config';
+import { CustomAlertTrigger } from '@/store/alertStore';
+import * as Clipboard from 'expo-clipboard';
+
+const API_BASE = WEB_API_URL;
 
 type Step = 'phone' | 'otp' | 'password';
 
@@ -15,27 +20,139 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const otpInputs = useRef<Array<TextInput | null>>([]);
 
   const stepInfo = {
     phone: { icon: 'phone-portrait-outline', title: 'Lupa Kata Sandi', subtitle: 'Masukkan nomor telepon Anda untuk reset kata sandi' },
     otp: { icon: 'shield-checkmark-outline', title: 'Verifikasi OTP', subtitle: 'Masukkan kode 6 digit yang kami kirimkan' },
-    password: { icon: 'lock-closed-outline', title: 'Buat Kata Sandi Baru', subtitle: 'Pastikan kata sandi minimal 8 karakter' },
+    password: { icon: 'lock-closed-outline', title: 'Buat Kata Sandi Baru', subtitle: 'Min 8 karakter, huruf besar & angka' },
   };
 
   const info = stepInfo[step];
 
-  const handleAction = () => {
+  const handleSendOtp = async () => {
+    if (!phone.trim()) {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Masukkan nomor telepon Anda' });
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/otp/forgot-send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, role: 'therapist' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        CustomAlertTrigger.show({ type: 'error', title: 'Error', message: data.error || 'Gagal mengirim OTP' });
+        return;
+      }
+      if (data.mock_otp) {
+        CustomAlertTrigger.show({ type: 'info', title: 'Development', message: `OTP: ${data.mock_otp}` });
+      }
+      setStep('otp');
+    } catch (e: any) {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Gagal terhubung ke server. Periksa koneksi Anda.' });
+    } finally {
       setLoading(false);
-      if (step === 'phone') setStep('otp');
-      else if (step === 'otp') setStep('password');
-      else router.replace('/(auth)/login');
-    }, 1200);
+    }
+  };
+
+  useEffect(() => {
+    if (step !== 'otp') return;
+    const t = setTimeout(async () => {
+      try {
+        const text = await Clipboard.getStringAsync();
+        const match = text?.match(/\b(\d{6})\b/);
+        if (match) {
+          const code = match[1].split('');
+          setOtp(code);
+          otpInputs.current[5]?.focus();
+        }
+      } catch { }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [step]);
+
+  const handleOTPChange = (val: string, idx: number) => {
+    const newOtp = [...otp];
+    newOtp[idx] = val;
+    setOtp(newOtp);
+    if (val && idx < 5) otpInputs.current[idx + 1]?.focus();
+  };
+
+  const handleVerifyOtp = async () => {
+    const code = otp.join('');
+    if (code.length !== 6) {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Masukkan kode OTP 6 digit' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp: code, role: 'therapist', skip_step_update: true, mark_used: false }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        CustomAlertTrigger.show({ type: 'error', title: 'Error', message: data.error || 'Kode OTP tidak valid' });
+        return;
+      }
+      setStep('password');
+    } catch (e: any) {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Gagal terhubung ke server.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const validatePassword = useCallback((pwd: string) => {
+    const errors: string[] = [];
+    if (pwd.length < 8) errors.push('Minimal 8 karakter');
+    if (!/[A-Z]/.test(pwd)) errors.push('Huruf besar');
+    if (!/[0-9]/.test(pwd)) errors.push('Angka');
+    setPasswordErrors(errors);
+    setNewPwd(pwd);
+  }, []);
+
+  const handleResetPassword = async () => {
+    if (passwordErrors.length > 0) {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: `Kata sandi: ${passwordErrors.join(', ')}` });
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Konfirmasi kata sandi tidak cocok' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp: otp.join(''), new_password: newPwd }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        CustomAlertTrigger.show({ type: 'error', title: 'Error', message: data.error || 'Gagal mereset kata sandi' });
+        return;
+      }
+      CustomAlertTrigger.show({
+        type: 'success',
+        title: 'Berhasil',
+        message: 'Kata sandi Anda telah diperbarui. Silakan login.',
+        buttons: [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }],
+      });
+    } catch (e: any) {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Gagal terhubung ke server.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const stepCount = step === 'phone' ? 1 : step === 'otp' ? 2 : 3;
@@ -80,31 +197,73 @@ export default function ForgotPasswordScreen() {
             )}
             {step === 'otp' && (
               <>
-                <Text style={styles.label}>Kode OTP (6 digit)</Text>
-                <View style={styles.inputWrap}>
-                  <Ionicons name="keypad-outline" size={20} color={t.textMuted} />
-                  <TextInput style={styles.input} placeholder="xxxxxx" placeholderTextColor={t.textMuted} keyboardType="number-pad" value={otp} onChangeText={setOtp} maxLength={6} />
+                <Text style={[styles.label, { textAlign: 'center' }]}>Kode OTP (6 digit)</Text>
+                <View style={styles.otpRow}>
+                  {otp.map((digit, i) => (
+                    <TextInput
+                      key={i}
+                      ref={ref => { otpInputs.current[i] = ref; }}
+                      style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
+                      value={digit}
+                      onChangeText={val => handleOTPChange(val.slice(-1), i)}
+                      onKeyPress={({ nativeEvent }) => {
+                        if (nativeEvent.key === 'Backspace' && !otp[i] && i > 0) {
+                          otpInputs.current[i - 1]?.focus();
+                          const n = [...otp]; n[i - 1] = ''; setOtp(n);
+                        }
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      textAlign="center"
+                      selectTextOnFocus
+                    />
+                  ))}
                 </View>
               </>
             )}
             {step === 'password' && (
               <>
                 <Text style={styles.label}>Kata Sandi Baru</Text>
-                <View style={[styles.inputWrap, { marginBottom: SPACING.md }]}>
+                <View style={[styles.inputWrap, passwordErrors.length > 0 && { borderColor: t.danger }]}>
                   <Ionicons name="lock-closed-outline" size={20} color={t.textMuted} />
-                  <TextInput style={styles.input} placeholder="Minimal 8 karakter" placeholderTextColor={t.textMuted} secureTextEntry value={newPwd} onChangeText={setNewPwd} />
+                  <TextInput style={styles.input} placeholder="Min 8 karakter, huruf besar & angka" placeholderTextColor={t.textMuted} secureTextEntry value={newPwd} onChangeText={validatePassword} />
                 </View>
+                {passwordErrors.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6, marginBottom: SPACING.sm }}>
+                    {['Minimal 8 karakter', 'Huruf besar', 'Angka'].map(rule => {
+                      const passed = rule === 'Minimal 8 karakter' ? newPwd.length >= 8
+                        : rule === 'Huruf besar' ? /[A-Z]/.test(newPwd)
+                        : /[0-9]/.test(newPwd);
+                      return (
+                        <View key={rule} style={[styles.ruleChip, { backgroundColor: passed ? t.success + '20' : t.danger + '15', borderColor: passed ? t.success + '30' : t.danger + '25' }]}>
+                          <Ionicons name={passed ? 'checkmark-circle' : 'close-circle'} size={12} color={passed ? t.success : t.danger} />
+                          <Text style={[styles.ruleText, { color: passed ? t.success : t.danger }]}>{rule}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
                 <Text style={styles.label}>Konfirmasi Kata Sandi</Text>
-                <View style={styles.inputWrap}>
+                <View style={[styles.inputWrap, confirmPwd && newPwd !== confirmPwd && { borderColor: t.danger }]}>
                   <Ionicons name="shield-outline" size={20} color={t.textMuted} />
                   <TextInput style={styles.input} placeholder="Ulangi kata sandi baru" placeholderTextColor={t.textMuted} secureTextEntry value={confirmPwd} onChangeText={setConfirmPwd} />
                 </View>
+                {confirmPwd && newPwd !== confirmPwd && (
+                  <Text style={{ color: t.danger, fontSize: 11, marginTop: 4, marginLeft: 4 }}>Kata sandi tidak cocok</Text>
+                )}
               </>
             )}
 
-            <TouchableOpacity onPress={handleAction} disabled={loading} activeOpacity={0.85} style={{ marginTop: SPACING.md }}>
+            <TouchableOpacity
+              onPress={step === 'phone' ? handleSendOtp : step === 'otp' ? handleVerifyOtp : handleResetPassword}
+              disabled={loading}
+              activeOpacity={0.85}
+              style={{ marginTop: SPACING.md }}
+            >
               <LinearGradient colors={[t.secondary, '#EA580C']} style={styles.btn}>
-                <Text style={[styles.btnText, { color: '#FFFFFF' }]}>{loading ? 'Memproses...' : step === 'password' ? 'Simpan Kata Sandi' : 'Lanjut'}</Text>
+                <Text style={[styles.btnText, { color: '#FFFFFF' }]}>
+                  {loading ? 'Memproses...' : step === 'password' ? 'Simpan Kata Sandi' : 'Lanjut'}
+                </Text>
                 {!loading && <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
               </LinearGradient>
             </TouchableOpacity>
@@ -137,6 +296,11 @@ const getStyles = (t: any) => StyleSheet.create({
   label: { ...TYPOGRAPHY.label, color: t.textSecondary, marginBottom: 8 },
   inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.background, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: 14, borderWidth: 1.5, borderColor: t.border, marginBottom: 4 },
   input: { ...TYPOGRAPHY.body, color: t.text, flex: 1 },
+  otpRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', marginBottom: SPACING.md },
+  otpBox: { width: 44, height: 56, borderRadius: RADIUS.md, backgroundColor: t.background, borderWidth: 1.5, borderColor: t.border, ...TYPOGRAPHY.h3, color: t.text },
+  otpBoxFilled: { borderColor: t.primary, backgroundColor: t.primary + '05' },
+  ruleChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full, borderWidth: 1 },
+  ruleText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
   btn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 16, borderRadius: RADIUS.full,

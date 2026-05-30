@@ -39,7 +39,6 @@ export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<'identifier' | 'password' | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -152,13 +151,31 @@ export default function LoginScreen() {
 
         const { data: therapist, error: tError } = await supabase
           .from('therapists')
-          .select('id, device_id, full_name')
+          .select('id, device_id, full_name, phone, registration_step, is_active')
           .eq('supabase_uid', authUser.id)
           .single();
 
         if (tError) throw tError;
 
+        if (therapist.is_active === false) {
+          await supabase.from('therapists').update({ status: 'offline' }).eq('id', therapist.id);
+          await supabase.auth.signOut();
+          throw new Error('Akun Anda telah dinonaktifkan. Silakan hubungi admin.');
+        }
+
         await supabase.from('therapists').update({ status: 'online' }).eq('id', therapist.id);
+
+        // Cek status registrasi
+        const regStep = therapist.registration_step;
+        if (regStep === 'pending' || regStep === 'otp_sent') {
+          const phone = therapist.phone || identifier.replace(/\D/g, '');
+          router.replace(`/(auth)/register-otp?phone=${encodeURIComponent(phone)}`);
+          return;
+        }
+        if (regStep === 'otp_verified') {
+          router.replace('/(auth)/register?continue=1');
+          return;
+        }
 
         const welcomeName = therapist.full_name?.split(' ')[0] || 'Terapis';
         const setWelcomeMessage = useTherapistStore.getState().setWelcomeMessage;
@@ -209,6 +226,8 @@ export default function LoginScreen() {
         friendlyMessage = 'Sabar ya, kamu lagi sering banget coba masuk. Istirahat bentar, trus coba lagi nanti!';
       } else if (msg.includes('network')) {
         friendlyMessage = 'Aduh, koneksi internet kamu lagi bermasalah nih. Coba cari sinyal yang lebih bagus ya!';
+      } else if (msg.includes('dinonaktifkan')) {
+        friendlyMessage = msg;
       }
 
       showAlert('error', 'Gagal Masuk', friendlyMessage);
@@ -245,14 +264,14 @@ export default function LoginScreen() {
             </View>
 
             {/* Identifier Input */}
-            <Text style={styles.label}>Email atau Nomor Telepon</Text>
+            <Text style={styles.label}>Nomor Telepon</Text>
             <View style={[styles.inputWrap, focused === 'identifier' && styles.inputFocused]}>
               <Ionicons name={identifier.includes('@') ? "mail-outline" : "call-outline"} size={20} color={focused === 'identifier' ? t.primary : t.textMuted} />
               <TextInput
                 style={styles.input}
-                placeholder="Email atau 08xxxxxxxxxx"
+                placeholder="08xxxxxxxxxx"
                 placeholderTextColor={t.textMuted}
-                keyboardType="email-address"
+                keyboardType="phone-pad"
                 autoCapitalize="none"
                 value={identifier}
                 onChangeText={setIdentifier}
@@ -281,20 +300,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Actions Row */}
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={styles.checkboxContainer}
-                onPress={() => setRememberMe(!rememberMe)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={rememberMe ? "checkbox" : "square-outline"}
-                  size={20}
-                  color={rememberMe ? t.secondary : t.textSecondary}
-                />
-                <Text style={styles.rememberText}>Ingat saya</Text>
-              </TouchableOpacity>
-
+            <View style={[styles.actionsRow, { justifyContent: 'flex-end' }]}>
               <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
                 <Text style={styles.forgotText}>Lupa kata sandi?</Text>
               </TouchableOpacity>
@@ -326,9 +332,9 @@ export default function LoginScreen() {
               <View style={styles.line} />
             </View>
 
-            <TouchableOpacity style={styles.otpBtn} onPress={() => router.push('/(auth)/otp')}>
-              <Ionicons name="chatbubble-outline" size={20} color={t.text} />
-              <Text style={styles.otpText}>Masuk dengan OTP</Text>
+            <TouchableOpacity style={styles.otpBtn} onPress={() => router.push('/(auth)/register')}>
+              <Ionicons name="person-add-outline" size={20} color={t.text} />
+              <Text style={styles.otpText}>Daftar Terapis</Text>
             </TouchableOpacity>
           </View>
 
@@ -401,6 +407,9 @@ const getStyles = (t: any) => StyleSheet.create({
     borderWidth: 1.5, borderColor: t.border,
   },
   otpText: { ...TYPOGRAPHY.h4, color: t.text, fontFamily: 'Inter_600SemiBold' },
+  registerLink: { alignItems: 'center', marginTop: SPACING.lg },
+  registerText: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary },
+  registerBold: { color: t.primary, fontFamily: 'Inter_700Bold' },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 24 },
   footerText: { ...TYPOGRAPHY.caption, color: t.textMuted },
 });

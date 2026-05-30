@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     if (transError) console.error('[Withdraw Debug] Transaction Log Error:', transError);
 
     debugStep = 'PREPARE_XENDIT_PAYLOAD';
-    const secretKey = process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const bankMapping: Record<string, string> = {

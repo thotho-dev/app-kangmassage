@@ -28,10 +28,6 @@ export default function HelpSupportScreen() {
     if (settings.support_email) Linking.openURL(`mailto:${settings.support_email}`);
   };
 
-  const handleChat = () => {
-    router.push('/support/chat');
-  };
-
   return (
     <View style={styles.container}>
       <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
@@ -68,16 +64,6 @@ export default function HelpSupportScreen() {
             <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.contactCard} onPress={handleChat}>
-            <View style={[styles.iconWrap, { backgroundColor: t.primary + '20' }]}>
-              <Ionicons name="chatbubble-ellipses" size={24} color={t.primary} />
-            </View>
-            <View style={styles.contactInfo}>
-              <Text style={styles.contactTitle}>Live Chat</Text>
-              <Text style={styles.contactDesc}>Chat langsung dengan admin</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={t.textMuted} />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
