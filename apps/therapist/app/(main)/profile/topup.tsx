@@ -175,7 +175,7 @@ export default function TopupScreen() {
               <Text style={styles.currency}>Rp</Text>
               <TextInput style={styles.input} placeholder="0" placeholderTextColor={t.textMuted} keyboardType="number-pad" value={displayAmount} onChangeText={handleAmountChange} />
             </View>
-            <Text style={[styles.minText, !isAmountValid && displayAmount !== '' ? { color: t.danger } : { color: t.textMuted }]}>Minimal TopUp Rp 20.000</Text>
+            <Text style={[styles.minText, !isAmountValid && displayAmount !== '' ? { color: t.danger } : { color: t.textMuted }]}>Minimal TopUp Rp {minTopup.toLocaleString('id-ID')}</Text>
             <View style={styles.presetGrid}>
               {PRESETS.map(p => (
                 <TouchableOpacity key={p} style={[styles.presetBtn, getRawAmount() === p && { borderColor: t.secondary, backgroundColor: t.secondary + '10' }]} onPress={() => handleAmountChange(p.toString())}>

@@ -158,7 +158,7 @@ export default function WithdrawScreen() {
               )}
             </View>
             <Text style={[styles.hintText, !isAmountValid && displayAmount !== '' ? { color: t.danger } : { color: t.textMuted }]}>
-              Minimal penarikan Rp 50.000
+              Minimal penarikan Rp {minWithdraw.toLocaleString('id-ID')}
             </Text>
           </View>
 
