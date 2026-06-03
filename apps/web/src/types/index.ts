@@ -32,6 +32,9 @@ export interface Therapist {
   bio?: string;
   gender?: string;
   nik?: string;
+  birth_place?: string;
+  birth_date?: string;
+  marital_status?: string;
   address?: string;
   rt_rw?: string;
   kelurahan?: string;
