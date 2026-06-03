@@ -83,7 +83,6 @@ export const initializeNotifee = async () => {
             vibration: true,
             vibrationPattern: [500, 500],
             bypassDnd: true,
-            lockScreenVisibility: 'public',
           });
         }
       }
@@ -135,7 +134,7 @@ export const displayOrderNotification = async (order: any) => {
             loopSound: true,
             ongoing: false,
             autoCancel: true,
-            lights: true,
+            lights: ['#F97316', 500, 500],
             vibrationPattern: [500, 500],
             smallIcon: 'ic_notification',
             color: '#F97316',
