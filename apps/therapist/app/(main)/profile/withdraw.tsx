@@ -9,9 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useAlert } from '@/components/CustomAlert';
 import { API_URL } from '@/lib/config';
-
-const MIN_WITHDRAW = 50000;
-const WITHDRAW_FEE = 5000;
+import { getAppSettings, AppSettings } from '@/lib/appSettings';
 
 export default function WithdrawScreen() {
   const t = useThemeColors();
@@ -23,11 +21,16 @@ export default function WithdrawScreen() {
 
   const [displayAmount, setDisplayAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  const minWithdraw = settings?.withdraw_min_amount ?? 50000;
+  const withdrawFee = settings?.withdraw_admin_fee ?? 5000;
 
   useFocusEffect(
     useCallback(() => {
       fetchProfile();
       setDisplayAmount('');
+      getAppSettings().then(setSettings);
     }, [])
   );
 
@@ -49,8 +52,8 @@ export default function WithdrawScreen() {
       return;
     }
 
-    if (rawAmount < MIN_WITHDRAW) {
-      showAlert('warning', 'Nominal Kurang', `Minimal penarikan adalah Rp ${MIN_WITHDRAW.toLocaleString('id-ID')}`);
+    if (rawAmount < minWithdraw) {
+      showAlert('warning', 'Nominal Kurang', `Minimal penarikan adalah Rp ${minWithdraw.toLocaleString('id-ID')}`);
       return;
     }
 
@@ -86,7 +89,7 @@ export default function WithdrawScreen() {
     }
   };
 
-  const isAmountValid = getRawAmount() >= MIN_WITHDRAW && getRawAmount() <= (profile?.wallet_balance || 0);
+  const isAmountValid = getRawAmount() >= minWithdraw && getRawAmount() <= (profile?.wallet_balance || 0);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -169,13 +172,13 @@ export default function WithdrawScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Biaya Admin</Text>
-                <Text style={styles.summaryValue}>- Rp {WITHDRAW_FEE.toLocaleString('id-ID')}</Text>
+                <Text style={styles.summaryValue}>- Rp {withdrawFee.toLocaleString('id-ID')}</Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: t.text, fontFamily: 'Inter_700Bold' }]}>Dana Diterima</Text>
                 <Text style={[styles.summaryValue, { color: t.success, fontSize: 16, fontFamily: 'Inter_700Bold' }]}>
-                  Rp {Math.max(0, getRawAmount() - WITHDRAW_FEE).toLocaleString('id-ID')}
+                  Rp {Math.max(0, getRawAmount() - withdrawFee).toLocaleString('id-ID')}
                 </Text>
               </View>
             </View>

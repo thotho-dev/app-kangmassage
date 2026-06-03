@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, 
@@ -15,6 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { API_URL } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
+import { getAppSettings, AppSettings } from '@/lib/appSettings';
 
 const PURPLE = '#240080';
 const PURPLE_DARK = '#12004D';
@@ -27,8 +28,6 @@ const BORDER = '#F0F0F0';
 const BG = '#F8F8FB';
 
 const PRESETS = [50000, 100000, 200000, 500000, 1000000];
-const MIN_TOPUP = 20000;
-const ADMIN_FEE = 2500;
 
 const PAYMENT_GROUPS = [
   {
@@ -76,12 +75,14 @@ export default function TopupScreen() {
   const [selectedMethod, setSelectedMethod] = useState('dana');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       setDisplayAmount('');
       setSelectedMethod('dana');
       setExpandedGroup('ewallet');
+      getAppSettings().then(setSettings);
     }, [])
   );
 
@@ -93,6 +94,9 @@ export default function TopupScreen() {
   const handleAmountChange = (text: string) => setDisplayAmount(formatNumber(text));
   const getRawAmount = () => parseInt(displayAmount.replace(/\./g, '')) || 0;
 
+  const minTopup = settings?.topup_min_amount ?? 10000;
+  const adminFee = settings?.topup_admin_fee ?? 2500;
+
   const toggleGroup = (groupId: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedGroup(expandedGroup === groupId ? null : groupId);
@@ -100,8 +104,8 @@ export default function TopupScreen() {
 
   const handleTopup = async () => {
     const rawAmount = getRawAmount();
-    if (rawAmount < MIN_TOPUP) {
-      showAlert('Nominal Kurang', `Minimal top up adalah Rp ${MIN_TOPUP.toLocaleString('id-ID')}`);
+    if (rawAmount < minTopup) {
+      showAlert('Nominal Kurang', `Minimal top up adalah Rp ${minTopup.toLocaleString('id-ID')}`);
       return;
     }
     if (!selectedMethod) {
@@ -130,7 +134,7 @@ export default function TopupScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: profile?.id,
-          amount: rawAmount + ADMIN_FEE,
+          amount: rawAmount + adminFee,
           payment_method: selectedMethod,
         }),
       });
@@ -152,7 +156,7 @@ export default function TopupScreen() {
     }
   };
 
-  const isAmountValid = getRawAmount() >= MIN_TOPUP;
+  const isAmountValid = getRawAmount() >= minTopup;
   const balance = profile?.wallet_balance || 0;
   const currentSelectedMethodName = PAYMENT_GROUPS.flatMap(g => g.items).find(i => i.id === selectedMethod)?.name || '-';
 
@@ -213,7 +217,7 @@ export default function TopupScreen() {
               styles.minText, 
               !isAmountValid && displayAmount !== '' ? { color: ERROR } : {}
             ]}>
-              Minimal Top Up Rp 20.000
+              Minimal Top Up Rp {minTopup.toLocaleString('id-ID')}
             </Text>
 
             {/* Preset Buttons */}
@@ -297,7 +301,7 @@ export default function TopupScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Biaya Transaksi</Text>
-                <Text style={styles.summaryValue}>Rp {ADMIN_FEE.toLocaleString('id-ID')}</Text>
+                <Text style={styles.summaryValue}>Rp {adminFee.toLocaleString('id-ID')}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Metode</Text>
@@ -307,7 +311,7 @@ export default function TopupScreen() {
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: TEXT_DARK, fontFamily: 'PlusJakartaSans-Bold' }]}>Total Bayar</Text>
                 <Text style={[styles.summaryValue, { color: PURPLE, fontSize: 18, fontFamily: 'PlusJakartaSans-Bold' }]}>
-                  Rp {(getRawAmount() + ADMIN_FEE).toLocaleString('id-ID')}
+                  Rp {(getRawAmount() + adminFee).toLocaleString('id-ID')}
                 </Text>
               </View>
             </View>

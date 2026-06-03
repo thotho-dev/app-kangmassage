@@ -9,6 +9,7 @@ import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
 import { useTherapistStore } from '@/store/therapistStore';
 import { getTierDetails } from '@/lib/tierLogic';
+import { getAppSettings } from '@/lib/appSettings';
 import { startOfDay, startOfWeek, startOfMonth, isWithinInterval, endOfDay } from 'date-fns';
 
 const SUMMARY_PERIODS = ['Hari Ini', 'Minggu Ini', 'Bulan Ini', 'Semua'];
@@ -29,6 +30,7 @@ export default function EarningsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [summary, setSummary] = useState({ gross: 0, net: 0, orders: 0, commission: 0 });
+  const [withdrawFee, setWithdrawFee] = useState(5000);
 
   const fetchData = async (isRefreshing = false) => {
     if (!profile) return;
@@ -124,6 +126,7 @@ export default function EarningsScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchData();
+      getAppSettings().then(s => setWithdrawFee(s.withdraw_admin_fee ?? 5000));
     }, [profile])
   );
 
@@ -256,7 +259,7 @@ export default function EarningsScreen() {
                   <Text style={[styles.historyAmount, { color: isTopUp ? t.success : isWithdrawal ? t.warning : isDebit ? t.danger : t.primary }]}>
                     {isDebit || isWithdrawal ? '-' : '+'}
                     Rp {isWithdrawal
-                      ? (Math.abs(Number(item.amount) || 0) - 5000).toLocaleString('id-ID')
+                      ? (Math.abs(Number(item.amount) || 0) - withdrawFee).toLocaleString('id-ID')
                       : Math.abs(Number(item.amount) || 0).toLocaleString('id-ID')
                     }
                   </Text>

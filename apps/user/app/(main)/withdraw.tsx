@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { getAppSettings, AppSettings } from '@/lib/appSettings';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -26,8 +27,7 @@ const TEXT_MUTED = '#6B7280';
 const BORDER = '#F0F0F0';
 const BG = '#F8F8FB';
 
-const MIN_WITHDRAW = 50000;
-const ADMIN_FEE = 5000;
+// Values now fetched dynamically from app_settings
 
 const BANK_LIST = [
   { id: 'dana', name: 'DANA Wallet', code: 'DANA' },
@@ -54,8 +54,12 @@ export default function WithdrawScreen() {
   const [accountName, setAccountName] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
 
   const balance = profile?.wallet_balance || 0;
+
+  const minWithdraw = settings?.withdraw_min_amount ?? 50000;
+  const adminFee = settings?.withdraw_admin_fee ?? 5000;
 
   useFocusEffect(
     useCallback(() => {
@@ -64,6 +68,7 @@ export default function WithdrawScreen() {
       setAccountNumber('');
       setAccountName('');
       setSuccess(false);
+      getAppSettings().then(setSettings);
     }, [])
   );
 
@@ -75,8 +80,8 @@ export default function WithdrawScreen() {
   const handleAmountChange = (text: string) => setDisplayAmount(formatNumber(text));
   const getRawAmount = () => parseInt(displayAmount.replace(/\./g, '')) || 0;
 
-  const isAmountValid = getRawAmount() >= MIN_WITHDRAW;
-  const isBalanceSufficient = getRawAmount() + ADMIN_FEE <= balance;
+  const isAmountValid = getRawAmount() >= minWithdraw;
+  const isBalanceSufficient = getRawAmount() + adminFee <= balance;
   const isFormValid = isAmountValid && isBalanceSufficient && selectedBank && accountNumber.length >= 8 && accountName.length >= 3;
 
   const selectedBankName = BANK_LIST.find(b => b.id === selectedBank)?.name || '-';
@@ -227,22 +232,22 @@ export default function WithdrawScreen() {
               <View style={styles.errorRow}>
                 <AlertCircle size={12} color={ERROR} />
                 <Text style={styles.errorText}>
-                  Minimal penarikan Rp {MIN_WITHDRAW.toLocaleString('id-ID')}
+                  Minimal penarikan Rp {minWithdraw.toLocaleString('id-ID')}
                 </Text>
               </View>
             ) : !isBalanceSufficient && displayAmount !== '' ? (
               <View style={styles.errorRow}>
                 <AlertCircle size={12} color={ERROR} />
-                <Text style={styles.errorText}>Saldo tidak mencukupi (termasuk biaya admin Rp {ADMIN_FEE.toLocaleString('id-ID')})</Text>
+                <Text style={styles.errorText}>Saldo tidak mencukupi (termasuk biaya admin Rp {adminFee.toLocaleString('id-ID')})</Text>
               </View>
             ) : (
               <Text style={styles.minText}>
-                Minimal Rp {MIN_WITHDRAW.toLocaleString('id-ID')} · Biaya admin Rp {ADMIN_FEE.toLocaleString('id-ID')}
+                Minimal Rp {minWithdraw.toLocaleString('id-ID')} · Biaya admin Rp {adminFee.toLocaleString('id-ID')}
               </Text>
             )}
 
             <View style={styles.presetGrid}>
-              {PRESETS.filter(p => p + ADMIN_FEE <= balance).map(p => (
+              {PRESETS.filter(p => p + adminFee <= balance).map(p => (
                 <TouchableOpacity
                   key={p}
                   style={[styles.presetBtn, getRawAmount() === p && styles.presetBtnActive]}
@@ -253,12 +258,12 @@ export default function WithdrawScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
-              {balance - ADMIN_FEE >= MIN_WITHDRAW && (
+              {balance - adminFee >= minWithdraw && (
                 <TouchableOpacity
-                  style={[styles.presetBtn, getRawAmount() === balance - ADMIN_FEE && styles.presetBtnActive]}
-                  onPress={() => handleAmountChange((balance - ADMIN_FEE).toString())}
+                  style={[styles.presetBtn, getRawAmount() === balance - adminFee && styles.presetBtnActive]}
+                  onPress={() => handleAmountChange((balance - adminFee).toString())}
                 >
-                  <Text style={[styles.presetText, getRawAmount() === balance - ADMIN_FEE && styles.presetTextActive]}>
+                  <Text style={[styles.presetText, getRawAmount() === balance - adminFee && styles.presetTextActive]}>
                     Semua
                   </Text>
                 </TouchableOpacity>
@@ -322,7 +327,7 @@ export default function WithdrawScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Biaya Admin</Text>
-                <Text style={styles.summaryValue}>Rp {ADMIN_FEE.toLocaleString('id-ID')}</Text>
+                <Text style={styles.summaryValue}>Rp {adminFee.toLocaleString('id-ID')}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>{selectedBank === 'dana' ? 'Tujuan' : 'Bank Tujuan'}</Text>
@@ -336,7 +341,7 @@ export default function WithdrawScreen() {
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: TEXT_DARK, fontFamily: 'PlusJakartaSans-Bold' }]}>Total Dipotong</Text>
                 <Text style={[styles.summaryValue, { color: ERROR, fontSize: 18, fontFamily: 'PlusJakartaSans-Bold' }]}>
-                  Rp {(getRawAmount() + ADMIN_FEE).toLocaleString('id-ID')}
+                  Rp {(getRawAmount() + adminFee).toLocaleString('id-ID')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
