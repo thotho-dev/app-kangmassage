@@ -128,11 +128,16 @@ export default function TopupScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      if (result.data?.invoice_url) {
-        await Linking.openURL(result.data.invoice_url);
-        router.push('/profile/topup-history');
+      if (result.data.type === 'ewallet') {
+        const url = result.data.actions?.mobile_web_checkout_url || result.data.actions?.deeplink_checkout_url;
+        if (url) {
+          await Linking.openURL(url);
+          router.push('/profile/topup-history');
+        } else {
+          throw new Error('URL pembayaran tidak ditemukan');
+        }
       } else {
-        throw new Error('Invoice URL tidak ditemukan');
+        router.push({ pathname: '/profile/payment-details', params: { data: JSON.stringify(result.data) } });
       }
     } catch (error: any) {
       showAlert('error', 'Gagal', error.message || 'Terjadi kesalahan sistem.');

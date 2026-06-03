@@ -35,20 +35,33 @@ export default function TopupPaymentScreen() {
   );
 
   const {
-    invoice_url,
-    id: xendit_invoice_id,
-    external_id,
-    amount,
-    status,
-    topup_id,
+    type, external_id, amount, topup_id,
+    bank_code, va_number, retail_outlet_name, payment_code, qr_string, actions,
+    // fallback for old invoice format
+    invoice_url, id: xendit_invoice_id, status,
   } = paymentData;
 
   const invoiceAmount = amount ? parseInt(amount.toString().split('.')[0]) : 0;
   const topupDbId = topup_id || paymentData.topup_id;
 
+  let code = '';
+  let label = 'Nomor Bayar';
+  let ewalletUrl = '';
+
+  if (type === 'va') {
+    code = va_number;
+    label = `Virtual Account ${bank_code}`;
+  } else if (type === 'retail') {
+    code = payment_code;
+    label = `Kode Bayar ${retail_outlet_name}`;
+  } else if (type === 'ewallet') {
+    ewalletUrl = actions?.mobile_web_checkout_url || actions?.deeplink_checkout_url || '';
+  }
+
   const openPaymentUrl = () => {
-    if (invoice_url) {
-      Linking.openURL(invoice_url);
+    const url = ewalletUrl || invoice_url;
+    if (url) {
+      Linking.openURL(url);
     } else {
       showAlert('Tautan Tidak Tersedia', 'Tautan pembayaran tidak ditemukan.');
     }
@@ -108,15 +121,30 @@ export default function TopupPaymentScreen() {
 
         <Text style={styles.paymentMethodLabel}>Pembayaran</Text>
 
-        {/* Pay Now Button */}
+        {/* Payment Info */}
         <View style={styles.invoiceCard}>
           <View style={styles.invoiceIconBox}>
-            <ExternalLink size={32} color={PURPLE} />
+            {type === 'ewallet' ? (
+              <ExternalLink size={32} color={PURPLE} />
+            ) : (
+              <ExternalLink size={32} color={PURPLE} />
+            )}
           </View>
-          <Text style={styles.invoiceTitle}>Selesaikan Pembayaran</Text>
+          <Text style={styles.invoiceTitle}>{type === 'ewallet' ? 'Selesaikan Pembayaran' : label || 'Selesaikan Pembayaran'}</Text>
           <Text style={styles.invoiceDesc}>
-            Ketuk tombol di bawah untuk membuka halaman pembayaran aman.
+            {type === 'ewallet'
+              ? 'Ketuk tombol di bawah untuk membuka aplikasi pembayaran.'
+              : code
+                ? `Gunakan kode berikut untuk melakukan pembayaran ${label}`
+                : 'Ketuk tombol di bawah untuk membuka halaman pembayaran.'}
           </Text>
+
+          {code ? (
+            <View style={styles.amountRow}>
+              <Text style={styles.amountLabel}>{label}</Text>
+              <Text style={{ fontSize: 18, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK }}>{code}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Jumlah yang Diterima</Text>
@@ -129,7 +157,7 @@ export default function TopupPaymentScreen() {
             activeOpacity={0.85}
           >
             <ExternalLink size={18} color="#FFFFFF" />
-            <Text style={styles.payNowBtnText}>Bayar Sekarang</Text>
+            <Text style={styles.payNowBtnText}>{ewalletUrl || invoice_url ? 'Bayar Sekarang' : 'Cek Status'}</Text>
           </TouchableOpacity>
         </View>
 

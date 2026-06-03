@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAppSettings } from '@/lib/settings';
+import { createXenditPayment } from '@/lib/xendit-core';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     const { data: order, error } = await supabase
       .from('orders')
-      .select('*, service:services(name)')
+      .select('*, service:services(name), user:users(full_name, phone, email)')
       .eq('id', order_id)
       .single();
 
@@ -26,49 +27,31 @@ export async function POST(req: NextRequest) {
     if (!secretKey) {
       return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
     }
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const external_id = order.order_number;
 
-    const xenditPayload = {
+    const payment = await createXenditPayment('qris', {
       external_id,
       amount: order.total_price,
-      description: `Pembayaran QRIS ${order.service?.name || 'Layanan Pijat'} - Kang Massage`,
-      payment_methods: ['QRIS'],
-      success_redirect_url: 'kangmassage://tracking',
-      failure_redirect_url: 'kangmassage://order',
-    };
-
-    const response = await fetch('https://api.xendit.co/v2/invoices', {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(xenditPayload),
+      customer_name: order.user?.full_name || 'Guest',
+      customer_phone: order.user?.phone,
+      customer_email: order.user?.email || `${order.user?.phone}@pijat.com`,
+      secret_key: secretKey,
     });
 
-    const xenditData = await response.json();
-
-    if (response.status >= 300) {
-      console.error('Xendit QRIS Invoice Error:', xenditData);
-      return NextResponse.json({ error: xenditData.message || 'Xendit error' }, { status: 400 });
-    }
-
-    const qrCodeUrl = xenditData.actions?.find((a: any) => a.name === 'generate-qr-code')?.url || null;
-
     await supabase.from('orders').update({
-      payment_data: xenditData,
+      payment_data: payment,
     }).eq('id', order_id);
 
     return NextResponse.json({
       status: 'success',
       data: {
-        invoice_url: xenditData.invoice_url,
-        qr_code_url: qrCodeUrl,
+        ...payment,
+        qr_code_url: payment.qr_string
+          ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payment.qr_string)}`
+          : null,
         external_id,
         amount: order.total_price,
-        invoice_id: xenditData.id,
       }
     });
   } catch (error: any) {

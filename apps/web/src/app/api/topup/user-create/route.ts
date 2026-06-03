@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAppSettings } from '@/lib/settings';
+import { createXenditPayment } from '@/lib/xendit-core';
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
     const ADMIN_FEE = Number(settings.topup_admin_fee);
     const netAmount = amount - ADMIN_FEE;
 
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    }
+
     const { data: topup, error: topupError } = await supabase
       .from('user_topups')
       .insert([{
@@ -47,54 +53,27 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
-    // Xendit Invoice Integration (Production)
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
-    if (!secretKey) {
-      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
-    }
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
-
-    const xenditPayload: any = {
+    const payment = await createXenditPayment(payment_method, {
       external_id,
       amount,
-      description: `Top Up Saldo Kang Massage - ${user.full_name}`,
-      customer: {
-        given_names: user.full_name,
-        mobile_number: user.phone,
-        email: user.email || `${user.phone}@pijat.com`
-      },
-      success_redirect_url: 'kangmassage://wallet',
-      failure_redirect_url: 'kangmassage://topup',
-    };
-
-    const response = await fetch('https://api.xendit.co/v2/invoices', {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(xenditPayload),
+      customer_name: user.full_name,
+      customer_phone: user.phone,
+      customer_email: user.email || `${user.phone}@pijat.com`,
+      secret_key: secretKey,
     });
-
-    const xenditData = await response.json();
-
-    if (response.status >= 300) {
-      console.error('Xendit Invoice Creation Error:', xenditData);
-      return NextResponse.json({ error: xenditData.message || 'Xendit error' }, { status: 400 });
-    }
 
     await supabase
       .from('user_topups')
-      .update({ payment_data: xenditData })
+      .update({ payment_data: payment })
       .eq('id', topup.id);
 
     return NextResponse.json({
       status: 'success',
-      data: { ...xenditData, topup_id: topup.id }
+      data: { ...payment, topup_id: topup.id },
     });
 
   } catch (error: any) {
     console.error('User Topup API Error:', error.message);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }

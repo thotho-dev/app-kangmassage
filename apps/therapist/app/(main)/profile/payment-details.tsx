@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Clipboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Clipboard } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ export default function PaymentDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { showAlert, AlertComponent } = useAlert();
-  
+
   const paymentData = params.data ? JSON.parse(params.data as string) : null;
 
   const copyToClipboard = (text: string) => {
@@ -22,25 +22,16 @@ export default function PaymentDetailsScreen() {
 
   if (!paymentData) return null;
 
-  const { payment_type, va_numbers, permata_va_number, bill_key, biller_code, actions, payment_code } = paymentData;
+  const { type, bank_code, va_number, retail_outlet_name, payment_code, qr_string, amount } = paymentData;
   let code = '';
   let label = 'Nomor Bayar';
-  let qrUrl = '';
 
-  if (va_numbers) {
-    code = va_numbers[0].va_number;
-    label = `Virtual Account ${va_numbers[0].bank.toUpperCase()}`;
-  } else if (permata_va_number) {
-    code = permata_va_number;
-    label = 'Virtual Account PERMATA';
-  } else if (bill_key) {
-    code = `${biller_code}${bill_key}`;
-    label = 'Mandiri Bill Code';
-  } else if (payment_type === 'gopay' || payment_type === 'qris') {
-    qrUrl = actions?.find((a: any) => a.name === 'generate-qr-code')?.url;
-  } else if (payment_code) {
+  if (type === 'va') {
+    code = va_number;
+    label = `Virtual Account ${bank_code}`;
+  } else if (type === 'retail') {
     code = payment_code;
-    label = 'Kode Pembayaran';
+    label = `Kode Bayar ${retail_outlet_name}`;
   }
 
   return (
@@ -57,13 +48,18 @@ export default function PaymentDetailsScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.paymentCard}>
           <Text style={styles.paymentMethodTitle}>{label}</Text>
-          
-          {qrUrl ? (
-            <View style={styles.qrContainer}>
-              <Image source={{ uri: qrUrl }} style={styles.qrImage} />
-              <Text style={styles.qrHint}>Scan QR di atas menggunakan aplikasi pembayaran Anda</Text>
+
+          {type === 'qris' ? (
+            <View style={styles.codeRow}>
+              <Text style={styles.qrLabel}>QR Code</Text>
+              <Ionicons name="qr-code-outline" size={32} color={t.primary} />
+              <Text style={styles.qrString}>{qr_string}</Text>
+              <TouchableOpacity onPress={() => copyToClipboard(qr_string)} style={styles.copyBtn}>
+                <Ionicons name="copy-outline" size={20} color={t.secondary} />
+                <Text style={{ color: t.secondary, fontWeight: 'bold' }}>Salin QR</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
+          ) : code ? (
             <View style={styles.codeRow}>
               <Text style={styles.paymentCode}>{code}</Text>
               <TouchableOpacity onPress={() => copyToClipboard(code)} style={styles.copyBtn}>
@@ -71,12 +67,12 @@ export default function PaymentDetailsScreen() {
                 <Text style={{ color: t.secondary, fontWeight: 'bold' }}>Salin Kode</Text>
               </TouchableOpacity>
             </View>
-          )}
+          ) : null}
 
           <View style={styles.instrContainer}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Total Tagihan</Text>
-              <Text style={styles.detailValue}>Rp {parseInt(paymentData.gross_amount).toLocaleString('id-ID')}</Text>
+              <Text style={styles.detailValue}>Rp {(amount || 0).toLocaleString('id-ID')}</Text>
             </View>
             <View style={styles.divider} />
             <Text style={styles.stepTitle}>Langkah Pembayaran:</Text>
@@ -87,8 +83,8 @@ export default function PaymentDetailsScreen() {
             <Text style={styles.instrStep}>5. Selesaikan transaksi Anda</Text>
           </View>
 
-          <TouchableOpacity 
-            style={[styles.doneBtn, { backgroundColor: t.secondary }]} 
+          <TouchableOpacity
+            style={[styles.doneBtn, { backgroundColor: t.secondary }]}
             onPress={() => {
               useTherapistStore.getState().fetchProfile();
               router.push('/profile/topup-history');
@@ -108,17 +104,15 @@ const getStyles = (t: any) => StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { ...TYPOGRAPHY.h4, fontFamily: 'Inter_700Bold' },
   scroll: { padding: SPACING.lg },
-  
+
   paymentCard: { gap: SPACING.lg },
   paymentMethodTitle: { ...TYPOGRAPHY.label, color: t.textSecondary, textAlign: 'center', marginTop: 10 },
   codeRow: { backgroundColor: t.surface, padding: 30, borderRadius: RADIUS.xl, alignItems: 'center', gap: 16, borderWidth: 1, borderColor: t.border },
   paymentCode: { fontSize: 36, color: t.primary, fontFamily: 'Inter_700Bold', letterSpacing: 1.5 },
   copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, backgroundColor: t.secondary + '10', borderRadius: RADIUS.md },
-  
-  qrContainer: { alignItems: 'center', gap: 16, backgroundColor: '#FFFFFF', padding: 20, borderRadius: RADIUS.xl },
-  qrImage: { width: 280, height: 280 },
-  qrHint: { ...TYPOGRAPHY.caption, color: '#666', textAlign: 'center' },
-  
+  qrLabel: { fontSize: 16, color: t.text, fontFamily: 'Inter_700Bold' },
+  qrString: { fontSize: 12, color: t.textMuted, textAlign: 'center' },
+
   instrContainer: { backgroundColor: t.surface, padding: SPACING.lg, borderRadius: RADIUS.xl, gap: 12, borderWidth: 1, borderColor: t.border },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailLabel: { ...TYPOGRAPHY.bodySmall, color: t.textMuted },
@@ -126,7 +120,7 @@ const getStyles = (t: any) => StyleSheet.create({
   divider: { height: 1, backgroundColor: t.border },
   stepTitle: { ...TYPOGRAPHY.bodySmall, color: t.text, fontFamily: 'Inter_700Bold', marginBottom: 4 },
   instrStep: { ...TYPOGRAPHY.bodySmall, color: t.textSecondary, lineHeight: 20 },
-  
+
   doneBtn: { paddingVertical: 18, borderRadius: RADIUS.full, alignItems: 'center', marginTop: SPACING.xl, shadowColor: t.secondary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   doneBtnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
 });

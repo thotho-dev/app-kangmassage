@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAppSettings } from '@/lib/settings';
+import { createXenditPayment } from '@/lib/xendit-core';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,53 +20,30 @@ export async function POST(req: NextRequest) {
 
     const external_id = order.order_number;
 
-    // Xendit Invoice Integration (Production)
     const settings = await getAppSettings();
     const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
     if (!secretKey) {
       return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
     }
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
-    const xenditPayload: any = {
+    const payment = await createXenditPayment(payment_method, {
       external_id,
       amount: order.total_price,
-      description: `Pembayaran ${order.service?.name || 'Layanan Pijat'} - Kang Massage`,
-      customer: {
-        given_names: order.user?.full_name || 'Guest',
-        mobile_number: order.user?.phone,
-        email: order.user?.email || `${order.user?.phone}@pijat.com`,
-      },
-      success_redirect_url: 'kangmassage://history',
-      failure_redirect_url: 'kangmassage://order',
-    };
-
-    const response = await fetch('https://api.xendit.co/v2/invoices', {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(xenditPayload),
+      customer_name: order.user?.full_name || 'Guest',
+      customer_phone: order.user?.phone,
+      customer_email: order.user?.email || `${order.user?.phone}@pijat.com`,
+      secret_key: secretKey,
     });
 
-    const xenditData = await response.json();
-
-    if (response.status >= 300) {
-      console.error('Xendit Invoice Creation Error:', xenditData);
-      return NextResponse.json({ error: xenditData.message || 'Xendit error' }, { status: 400 });
-    }
-
-    // Update order with payment info
     await supabase.from('orders').update({
       payment_method,
       payment_status: 'pending',
-      payment_data: xenditData,
+      payment_data: payment,
     }).eq('id', order_id);
 
     return NextResponse.json({
       status: 'success',
-      data: { ...xenditData, order_id },
+      data: { ...payment, order_id },
     });
   } catch (error: any) {
     console.error('Payment Create Error:', error);

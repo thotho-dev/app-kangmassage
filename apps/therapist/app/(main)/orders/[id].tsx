@@ -175,7 +175,7 @@ export default function OrderDetailScreen() {
   const [isMapFull, setIsMapFull] = useState(false);
   const [qrisModalVisible, setQrisModalVisible] = useState(false);
   const [qrisState, setQrisState] = useState<'idle' | 'loading' | 'ready' | 'checking' | 'paid' | 'error'>('idle');
-  const [qrisData, setQrisData] = useState<{ qr_code_url: string | null; invoice_url: string | null; external_id: string; amount: number } | null>(null);
+  const [qrisData, setQrisData] = useState<{ qr_code_url: string | null; external_id: string; amount: number } | null>(null);
   const [qrisError, setQrisError] = useState<string | null>(null);
   const [remainingTime, setRemainingTime] = useState<string>('');
   const [serviceRemaining, setServiceRemaining] = useState<string>('');
@@ -1499,17 +1499,6 @@ export default function OrderDetailScreen() {
                           <Text style={styles.qrisCheckBtnText}>Cek Status Pembayaran</Text>
                         </>
                       )}
-                    </TouchableOpacity>
-                    {qrisData?.invoice_url && (
-                      <TouchableOpacity
-                        style={[styles.qrisCheckBtn, { backgroundColor: t.primary }]}
-                        onPress={() => Linking.openURL(qrisData.invoice_url!)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="globe-outline" size={18} color="#FFFFFF" />
-                        <Text style={styles.qrisCheckBtnText}>Buka Halaman Pembayaran</Text>
-                      </TouchableOpacity>
-                    )}
                   </View>
                 </>
               ) : null}

@@ -189,12 +189,15 @@ export default function TopupHistoryScreen() {
                     <TouchableOpacity 
                       style={[styles.actionBtn, { backgroundColor: t.secondary, borderColor: t.secondary, flex: 1 }]} 
                       onPress={async () => {
-                        if (item.payment_data?.invoice_url) {
-                          await Linking.openURL(item.payment_data.invoice_url);
+                        const pd = item.payment_data;
+                        if (!pd) return;
+                        if (pd.type === 'ewallet') {
+                          const url = pd.actions?.mobile_web_checkout_url || pd.actions?.deeplink_checkout_url;
+                          if (url) await Linking.openURL(url);
                         } else {
                           router.push({
                             pathname: '/profile/payment-details',
-                            params: { data: JSON.stringify(item.payment_data) }
+                            params: { data: JSON.stringify(pd) }
                           });
                         }
                       }}
