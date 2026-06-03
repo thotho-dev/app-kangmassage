@@ -71,6 +71,7 @@ export default function TabLayout() {
       });
 
       // Subscribe realtime untuk verifikasi / revisi
+      if (verifyChannel) supabase.removeChannel(verifyChannel);
       verifyChannel = supabase
         .channel('therapist-verify')
         .on('postgres_changes',
