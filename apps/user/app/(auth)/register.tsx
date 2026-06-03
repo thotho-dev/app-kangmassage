@@ -64,12 +64,6 @@ export default function RegisterScreen() {
 
       setStep('otp');
       startTimer();
-
-      if (result.mock_otp) {
-        const digits = result.mock_otp.split('');
-        setOtp(digits);
-        setTimeout(() => handleVerifyOTP(result.mock_otp), 500);
-      }
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Gagal mengirim OTP');
     } finally {
@@ -152,7 +146,7 @@ export default function RegisterScreen() {
         });
         if (error) throw error;
       }
-      router.replace('/(main)/home');
+      router.replace('/home');
     } catch (error: any) {
       showAlert('Daftar Gagal', error.message);
     } finally {

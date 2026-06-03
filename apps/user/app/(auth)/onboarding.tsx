@@ -105,7 +105,7 @@ export default function OnboardingScreen() {
 
   const finish = useCallback(async () => {
     await SecureStore.setItemAsync('onboarding_completed', 'true');
-    router.replace('/(main)/home');
+    router.replace('/home');
   }, [router]);
 
   const handleNext = useCallback(() => {

@@ -28,10 +28,10 @@ export default function MapsScreen() {
     useCallback(() => {
       const backAction = () => {
         if (from === 'order') {
-          router.replace({ pathname: '/(main)/order', params: { serviceId, from: sourceFrom as string } });
+          router.replace({ pathname: '/order', params: { serviceId, from: sourceFrom as string } });
           return true;
         }
-        router.replace({ pathname: '/(main)/home' });
+        router.replace({ pathname: '/home' });
         return true;
       };
 
@@ -301,9 +301,9 @@ export default function MapsScreen() {
             setCoords({ latitude: region.latitude, longitude: region.longitude });
             // Navigate back specifically to Order screen with serviceId
             if (from === 'order') {
-              router.push({ pathname: '/(main)/order', params: { serviceId, from: sourceFrom as string } });
+              router.push({ pathname: '/order', params: { serviceId, from: sourceFrom as string } });
             } else {
-              router.push({ pathname: '/(main)/home' });
+              router.push({ pathname: '/home' });
             }
           }}
         >

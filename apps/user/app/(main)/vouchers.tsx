@@ -31,7 +31,7 @@ export default function VouchersScreen() {
       const backAction = () => {
         if (from === 'order') {
           router.replace({ 
-            pathname: '/(main)/order', 
+            pathname: '/order', 
             params: { 
               serviceId: serviceId as string, 
               therapistId: therapistId as string, 
@@ -240,7 +240,7 @@ export default function VouchersScreen() {
               <TouchableOpacity 
                 key={item.id} 
                 style={[styles.voucherCard, !valid && { opacity: 0.6 }]}
-                onPress={() => router.push({ pathname: '/(main)/voucher-detail/[id]', params: { id: item.id } })}
+                onPress={() => router.push({ pathname: '/voucher-detail/[id]', params: { id: item.id } })}
               >
                 <View style={styles.voucherLeft}>
                   <View style={styles.leftContent}>
@@ -287,7 +287,7 @@ export default function VouchersScreen() {
                       onPress={() => {
                         if (from === 'order') {
                           router.replace({ 
-                            pathname: '/(main)/order', 
+                            pathname: '/order', 
                             params: { 
                               serviceId: serviceId as string, 
                               therapistId: therapistId as string, 
@@ -296,7 +296,7 @@ export default function VouchersScreen() {
                             } 
                           });
                         } else {
-                          router.replace({ pathname: '/(main)/services', params: { voucherCode: item.code } });
+                          router.replace({ pathname: '/services', params: { voucherCode: item.code } });
                         }
                       }}
                     >

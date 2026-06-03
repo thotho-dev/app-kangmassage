@@ -120,7 +120,7 @@ export default function WithdrawScreen() {
 
       await refreshProfile();
       showAlert('Penarikan Berhasil', 'Permintaan penarikan Anda sedang diproses. Dana akan masuk ke rekening dalam 1-3 hari kerja.');
-      router.replace('/(main)/withdraw-history');
+      router.replace('/withdraw-history');
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -150,7 +150,7 @@ export default function WithdrawScreen() {
 
           <TouchableOpacity
             style={styles.backToWalletBtn}
-            onPress={() => router.replace('/(main)/wallet')}
+            onPress={() => router.replace('/wallet')}
             activeOpacity={0.85}
           >
             <LinearGradient
@@ -177,7 +177,7 @@ export default function WithdrawScreen() {
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Tarik Saldo</Text>
-        <TouchableOpacity onPress={() => router.push('/(main)/withdraw-history')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push('/withdraw-history')} style={styles.backButton}>
           <Receipt size={24} color={TEXT_DARK} />
         </TouchableOpacity>
       </View>

@@ -81,8 +81,11 @@ export async function POST(req: NextRequest) {
       metadata: { withdrawal_id: withdrawal.id }
     }]);
 
-    // Xendit Disbursements Integration
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    // Xendit Disbursements Integration (Production)
+    const secretKey = settings.xendit_disbursement_secret_key || settings.xendit_secret_key || process.env.XENDIT_DISBURSEMENT_SECRET_KEY || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const bankMapping: Record<string, string> = {
@@ -97,53 +100,6 @@ export async function POST(req: NextRequest) {
       'dana': 'DANA',
     };
     const bankCodeMapped = bankMapping[bank_name.toLowerCase()] || bank_code || bank_name.toUpperCase();
-
-    // INTERCEPT FOR LOCAL SANDBOX
-    if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
-      const mockDisbursement = {
-        id: `disb-sb-${withdrawal.id.slice(0, 8)}`,
-        external_id,
-        amount: payoutAmount,
-        status: 'COMPLETED',
-        bank_code: bankCodeMapped,
-        account_holder_name: account_name,
-        account_number,
-        created: new Date().toISOString(),
-        updated: new Date().toISOString()
-      };
-
-      await supabase
-        .from('user_withdrawals')
-        .update({ status: 'completed', payment_data: mockDisbursement })
-        .eq('id', withdrawal.id);
-
-      if (user.push_token) {
-        await fetch('https://exp.host/--/api/v2/push/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: user.push_token,
-            title: 'Penarikan Dana Berhasil!',
-            body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah dikirim ke rekening Anda.`,
-            data: { type: 'withdrawal_success' },
-            sound: 'default',
-          }),
-        });
-      }
-
-      await supabase.from('notifications').insert({
-        user_id,
-        title: 'Penarikan Dana Berhasil!',
-        body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah berhasil dicairkan ke rekening Anda.`,
-        type: 'withdrawal_success',
-      });
-
-      return NextResponse.json({
-        status: 'success',
-        message: 'Penarikan berhasil diproses!',
-        data: mockDisbursement
-      });
-    }
 
     const payload = {
       external_id,

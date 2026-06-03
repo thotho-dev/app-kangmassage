@@ -10,18 +10,17 @@ export async function POST(req: NextRequest) {
     const callbackToken = req.headers.get('x-callback-token');
     const settings = await getAppSettings();
     const expectedToken = settings.xendit_webhook_verification_token || process.env.XENDIT_WEBHOOK_VERIFICATION_TOKEN;
-    const isSandbox = (settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || '').includes('dummy');
     if (expectedToken && callbackToken !== expectedToken) {
-      if (!(isSandbox && callbackToken === 'dummytoken')) {
-        console.warn('[Xendit Webhook] Unauthorized callback token attempt.');
-        return NextResponse.json({ error: 'Unauthorized callback token' }, { status: 401 });
-      }
+      console.warn('[Xendit Webhook] Unauthorized callback token attempt.');
+      return NextResponse.json({ error: 'Unauthorized callback token' }, { status: 401 });
     }
 
-    const { external_id, status, id: invoice_id, amount, paid_amount, payment_channel } = body;
+    // Support both flat (old) and envelope (new Xendit v2) callback formats
+    const payload = body.data || body;
+    const { external_id, status, id: invoice_id, amount, paid_amount, payment_channel } = payload;
 
     if (!external_id) {
-      return NextResponse.json({ error: 'Missing external_id' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing external_id', body }, { status: 400 });
     }
 
     const supabase = createAdminClient();

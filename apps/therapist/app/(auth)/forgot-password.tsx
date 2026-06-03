@@ -52,9 +52,7 @@ export default function ForgotPasswordScreen() {
         CustomAlertTrigger.show({ type: 'error', title: 'Error', message: data.error || 'Gagal mengirim OTP' });
         return;
       }
-      if (data.mock_otp) {
-        CustomAlertTrigger.show({ type: 'info', title: 'Development', message: `OTP: ${data.mock_otp}` });
-      }
+      CustomAlertTrigger.show({ type: 'success', title: 'Berhasil', message: 'OTP terkirim ke WhatsApp/Email' });
       setStep('otp');
     } catch (e: any) {
       CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Gagal terhubung ke server. Periksa koneksi Anda.' });

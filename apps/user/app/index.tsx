@@ -56,7 +56,7 @@ export default function SplashScreen() {
 
     const timer = setTimeout(async () => {
       const done = await SecureStore.getItemAsync('onboarding_completed');
-      router.replace(done ? '/(main)/home' : '/(auth)/onboarding');
+      router.replace(done ? '/home' : '/onboarding');
     }, 3000);
     return () => clearTimeout(timer);
   }, []);

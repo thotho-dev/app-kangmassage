@@ -337,29 +337,29 @@ export default function HomeScreen() {
 
   const handleFloatingCardPress = (ord: any) => {
     if (ord.status === 'completed' && !ord.rating) {
-      router.push({ pathname: '/(main)/tracking', params: { id: ord.id } });
+      router.push({ pathname: '/tracking', params: { id: ord.id } });
       return;
     }
     
     if (ord.status === 'pending') {
       if (ord.scheduled_at) {
-        router.push({ pathname: '/(main)/tracking', params: { id: ord.id } });
+        router.push({ pathname: '/tracking', params: { id: ord.id } });
       } else if (ord.payment_status !== 'paid' && ord.payment_method !== 'tunai' && ord.payment_data) {
         router.push({
-          pathname: '/(main)/payment-details',
+          pathname: '/payment-details',
           params: { data: JSON.stringify(ord.payment_data), order_id: ord.id }
         });
       } else {
-        router.push({ pathname: '/(main)/searching-therapist', params: { id: ord.id } });
+        router.push({ pathname: '/searching-therapist', params: { id: ord.id } });
       }
     } else {
-      router.push({ pathname: '/(main)/tracking', params: { id: ord.id } });
+      router.push({ pathname: '/tracking', params: { id: ord.id } });
     }
   };
 
   const handleProtectedAction = (pathname: string, params?: any) => {
     if (!isAuthenticated) {
-      router.push('/(auth)/login');
+      router.push('/login');
     } else {
       router.push({ pathname: pathname as any, params });
     }
@@ -400,7 +400,7 @@ export default function HomeScreen() {
           <TouchableOpacity 
             style={styles.bellButton} 
             activeOpacity={0.85}
-            onPress={() => handleProtectedAction('/(main)/notifications')}
+            onPress={() => handleProtectedAction('/notifications')}
           >
             <Bell size={18} color="#FFFFFF" fill="#FFFFFF" />
           </TouchableOpacity>
@@ -425,14 +425,14 @@ export default function HomeScreen() {
             <TouchableOpacity 
               style={styles.circleAction} 
               activeOpacity={0.85}
-              onPress={() => handleProtectedAction('/(main)/vouchers')}
+              onPress={() => handleProtectedAction('/vouchers')}
             >
               <Ticket size={25} color={PURPLE} />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.circleAction} 
               activeOpacity={0.85}
-              onPress={() => handleProtectedAction('/(main)/wallet')}
+              onPress={() => handleProtectedAction('/wallet')}
             >
               <Wallet size={25} color={PURPLE} />
             </TouchableOpacity>
@@ -443,7 +443,7 @@ export default function HomeScreen() {
         <TouchableOpacity 
           style={styles.locationBlock} 
           activeOpacity={0.75}
-          onPress={() => handleProtectedAction('/(main)/maps', { from: 'home' })}
+          onPress={() => handleProtectedAction('/maps', { from: 'home' })}
         >
           <MapPin size={14} color={PURPLE} fill={PURPLE} />
           <View style={{ flex: 1, marginLeft: 6 }}>
@@ -457,7 +457,7 @@ export default function HomeScreen() {
 
         {/* ── Banner Slideshow ── */}
         <BannerSlideshow
-          onBookNow={() => handleProtectedAction('/(main)/services')}
+          onBookNow={() => handleProtectedAction('/services')}
         />
 
         {/* ── Layanan section ── */}
@@ -468,7 +468,7 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.sectionTitle}>Layanan Kami</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(main)/services')}>
+          <TouchableOpacity onPress={() => router.push('/services')}>
             <Text style={styles.seeAll}>Lihat Semua</Text>
           </TouchableOpacity>
         </View>
@@ -507,7 +507,7 @@ export default function HomeScreen() {
                     style={styles.pickButton}
                     activeOpacity={0.9}
                     onPress={() =>
-                      handleProtectedAction('/(main)/order', { serviceId: service.id, from: 'home' })
+                      handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
                     }
                   >
                     <Text style={styles.pickButtonText}>Pilih Layanan</Text>
@@ -522,7 +522,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.allServicesBtn}
           activeOpacity={0.9}
-          onPress={() => router.push('/(main)/services')}
+          onPress={() => router.push('/services')}
         >
           <Text style={styles.allServicesText}>Semua Layanan</Text>
           <ChevronRight size={16} color={PURPLE} />

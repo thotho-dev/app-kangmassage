@@ -4,7 +4,7 @@ import {
   Platform, ScrollView, Dimensions, StatusBar, Image, TextInput, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { Phone, Eye, EyeOff } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,10 +67,10 @@ export default function LoginScreen() {
         if (access_token) {
           const { error } = await supabase.auth.setSession({ access_token, refresh_token });
           if (error) throw error;
-          router.replace('/(main)/home');
+          router.replace('/home');
         } else {
           const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData.session) router.replace('/(main)/home');
+          if (sessionData.session) router.replace('/home');
         }
       }
     } catch (error: any) {
@@ -106,7 +106,7 @@ export default function LoginScreen() {
         });
         if (error) throw error;
       }
-      router.replace('/(main)/home');
+      router.replace('/home');
     } catch (error: any) {
       showAlert('Login Gagal', error.message || 'Nomor atau kata sandi salah');
     } finally {
@@ -204,7 +204,16 @@ export default function LoginScreen() {
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
             </View>
 
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')} activeOpacity={0.85}>
+            <TouchableOpacity 
+              activeOpacity={0.85} 
+              onPress={() => {
+                try {
+                  router.push('/register');
+                } catch (e: any) {
+                  showAlert('Nav Error', e.message);
+                }
+              }}
+            >
               <LinearGradient
                 colors={[COLORS.gold[500], '#D97706']}
                 style={styles.registerBtn}

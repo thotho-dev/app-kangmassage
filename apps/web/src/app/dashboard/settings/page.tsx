@@ -35,6 +35,7 @@ type AppSettings = {
   puter_ocr_model_name: string;
   xendit_secret_key: string;
   xendit_webhook_verification_token: string;
+  xendit_disbursement_secret_key: string;
 };
 
 const defaultSettings: AppSettings = {
@@ -64,6 +65,7 @@ const defaultSettings: AppSettings = {
   puter_ocr_model_name: 'z-ai/glm-4.5-air:free',
   xendit_secret_key: '',
   xendit_webhook_verification_token: '',
+  xendit_disbursement_secret_key: '',
 };
 
 type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
@@ -561,10 +563,10 @@ export default function SettingsPage() {
                 </div>
                 <h2 className="font-semibold text-text-primary">{t('payment_gateway')}</h2>
               </div>
-              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi API key untuk payment gateway Xendit.</p>
+              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi API key Xendit untuk topup & penarikan saldo.</p>
               <div className="space-y-4 max-w-lg">
                 <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key</label>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key (Invoice / Topup)</label>
                   <textarea
                     value={settings.xendit_secret_key}
                     onChange={e => updateField('xendit_secret_key', e.target.value)}
@@ -572,10 +574,21 @@ export default function SettingsPage() {
                     placeholder="xnd_production_..."
                     rows={2}
                   />
-                  <p className="text-xs text-text-muted/60 mt-1">Secret key untuk environment production Xendit.</p>
+                  <p className="text-xs text-text-muted/60 mt-1">Secret key untuk Xendit Invoice API (topup saldo).</p>
                 </div>
                 <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Webhook Verification Token</label>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key (Disbursement / Tarik Saldo)</label>
+                  <textarea
+                    value={settings.xendit_disbursement_secret_key}
+                    onChange={e => updateField('xendit_disbursement_secret_key', e.target.value)}
+                    className="input-field min-h-[80px] font-mono text-xs"
+                    placeholder="xnd_production_..."
+                    rows={2}
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">Secret key khusus untuk Xendit Disbursements API (penarikan saldo). Jika dikosongkan akan pakai key yang sama dengan Invoice.</p>
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Webhook Verification Token</label>
                   <textarea
                     value={settings.xendit_webhook_verification_token}
                     onChange={e => updateField('xendit_webhook_verification_token', e.target.value)}

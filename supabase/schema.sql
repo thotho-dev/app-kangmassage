@@ -508,8 +508,9 @@ CREATE TABLE app_settings (
   puter_ocr_model_name    VARCHAR(100) NOT NULL DEFAULT 'z-ai/glm-4.5-air:free',
 
   -- Xendit Configuration
-  xendit_secret_key              TEXT NOT NULL DEFAULT '',
-  xendit_webhook_verification_token TEXT NOT NULL DEFAULT '',
+  xendit_secret_key                    TEXT NOT NULL DEFAULT '',
+  xendit_webhook_verification_token    TEXT NOT NULL DEFAULT '',
+  xendit_disbursement_secret_key       TEXT NOT NULL DEFAULT '',
 
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by              UUID REFERENCES users(id)

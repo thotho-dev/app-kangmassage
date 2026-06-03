@@ -245,7 +245,7 @@ export default function ProfileScreen() {
   const MENU_ITEMS = [
     { title: 'Data Pribadi', icon: User, color: COLORS.primary[400], onPress: handleOpenPersonal },
     { title: 'Metode Pembayaran', icon: CreditCard, color: COLORS.gold[500], onPress: () => setPaymentModalVisible(true) },
-    { title: 'Riwayat Pesanan', icon: Smartphone, color: COLORS.primary[300], onPress: () => router.push('/(main)/history') },
+    { title: 'Riwayat Pesanan', icon: Smartphone, color: COLORS.primary[300], onPress: () => router.push('/history') },
     { title: 'Keamanan', icon: Shield, color: COLORS.success, onPress: () => setSecurityModalVisible(true) },
     { title: 'Notifikasi', icon: Bell, color: COLORS.gold[600], onPress: () => setNotificationModalVisible(true) },
     { title: 'Bantuan & Dukungan', icon: HelpCircle, color: COLORS.primary[300], onPress: () => setSupportModalVisible(true) },
@@ -461,7 +461,7 @@ export default function ProfileScreen() {
                 <Text style={styles.walletLabel}>Saldo Dompet Kang Massage</Text>
                 <Text style={styles.walletValue}>Rp {(profile?.wallet_balance || 0).toLocaleString('id-ID')}</Text>
               </View>
-              <TouchableOpacity style={styles.topupBtn} onPress={() => { setPaymentModalVisible(false); router.push('/(main)/wallet'); }}>
+              <TouchableOpacity style={styles.topupBtn} onPress={() => { setPaymentModalVisible(false); router.push('/wallet'); }}>
                 <Text style={styles.topupText}>Top Up</Text>
               </TouchableOpacity>
             </LinearGradient>

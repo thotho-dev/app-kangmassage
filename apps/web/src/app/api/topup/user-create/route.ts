@@ -47,35 +47,12 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
-    // Xendit Invoice Integration
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
-
-    // INTERCEPT FOR LOCAL SANDBOX
-    if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
-      const host = req.headers.get('host') || 'localhost:3000';
-      const protocol = req.headers.get('x-forwarded-proto')?.split(',')[0] || 'http';
-      const origin = `${protocol}://${host}`;
-      const redirectUrl = `${origin}/xendit-sandbox?id=${topup.id}&amount=${amount}&external_id=${external_id}&type=user_topup`;
-
-      const mockData = {
-        invoice_url: redirectUrl,
-        id: `xendit-inv-${topup.id.slice(0, 8)}`,
-        external_id,
-        status: 'PENDING',
-        amount,
-      };
-
-      await supabase
-        .from('user_topups')
-        .update({ payment_data: mockData })
-        .eq('id', topup.id);
-
-      return NextResponse.json({
-        status: 'success',
-        data: { ...mockData, topup_id: topup.id }
-      });
+    // Xendit Invoice Integration (Production)
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
     }
+    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const paymentMethodsMap: Record<string, string[]> = {
       'dana': ['DANA'],

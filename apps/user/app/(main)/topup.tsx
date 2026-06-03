@@ -140,7 +140,7 @@ export default function TopupScreen() {
 
       if (result.data?.invoice_url) {
         await Linking.openURL(result.data.invoice_url);
-        router.push('/(main)/topup-history');
+        router.push('/topup-history');
       } else {
         console.log('Missing invoice_url in:', result);
         throw new Error('Invoice URL tidak ditemukan. Respons: ' + JSON.stringify(result));
@@ -165,7 +165,7 @@ export default function TopupScreen() {
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Isi Saldo</Text>
-        <TouchableOpacity onPress={() => router.push('/(main)/topup-history')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push('/topup-history')} style={styles.backButton}>
           <Receipt size={24} color={TEXT_DARK} />
         </TouchableOpacity>
       </View>

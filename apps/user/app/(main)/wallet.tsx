@@ -100,7 +100,7 @@ export default function WalletScreen() {
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Dompet Saya</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(main)/history')}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/history')}>
           <History size={20} color={GOLD} />
         </TouchableOpacity>
       </View>
@@ -138,12 +138,12 @@ export default function WalletScreen() {
 
             {/* Action Buttons */}
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(main)/topup')}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/topup')}>
                 <Plus size={16} color={GOLD} />
                 <Text style={styles.actionLabel}>Isi Saldo</Text>
               </TouchableOpacity>
               <View style={styles.actionDivider} />
-              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(main)/withdraw')}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/withdraw')}>
                 <TrendingUp size={16} color={GOLD} />
                 <Text style={styles.actionLabel}>Tarik Tunai</Text>
               </TouchableOpacity>

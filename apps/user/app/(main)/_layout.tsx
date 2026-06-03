@@ -19,7 +19,7 @@ export default function MainLayout() {
       lastSegment === 'home';
 
     if (!isAuthenticated && !isAllowedGuestRoute) {
-      router.replace('/(auth)/login');
+      router.replace('/login');
     }
   }, [isAuthenticated, loading, segments, router]);
 

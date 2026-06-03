@@ -60,7 +60,7 @@ export default function TopupPaymentScreen() {
       if (!topupDbId) {
         await refreshProfile();
         showAlert('Berhasil', 'Saldo Anda telah diperbarui!');
-        router.replace('/(main)/wallet');
+        router.replace('/wallet');
         return;
       }
 
@@ -75,7 +75,7 @@ export default function TopupPaymentScreen() {
       if (data?.status === 'paid') {
         await refreshProfile();
         showAlert('Berhasil', 'Top up berhasil! Saldo Anda telah ditambahkan.');
-        router.replace('/(main)/wallet');
+        router.replace('/wallet');
       } else {
         showAlert('Belum Terdeteksi', 'Pembayaran belum kami terima. Silakan selesaikan pembayaran terlebih dahulu.');
       }
@@ -92,7 +92,7 @@ export default function TopupPaymentScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/(main)/wallet')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace('/wallet')} style={styles.backButton}>
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Instruksi Pembayaran</Text>
@@ -161,7 +161,7 @@ export default function TopupPaymentScreen() {
 
         <TouchableOpacity
           style={styles.backWalletBtn}
-          onPress={() => router.replace('/(main)/wallet')}
+          onPress={() => router.replace('/wallet')}
           activeOpacity={0.7}
         >
           <Text style={styles.backWalletBtnText}>Kembali ke Dompet</Text>

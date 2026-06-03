@@ -49,40 +49,12 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
-    // 3. Integrate Xendit Invoice API
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
-
-    // INTERCEPT FOR XENDIT DIRECT SANDBOX / LOCAL TESTING
-    if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
-      // Pakai Host header biar URL sandbox sesuai IP asli, bukan localhost dari req.url
-      const host = req.headers.get('host') || 'localhost:3000';
-      const protocol = req.headers.get('x-forwarded-proto')?.split(',')[0] || 'http';
-      const origin = `${protocol}://${host}`;
-      const redirectUrl = `${origin}/xendit-sandbox?id=${topup.id}&amount=${amount}&order_id=${order_id}`;
-
-      const directXenditData = {
-        invoice_url: redirectUrl,
-        id: `xendit-inv-${topup.id.slice(0, 8)}`,
-        external_id: order_id,
-        status: 'PENDING',
-        amount: amount,
-      };
-
-      // Update Topup Record with Payment Data
-      await supabase
-        .from('therapist_topups')
-        .update({ payment_data: directXenditData })
-        .eq('id', topup.id);
-
-      return NextResponse.json({
-        status: 'success',
-        data: {
-          ...directXenditData,
-          topup_id: topup.id,
-        }
-      });
+    // 3. Integrate Xendit Invoice API (Production)
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
     }
+    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     // Map payment_method to Xendit allowed payment channels if specific method chosen
     const paymentMethodsMap: Record<string, string[]> = {

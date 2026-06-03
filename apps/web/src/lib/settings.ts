@@ -24,6 +24,7 @@ export type AppSettings = {
   logo_url: string | null;
   xendit_secret_key: string;
   xendit_webhook_verification_token: string;
+  xendit_disbursement_secret_key: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -50,6 +51,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   logo_url: null,
   xendit_secret_key: '',
   xendit_webhook_verification_token: '',
+  xendit_disbursement_secret_key: '',
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -89,6 +91,7 @@ export async function getAppSettings(): Promise<AppSettings> {
       logo_url: data.logo_url ?? null,
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
+      xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
     };
   } catch {
     return DEFAULT_SETTINGS;

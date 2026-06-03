@@ -42,6 +42,7 @@ export async function GET() {
         puter_ocr_model_name: 'z-ai/glm-4.5-air:free',
         xendit_secret_key: '',
         xendit_webhook_verification_token: '',
+        xendit_disbursement_secret_key: '',
       });
     }
 
@@ -72,6 +73,7 @@ export async function GET() {
       puter_ocr_model_name: data.puter_ocr_model_name ?? 'z-ai/glm-4.5-air:free',
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
+      xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
     });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -114,6 +116,7 @@ export async function PUT(req: NextRequest) {
       'platform_name', 'support_email', 'support_whatsapp', 'chat_link', 'logo_url',
       'puter_auth_token', 'puter_model_name', 'puter_ocr_model_name',
       'xendit_secret_key', 'xendit_webhook_verification_token',
+      'xendit_disbursement_secret_key',
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -178,6 +181,7 @@ export async function PUT(req: NextRequest) {
       puter_ocr_model_name: data.puter_ocr_model_name ?? 'z-ai/glm-4.5-air:free',
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
+      xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
     });
   } catch (err) {
     console.error(err);

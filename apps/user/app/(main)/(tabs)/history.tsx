@@ -201,20 +201,20 @@ export default function HistoryScreen() {
       if (item.status === 'pending') {
         if (item.scheduled_at) {
           // Jika pesanan terjadwal, arahkan langsung ke tracking!
-          router.push({ pathname: '/(main)/tracking', params: { id: item.id } });
+          router.push({ pathname: '/tracking', params: { id: item.id } });
         } else if (item.payment_status === 'paid' || item.payment_method === 'tunai') {
           // Sudah bayar/tunai tapi belum dapat terapis
-          router.push({ pathname: '/(main)/searching-therapist', params: { id: item.id } });
+          router.push({ pathname: '/searching-therapist', params: { id: item.id } });
         } else if (item.payment_data) {
           // Belum bayar (VA/QRIS), arahkan ke instruksi pembayaran
           router.push({ 
-            pathname: '/(main)/payment-details', 
+            pathname: '/payment-details', 
             params: { data: JSON.stringify(item.payment_data), order_id: item.id } 
           });
         }
       } else {
         // Status lainnya (accepted, on_the_way, arrived, working) -> Tracking
-        router.push({ pathname: '/(main)/tracking', params: { id: item.id } });
+        router.push({ pathname: '/tracking', params: { id: item.id } });
       }
     }
   };
@@ -234,7 +234,7 @@ export default function HistoryScreen() {
         }
       }
       // Arahkan ke halaman pencarian untuk matching ulang
-      router.push({ pathname: '/(main)/searching-therapist', params: { id: orderId } });
+      router.push({ pathname: '/searching-therapist', params: { id: orderId } });
     } catch (e) {
       console.error(e);
       showAlert('Error', 'Terjadi kesalahan sistem.');
@@ -436,7 +436,7 @@ export default function HistoryScreen() {
                   <View style={styles.cardFooter}>
                     <TouchableOpacity 
                       style={styles.footerBtn} 
-                      onPress={() => router.push({ pathname: '/(main)/tracking', params: { id: item.id } })}
+                      onPress={() => router.push({ pathname: '/tracking', params: { id: item.id } })}
                     >
                       <FileText size={14} color={GOLD} />
                       <Text style={styles.footerBtnText}>Detail</Text>
@@ -546,7 +546,7 @@ export default function HistoryScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={styles.favBookBtn}
-                      onPress={() => router.push({ pathname: '/(main)/services', params: { therapistId: item.id } })}
+                      onPress={() => router.push({ pathname: '/services', params: { therapistId: item.id } })}
                     >
                       <Text style={styles.favBookBtnText}>Pesan Sekarang</Text>
                     </TouchableOpacity>

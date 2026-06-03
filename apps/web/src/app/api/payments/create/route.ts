@@ -19,34 +19,13 @@ export async function POST(req: NextRequest) {
 
     const external_id = order.order_number;
 
-    // Xendit Invoice Integration
+    // Xendit Invoice Integration (Production)
     const settings = await getAppSettings();
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
-
-    // INTERCEPT FOR LOCAL SANDBOX
-    if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
-      const url = new URL(req.url);
-      const origin = url.origin;
-      const redirectUrl = `${origin}/xendit-sandbox?id=${order_id}&amount=${order.total_price}&external_id=${external_id}&type=order`;
-
-      const mockData = {
-        invoice_url: redirectUrl,
-        id: `xendit-inv-${order_id.slice(0, 8)}`,
-        external_id,
-        status: 'PENDING',
-        amount: order.total_price,
-        order_id,
-      };
-
-      await supabase.from('orders').update({
-        payment_method,
-        payment_status: 'pending',
-        payment_data: mockData,
-      }).eq('id', order_id);
-
-      return NextResponse.json({ status: 'success', data: mockData });
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
     }
+    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const paymentMethodsMap: Record<string, string[]> = {
       'bca_va': ['BCA'],

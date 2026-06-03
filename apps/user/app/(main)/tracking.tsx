@@ -420,7 +420,7 @@ export default function TrackingScreen() {
                 showAlert('Berhasil', 'Pesanan Anda telah dibatalkan.');
               }
 
-              router.replace('/(main)/home');
+              router.replace('/home');
             } catch (err) {
               console.error('Cancel order error:', err);
               showAlert('Error', 'Gagal membatalkan pesanan.');
@@ -721,7 +721,7 @@ export default function TrackingScreen() {
       {/* Completed Header - Show only when completed */}
       {order?.status === 'completed' && (
         <View style={[styles.completedHeader, { backgroundColor: theme.surface }]}>
-           <TouchableOpacity onPress={() => router.replace('/(main)/home')} style={[styles.backButton, { backgroundColor: theme.surfaceVariant }]}>
+           <TouchableOpacity onPress={() => router.replace('/home')} style={[styles.backButton, { backgroundColor: theme.surfaceVariant }]}>
               <ChevronLeft size={24} color={theme.text} />
            </TouchableOpacity>
            <Text style={[styles.headerTitleCompleted, { color: theme.text }]}>Ringkasan Pesanan</Text>
@@ -784,7 +784,7 @@ export default function TrackingScreen() {
                 </View>
                 <TouchableOpacity 
                   style={[styles.homeBtn, { backgroundColor: COLORS.error }]}
-                  onPress={() => router.replace('/(main)/home')}
+                  onPress={() => router.replace('/home')}
                 >
                   <Text style={styles.homeBtnText}>Home</Text>
                 </TouchableOpacity>

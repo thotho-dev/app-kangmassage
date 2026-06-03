@@ -105,8 +105,11 @@ export async function POST(req: NextRequest) {
 
     if (transError) console.error('[Withdraw Debug] Transaction Log Error:', transError);
 
-    debugStep = 'PREPARE_XENDIT_PAYLOAD';
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    debugStep = 'PREPARE_XENDIT_DISBURSEMENT';
+    const secretKey = settings.xendit_disbursement_secret_key || settings.xendit_secret_key || process.env.XENDIT_DISBURSEMENT_SECRET_KEY || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const bankMapping: Record<string, string> = {
@@ -117,84 +120,29 @@ export async function POST(req: NextRequest) {
       'cimb': 'CIMB',
       'permata': 'PERMATA',
       'danamon': 'DANAMON',
+      'bsi': 'BSI',
       'dana': 'DANA',
       'dana wallet': 'DANA',
     };
     const bankCode = bankMapping[therapist.bank_name.toLowerCase()] || therapist.bank_name.toUpperCase();
 
-    // INTERCEPT FOR XENDIT DIRECT SANDBOX DISBURSEMENT / LOCAL TESTING
-    if (secretKey === 'xnd_development_dummykey' || secretKey.includes('dummy')) {
-      const mockXenditDisbursement = {
-        id: `disb-sb-${withdrawal.id.slice(0, 8)}`,
-        external_id: external_id,
-        amount: payoutAmount,
-        status: 'COMPLETED',
-        bank_code: bankCode,
-        account_holder_name: therapist.bank_account_name || therapist.full_name,
-        account_number: therapist.bank_account_number,
-        created: new Date().toISOString(),
-        updated: new Date().toISOString()
-      };
-
-      await supabase
-        .from('therapist_withdrawals')
-        .update({ 
-          status: 'completed', 
-          payment_data: mockXenditDisbursement
-        })
-        .eq('id', withdrawal.id);
-
-      // Send push notification instantly since sandbox is immediate
-      if (therapist.push_token) {
-        try {
-          await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: therapist.push_token,
-              title: 'Penarikan Dana Berhasil! 💸',
-              body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah dikirim ke rekening Anda.`,
-              data: { type: 'withdrawal_success' },
-              sound: 'default',
-            }),
-          });
-        } catch (e) {
-          console.error('Failed to send push notification:', e);
-        }
-      }
-
-      // Add success notification
-      await supabase.from('notifications').insert({
-        therapist_id: therapist.id,
-        title: 'Penarikan Dana Berhasil!',
-        body: `Dana Rp ${payoutAmount.toLocaleString('id-ID')} telah berhasil dicairkan ke rekening Anda.`,
-        type: 'withdrawal_success',
-      });
-
-      return NextResponse.json({
-        status: 'success',
-        message: 'Penarikan berhasil diproses!',
-        data: mockXenditDisbursement
-      });
-    }
-
     const payload = {
-      external_id: external_id,
+      external_id,
       amount: payoutAmount,
       bank_code: bankCode,
       account_holder_name: therapist.bank_account_name || therapist.full_name,
       account_number: therapist.bank_account_number,
-      description: `Penarikan Saldo Mitra Kang Massage - ${therapist.full_name}`
+      description: `Penarikan Saldo Mitra Kang Massage - ${therapist.full_name}`,
     };
 
-    debugStep = 'CALL_XENDIT_DISBURSEMENTS';
+    debugStep = 'CALL_XENDIT_DISBURSEMENT';
     const response = await fetch('https://api.xendit.co/disbursements', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'Authorization': authHeader,
-        'x-idempotency-key': external_id
+        'x-idempotency-key': external_id,
       },
       body: JSON.stringify(payload),
     });
@@ -202,36 +150,38 @@ export async function POST(req: NextRequest) {
     const xenditData = await response.json();
 
     if (response.status >= 300) {
-      console.error('[Withdraw Debug] Xendit Payout Error:', xenditData);
-      
+      console.error('[Withdraw Debug] Xendit Disbursement Error:', xenditData);
+
       debugStep = 'REVERT_BALANCE_ON_XENDIT_FAILURE';
       await supabase
         .from('therapists')
         .update({ wallet_balance: therapist.wallet_balance })
         .eq('id', therapist_id);
-      
+
       await supabase
         .from('therapist_withdrawals')
         .update({ status: 'failed', payment_data: xenditData })
         .eq('id', withdrawal.id);
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: `Xendit Error (${response.status}): ${xenditData.message || 'Gagal memproses penarikan'}`,
         debug_step: debugStep,
-        details: xenditData
+        details: xenditData,
       }, { status: 400 });
     }
 
-    debugStep = 'FINAL_UPDATE_WITH_XENDIT_DATA';
+    debugStep = 'UPDATE_WITH_XENDIT_DATA';
     await supabase
       .from('therapist_withdrawals')
-      .update({ payment_data: xenditData })
+      .update({
+        payment_data: xenditData,
+      })
       .eq('id', withdrawal.id);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       status: 'success',
       message: 'Penarikan sedang diproses',
-      data: xenditData 
+      data: xenditData,
     });
 
   } catch (error: any) {

@@ -116,7 +116,7 @@ export default function SearchingTherapistScreen() {
         console.log('Order Updated:', payload.new);
         if (payload.new.status === 'accepted') {
           stopTimer();
-          router.replace({ pathname: '/(main)/tracking', params: { id } });
+          router.replace({ pathname: '/tracking', params: { id } });
         }
       })
       .subscribe();
@@ -167,11 +167,11 @@ export default function SearchingTherapistScreen() {
       // Jika ternyata sudah di-accept
       if (data.status === 'accepted') {
         stopTimer();
-        router.replace({ pathname: '/(main)/tracking', params: { id } });
+        router.replace({ pathname: '/tracking', params: { id } });
       } else if (data.scheduled_at) {
         // Jika pesanan terjadwal, arahkan langsung ke pelacakan (jangan tunggu countdown)
         stopTimer();
-        router.replace({ pathname: '/(main)/tracking', params: { id } });
+        router.replace({ pathname: '/tracking', params: { id } });
       } else {
         // Broadcast mode: Pesanan akan muncul di semua HP terapis terdekat secara otomatis
         console.log('[DEBUG Broadcast] Pesanan sedang menunggu untuk diambil oleh terapis terdekat...');
@@ -389,7 +389,7 @@ export default function SearchingTherapistScreen() {
       });
     }
 
-    router.replace('/(main)/home');
+    router.replace('/home');
   };
 
   const handleCancel = () => {

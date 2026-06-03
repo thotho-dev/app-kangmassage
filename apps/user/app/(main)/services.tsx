@@ -112,7 +112,7 @@ export default function ServicesScreen() {
   const navigateToOrder = useCallback(
     (serviceId: string) => {
       router.push({
-        pathname: '/(main)/order',
+        pathname: '/order',
         params: { serviceId, therapistId, from: 'services' },
       });
     },

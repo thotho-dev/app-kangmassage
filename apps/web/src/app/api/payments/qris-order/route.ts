@@ -22,26 +22,13 @@ export async function POST(req: NextRequest) {
     }
 
     const settings = await getAppSettings();
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY || 'xnd_development_dummykey';
+    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const external_id = order.order_number;
-    const isSandbox = secretKey.includes('dummy');
-
-    if (isSandbox) {
-      const host = req.headers.get('host') || 'localhost:3000';
-      const protocol = req.headers.get('x-forwarded-proto') || 'http';
-      const baseUrl = `${protocol}://${host}`;
-      return NextResponse.json({
-        status: 'success',
-        data: {
-          invoice_url: `${baseUrl}/xendit-sandbox?id=${order_id}&order_id=${external_id}&amount=${order.total_price}&external_id=${external_id}&type=order`,
-          qr_code_url: null,
-          external_id,
-          amount: order.total_price,
-        }
-      });
-    }
 
     const xenditPayload = {
       external_id,

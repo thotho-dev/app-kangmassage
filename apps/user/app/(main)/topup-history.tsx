@@ -197,7 +197,7 @@ export default function TopupHistoryScreen() {
                           await Linking.openURL(item.payment_data.invoice_url);
                         } else {
                           router.push({
-                            pathname: '/(main)/topup-payment',
+                            pathname: '/topup-payment',
                             params: { data: JSON.stringify(item.payment_data) }
                           });
                         }

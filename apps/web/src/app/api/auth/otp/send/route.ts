@@ -103,7 +103,6 @@ export async function POST(req: NextRequest) {
       message: 'OTP sent successfully',
       request_id: requestId,
       fonnte_configured: !!fonnteToken,
-      ...(isDev && !fonnteToken && { mock_otp: otp }),
       is_new_user: true,
     });
   } catch (error: any) {

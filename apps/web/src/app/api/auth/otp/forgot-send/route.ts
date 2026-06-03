@@ -54,11 +54,9 @@ export async function POST(req: NextRequest) {
       }).catch(err => console.warn('[ForgotSend] Fonnte error:', err.message));
     }
 
-    const isDev = process.env.NODE_ENV === 'development';
-
     return NextResponse.json({
       message: 'OTP terkirim',
-      ...(isDev && !fonnteToken && { mock_otp: otp }),
+      fonnte_configured: !!fonnteToken,
     });
   } catch (err: any) {
     console.error('[ForgotSend] Error:', err.message);

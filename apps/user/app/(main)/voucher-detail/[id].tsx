@@ -318,7 +318,7 @@ export default function VoucherDetailScreen() {
         <TouchableOpacity 
           style={[styles.useButton, !valid && { backgroundColor: '#E5E7EB', shadowOpacity: 0 }]}
           disabled={!valid}
-          onPress={() => router.replace({ pathname: '/(main)/order', params: { initialVoucherCode: voucher.code } })}
+          onPress={() => router.replace({ pathname: '/order', params: { initialVoucherCode: voucher.code } })}
         >
           <Text style={[styles.useButtonText, !valid && { color: '#94a3b8' }]}>
             {valid ? 'Gunakan Voucher Sekarang' : reason}

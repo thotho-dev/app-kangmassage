@@ -13,9 +13,12 @@ import { useAlert } from '@/components/CustomAlert';
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import Constants from 'expo-constants';
 
 let verifyChannel: any = null;
 import { CustomAlertTrigger } from '@/store/alertStore';
+
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 function TabIcon({ name, label, focused, color, activeBg }: { name: string; label?: string; focused: boolean, color: string, activeBg: string }) {
   return (
@@ -98,6 +101,18 @@ export default function TabLayout() {
     // Handle notification tap that opened the app (cold start)
     (async () => {
       try {
+        if (!isExpoGo) {
+          const notifee = await import('@notifee/react-native').catch(() => null);
+          if (notifee) {
+            const initial = await notifee.default.getInitialNotification();
+            if (initial?.notification?.data?.orderData) {
+              const raw = initial.notification.data.orderData;
+              setIncomingOrder(typeof raw === 'string' ? JSON.parse(raw) : raw);
+              return;
+            }
+          }
+        }
+
         const response = await Notifications.getLastNotificationResponseAsync();
         if (response?.notification?.request?.content?.data?.orderData) {
           const raw = response.notification.request.content.data.orderData;
@@ -110,6 +125,20 @@ export default function TabLayout() {
     })();
 
     // Listen for notification interactions (Foreground)
+    let notifeeUnsub: (() => void) | null = null;
+    if (!isExpoGo) {
+      import('@notifee/react-native').then(notifee => {
+        if (notifee) {
+          notifeeUnsub = notifee.default.onForegroundEvent(({ type, detail }: any) => {
+            if (type === 1 && detail?.notification?.data?.orderData) {
+              const raw = detail.notification.data.orderData;
+              setIncomingOrder(typeof raw === 'string' ? JSON.parse(raw) : raw);
+            }
+          });
+        }
+      }).catch(() => {});
+    }
+
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const notification = response.notification;
       if (notification?.request?.content?.data?.orderData) {
@@ -126,6 +155,7 @@ export default function TabLayout() {
 
     return () => {
       subscription.remove();
+      if (notifeeUnsub) notifeeUnsub();
       unsubscribeDeactivation();
       if (verifyChannel) supabase.removeChannel(verifyChannel);
     };

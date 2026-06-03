@@ -1,17 +1,12 @@
 {
   "expo": {
     "name": "Kang Massage Therapist",
-    "slug": "kang-massage-therapist",
+    "slug": "pijat-therapist",
     "version": "1.0.0",
     "scheme": "kang-massage-therapist",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -32,9 +27,28 @@
     "plugins": [
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "sounds": [
+            "assets/raw/sound_expo.mp3",
+            "assets/raw/sound_notifee.mp3"
+          ]
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysPermission": "Allow Kang Massage Therapist to use your location even when the app is in background to receive nearby orders."
+        }
+      ],
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0F172A"
         }
       ]
     ],

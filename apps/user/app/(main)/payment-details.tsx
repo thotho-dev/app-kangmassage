@@ -38,7 +38,7 @@ export default function PaymentDetailsScreen() {
 
   const checkStatus = async () => {
     if (!dbOrderId) {
-      router.replace('/(main)/history');
+      router.replace('/history');
       return;
     }
 
@@ -53,14 +53,14 @@ export default function PaymentDetailsScreen() {
 
       if (data.payment_status === 'paid' || data.status !== 'pending') {
         if (data.status === 'accepted' || data.status === 'on_the_way' || data.status === 'arrived' || data.status === 'in_progress') {
-          router.replace({ pathname: '/(main)/tracking', params: { id: dbOrderId } });
+          router.replace({ pathname: '/tracking', params: { id: dbOrderId } });
         } else {
           const { data: fullOrder } = await supabase.from('orders').select('therapist_id').eq('id', dbOrderId).single();
 
           if (fullOrder?.therapist_id) {
-            router.replace({ pathname: '/(main)/tracking', params: { id: dbOrderId } });
+            router.replace({ pathname: '/tracking', params: { id: dbOrderId } });
           } else {
-            router.replace({ pathname: '/(main)/searching-therapist', params: { id: dbOrderId } });
+            router.replace({ pathname: '/searching-therapist', params: { id: dbOrderId } });
           }
         }
       } else {
@@ -68,14 +68,14 @@ export default function PaymentDetailsScreen() {
       }
     } catch (error) {
       console.error('Error checking status:', error);
-      router.replace('/(main)/history');
+      router.replace('/history');
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/(main)/history')} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/history')} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Instruksi Pembayaran</Text>

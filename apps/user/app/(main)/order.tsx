@@ -56,10 +56,10 @@ export default function OrderScreen() {
     React.useCallback(() => {
       const backAction = () => {
         if (from === 'services') {
-          router.replace('/(main)/services');
+          router.replace('/services');
           return true;
         } else {
-          router.replace('/(main)/home');
+          router.replace('/home');
           return true;
         }
       };
@@ -147,7 +147,7 @@ export default function OrderScreen() {
           showAlert(
             'Keahlian Tidak Cocok',
             `Maaf, ${therapist.full_name} tidak memiliki keahlian untuk layanan "${initialService.name}".\n\nSilakan pilih layanan lain yang dikuasai terapis ini.`,
-            [{ text: 'Kembali Pilih Layanan', onPress: () => router.replace({ pathname: '/(main)/services', params: { therapistId } }) }]
+            [{ text: 'Kembali Pilih Layanan', onPress: () => router.replace({ pathname: '/services', params: { therapistId } }) }]
           );
         }
       }
@@ -669,20 +669,20 @@ export default function OrderScreen() {
 
         // Jika pemesanan terjadwal, langsung ke detail/tracking. Jika instan, cek terapis favorit.
         if (bookingType === 'schedule') {
-          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+          router.replace({ pathname: '/tracking', params: { id: order.id } });
         } else if (therapistId) {
-          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+          router.replace({ pathname: '/tracking', params: { id: order.id } });
         } else {
-          router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
+          router.replace({ pathname: '/searching-therapist', params: { id: order.id } });
         }
       } else if (paymentMethod === 'tunai') {
         // Jika pemesanan terjadwal, langsung ke detail/tracking. Jika instan, cek terapis favorit.
         if (bookingType === 'schedule') {
-          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+          router.replace({ pathname: '/tracking', params: { id: order.id } });
         } else if (therapistId) {
-          router.replace({ pathname: '/(main)/tracking', params: { id: order.id } });
+          router.replace({ pathname: '/tracking', params: { id: order.id } });
         } else {
-          router.replace({ pathname: '/(main)/searching-therapist', params: { id: order.id } });
+          router.replace({ pathname: '/searching-therapist', params: { id: order.id } });
         }
       } else {
         // XENDIT INVOICE API CALL
@@ -702,7 +702,7 @@ export default function OrderScreen() {
         // Gunakan timeout kecil untuk memastikan state update selesai & router siap
         setTimeout(() => {
           router.push({
-            pathname: '/(main)/payment-details',
+            pathname: '/payment-details',
             params: { data: JSON.stringify(result.data), order_id: order.id }
           });
         }, 100);
@@ -725,9 +725,9 @@ export default function OrderScreen() {
         <TouchableOpacity
           onPress={() => {
             if (from === 'services') {
-              router.push('/(main)/services');
+              router.push('/services');
             } else {
-              router.push('/(main)/home');
+              router.push('/home');
             }
           }}
           style={styles.backButton}
@@ -788,7 +788,7 @@ export default function OrderScreen() {
             <TouchableOpacity
               style={styles.fullMapsButton}
               onPress={() => router.push({
-                pathname: '/(main)/maps',
+                pathname: '/maps',
                 params: { serviceId: serviceId, from: 'order', sourceFrom: from as string }
               })}
             >
@@ -963,7 +963,7 @@ export default function OrderScreen() {
           <TouchableOpacity
             style={[styles.voucherSelector, appliedVoucher && styles.voucherSelectorActive]}
             onPress={() => router.push({
-              pathname: '/(main)/vouchers',
+              pathname: '/vouchers',
               params: {
                 from: 'order',
                 sourceFrom: from as string,

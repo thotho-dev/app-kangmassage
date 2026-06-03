@@ -112,7 +112,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           const onPress = () => {
             // Guard: Allow only Home for non-authenticated users
             if (route.name !== 'home' && !isAuthenticated) {
-              router.push('/(auth)/login');
+              router.push('/login');
               return;
             }
 
