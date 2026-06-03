@@ -1499,6 +1499,7 @@ export default function OrderDetailScreen() {
                           <Text style={styles.qrisCheckBtnText}>Cek Status Pembayaran</Text>
                         </>
                       )}
+                    </TouchableOpacity>
                   </View>
                 </>
               ) : null}
