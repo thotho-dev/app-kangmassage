@@ -61,6 +61,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nominal terlalu kecil setelah dipotong biaya admin', debug_step: debugStep }, { status: 400 });
     }
 
+    debugStep = 'CHECK_XENDIT_BALANCE';
+    const secretKey = settings.xendit_disbursement_secret_key || settings.xendit_secret_key || process.env.XENDIT_DISBURSEMENT_SECRET_KEY || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    }
+    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
+
+    const balanceRes = await fetch('https://api.xendit.co/balance', {
+      headers: { Authorization: authHeader },
+    });
+    const balanceData = await balanceRes.json();
+
+    if (!balanceRes.ok || (balanceData.balance !== undefined && balanceData.balance < payoutAmount)) {
+      console.error('[Withdraw Debug] Insufficient Xendit balance:', balanceData);
+      return NextResponse.json({
+        error: 'Saldo Xendit tidak mencukupi. Silakan hubungi admin untuk top up saldo Xendit.',
+        debug_step: debugStep,
+      }, { status: 400 });
+    }
+
     debugStep = 'INSERT_WITHDRAWAL_RECORD';
     const { data: withdrawal, error: wdError } = await supabase
       .from('therapist_withdrawals')
@@ -110,12 +130,6 @@ export async function POST(req: NextRequest) {
     if (transError) console.error('[Withdraw Debug] Transaction Log Error:', transError);
 
     debugStep = 'PREPARE_XENDIT_DISBURSEMENT';
-    const secretKey = settings.xendit_disbursement_secret_key || settings.xendit_secret_key || process.env.XENDIT_DISBURSEMENT_SECRET_KEY || process.env.XENDIT_SECRET_KEY;
-    if (!secretKey) {
-      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
-    }
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
-
     const bankMapping: Record<string, string> = {
       'bca': 'BCA',
       'mandiri': 'MANDIRI',
