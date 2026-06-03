@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAppSettings } from '@/lib/settings';
-import { createXenditPayment } from '@/lib/xendit-core';
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,6 +36,7 @@ export async function POST(req: NextRequest) {
     if (!secretKey) {
       return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
     }
+    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
     const { data: topup, error: topupError } = await supabase
       .from('therapist_topups')
@@ -53,23 +53,43 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
-    const payment = await createXenditPayment(payment_method, {
-      external_id: order_id,
-      amount,
-      customer_name: therapist.full_name,
-      customer_phone: therapist.phone,
-      customer_email: therapist.email || `${therapist.phone}@pijat.com`,
-      secret_key: secretKey,
+    const invoiceRes = await fetch('https://api.xendit.co/v2/invoices', {
+      method: 'POST',
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        external_id: order_id,
+        amount,
+        description: `Top Up Saldo Mitra Kang Massage - ${therapist.full_name}`,
+        customer: {
+          given_names: therapist.full_name,
+          mobile_number: therapist.phone,
+          email: therapist.email || `${therapist.phone}@pijat.com`
+        },
+        success_redirect_url: 'kang-massage-therapist://profile/topup-history',
+        failure_redirect_url: 'kang-massage-therapist://profile/topup',
+      }),
     });
+
+    const invoiceData = await invoiceRes.json();
+
+    if (!invoiceRes.ok) {
+      console.error('Xendit Invoice Error:', invoiceData);
+      return NextResponse.json({ error: invoiceData.message || 'Xendit error' }, { status: 400 });
+    }
 
     await supabase
       .from('therapist_topups')
-      .update({ payment_data: payment })
+      .update({ payment_data: invoiceData })
       .eq('id', topup.id);
 
     return NextResponse.json({
       status: 'success',
-      data: { ...payment, topup_id: topup.id },
+      data: {
+        invoice_url: invoiceData.invoice_url,
+        external_id: order_id,
+        amount,
+        topup_id: topup.id,
+      },
     });
 
   } catch (error: any) {
