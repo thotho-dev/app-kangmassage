@@ -27,23 +27,6 @@ export async function POST(req: NextRequest) {
     }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
-    const paymentMethodsMap: Record<string, string[]> = {
-      'bca_va': ['BCA'],
-      'mandiri_va': ['MANDIRI'],
-      'bni_va': ['BNI'],
-      'bri_va': ['BRI'],
-      'permata_va': ['PERMATA'],
-      'bsi_va': ['BSI'],
-      'cimb_va': ['CIMB'],
-      'qris': ['QRIS'],
-      'shopeepay': ['SHOPEEPAY'],
-      'dana': ['DANA'],
-      'ovo': ['OVO'],
-      'linkaja': ['LINKAJA'],
-    };
-
-    const preferredMethods = paymentMethodsMap[payment_method.toLowerCase()];
-
     const xenditPayload: any = {
       external_id,
       amount: order.total_price,
@@ -56,10 +39,6 @@ export async function POST(req: NextRequest) {
       success_redirect_url: 'kangmassage://history',
       failure_redirect_url: 'kangmassage://order',
     };
-
-    if (preferredMethods) {
-      xenditPayload.payment_methods = preferredMethods;
-    }
 
     const response = await fetch('https://api.xendit.co/v2/invoices', {
       method: 'POST',

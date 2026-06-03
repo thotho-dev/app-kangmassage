@@ -56,25 +56,6 @@ export async function POST(req: NextRequest) {
     }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
-    // Map payment_method to Xendit allowed payment channels if specific method chosen
-    const paymentMethodsMap: Record<string, string[]> = {
-      'shopeepay': ['SHOPEEPAY'],
-      'dana': ['DANA'],
-      'ovo': ['OVO'],
-      'linkaja': ['LINKAJA'],
-      'bca_va': ['BCA'],
-      'mandiri_va': ['MANDIRI'],
-      'bni_va': ['BNI'],
-      'bri_va': ['BRI'],
-      'permata_va': ['PERMATA'],
-      'bsi_va': ['BSI'],
-      'cimb_va': ['CIMB'],
-      'alfamart': ['ALFAMART'],
-      'indomaret': ['INDOMARET'],
-    };
-
-    const preferredMethods = paymentMethodsMap[payment_method.toLowerCase()];
-
     const xenditPayload: any = {
       external_id: order_id,
       amount: amount,
@@ -87,10 +68,6 @@ export async function POST(req: NextRequest) {
       success_redirect_url: 'kang-massage-therapist://profile/topup-history',
       failure_redirect_url: 'kang-massage-therapist://profile/topup',
     };
-
-    if (preferredMethods) {
-      xenditPayload.payment_methods = preferredMethods;
-    }
 
     const response = await fetch('https://api.xendit.co/v2/invoices', {
       method: 'POST',
