@@ -215,7 +215,7 @@ export default function ReportsPage() {
               <ComposedChart data={comparisonData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey="day" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
                   contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }}
                   formatter={(value: number, name: string) => {
@@ -346,12 +346,12 @@ export default function ReportsPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" tickFormatter={(v) => format(new Date(v), 'dd/MM')} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
-                  <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <XAxis dataKey="date" tickFormatter={(v: string) => format(new Date(v), 'dd/MM')} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
+                  <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
                   <Tooltip
                     contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }}
                     formatter={(value: number) => [formatCurrency(value), 'Pendapatan']}
-                    labelFormatter={(label) => format(new Date(label), 'dd MMM yyyy')}
+                    labelFormatter={(label: string) => format(new Date(label), 'dd MMM yyyy')}
                   />
                   <Area type="monotone" dataKey="revenue" stroke="#6A0DAD" strokeWidth={2} fill="url(#revenueGradient)" />
                 </AreaChart>
@@ -370,11 +370,11 @@ export default function ReportsPage() {
               <ResponsiveContainer width="100%" height={280}>
                 <ComposedChart data={revenueByDay}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" tickFormatter={(v) => format(new Date(v), 'dd/MM')} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
+                  <XAxis dataKey="date" tickFormatter={(v: string) => format(new Date(v), 'dd/MM')} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
                   <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} />
                   <Tooltip
                     contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }}
-                    labelFormatter={(label) => format(new Date(label), 'dd MMM yyyy')}
+                    labelFormatter={(label: string) => format(new Date(label), 'dd MMM yyyy')}
                   />
                   <Bar dataKey="orders" fill="#6A0DAD" radius={[4, 4, 0, 0]} name="Pesanan" />
                   <Line type="monotone" dataKey="revenue" stroke="#FDB927" strokeWidth={2} dot={false} name="Pendapatan" />
@@ -472,7 +472,7 @@ export default function ReportsPage() {
                   { name: 'Withdrawal Total', value: stats.totalWithdrawal, fill: '#EF4444' },
                 ]} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
+                  <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000000).toFixed(1)}jt`} />
                   <YAxis type="category" dataKey="name" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} width={120} />
                   <Tooltip
                     contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }}
@@ -513,7 +513,7 @@ export default function ReportsPage() {
                   { name: 'Saldo Terapis', value: stats.totalTherapistBalance, fill: '#8B5CF6' },
                 ]} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}jt`} />
+                  <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000000).toFixed(1)}jt`} />
                   <YAxis type="category" dataKey="name" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} width={110} />
                   <Tooltip
                     contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }}

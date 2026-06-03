@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const noCacheHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+};
 
 // GET /api/settings — public read
 export async function GET() {
@@ -43,7 +50,7 @@ export async function GET() {
         xendit_secret_key: '',
         xendit_webhook_verification_token: '',
         xendit_disbursement_secret_key: '',
-      });
+      }, { headers: noCacheHeaders });
     }
 
     return NextResponse.json({
@@ -74,9 +81,9 @@ export async function GET() {
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
       xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
-    });
+    }, { headers: noCacheHeaders });
   } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
   }
 }
 
@@ -182,9 +189,9 @@ export async function PUT(req: NextRequest) {
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
       xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
-    });
+    }, { headers: noCacheHeaders });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
   }
 }
