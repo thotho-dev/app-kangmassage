@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { MessageSquare, RefreshCw, Search, User, X, Loader2, Send, ArrowLeft, Trash2, Phone, MoreVertical, Smile, Paperclip } from 'lucide-react';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -334,6 +334,14 @@ function ChatPanel({
 
 // ─── Main Page ────────────────────────────────────────────────────
 export default function ChatsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <ChatsPageContent />
+    </Suspense>
+  );
+}
+
+function ChatsPageContent() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
