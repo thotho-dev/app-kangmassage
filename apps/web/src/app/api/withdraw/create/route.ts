@@ -4,9 +4,13 @@ import { getAppSettings } from '@/lib/settings';
 
 export async function POST(req: NextRequest) {
   let debugStep = 'INIT';
+  let therapist_id: string | null = null;
+  let amount = 0;
   try {
     debugStep = 'PARSE_JSON';
-    const { therapist_id, amount } = await req.json();
+    const body = await req.json();
+    therapist_id = body.therapist_id;
+    amount = body.amount;
     console.log(`[Withdraw Debug] therapist_id: ${therapist_id}, amount: ${amount}`);
 
     if (!therapist_id || !amount) {
@@ -186,6 +190,19 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error(`[Withdraw Debug Error at ${debugStep}]`, error);
+
+    if ((debugStep === 'CALL_XENDIT_DISBURSEMENT' || debugStep === 'UPDATE_WITH_XENDIT_DATA') && therapist_id && amount) {
+      try {
+        const supabase = createAdminClient();
+        const { data: th } = await supabase.from('therapists').select('wallet_balance').eq('id', therapist_id).single();
+        if (th) {
+          await supabase.from('therapists').update({ wallet_balance: th.wallet_balance + amount }).eq('id', therapist_id);
+        }
+      } catch (e) {
+        console.error('[Withdraw Debug] Failed to revert balance in catch block:', e);
+      }
+    }
+
     return NextResponse.json({ 
       error: error.message || 'Internal server error',
       debug_step: debugStep,
