@@ -22,6 +22,8 @@ export type AppSettings = {
   support_whatsapp: string;
   chat_link: string;
   logo_url: string | null;
+  maintenance_mode: boolean;
+  maintenance_message: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -46,6 +48,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   support_whatsapp: '',
   chat_link: '',
   logo_url: null,
+  maintenance_mode: false,
+  maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
 };
 
 let cachedSettings: AppSettings | null = null;
@@ -87,6 +91,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       support_whatsapp: data.support_whatsapp ?? DEFAULT_SETTINGS.support_whatsapp,
       chat_link: data.chat_link ?? DEFAULT_SETTINGS.chat_link,
       logo_url: data.logo_url ?? null,
+      maintenance_mode: data.maintenance_mode ?? DEFAULT_SETTINGS.maintenance_mode,
+      maintenance_message: data.maintenance_message ?? DEFAULT_SETTINGS.maintenance_message,
     };
 
     return cachedSettings;
@@ -98,4 +104,28 @@ export async function getAppSettings(): Promise<AppSettings> {
 
 export function clearSettingsCache() {
   cachedSettings = null;
+}
+
+export async function checkMaintenanceMode(): Promise<{ maintenance_mode: boolean; maintenance_message: string }> {
+  try {
+    const response = await fetch('https://jfnuusbujagpbzunaomc.supabase.co/functions/v1/maintenance-check', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return { maintenance_mode: false, maintenance_message: DEFAULT_SETTINGS.maintenance_message };
+    }
+
+    const data = await response.json();
+    return {
+      maintenance_mode: data.maintenance_mode ?? false,
+      maintenance_message: data.maintenance_message ?? DEFAULT_SETTINGS.maintenance_message,
+    };
+  } catch (e) {
+    console.warn('[AppSettings] Error checking maintenance mode:', e);
+    return { maintenance_mode: false, maintenance_message: DEFAULT_SETTINGS.maintenance_message };
+  }
 }

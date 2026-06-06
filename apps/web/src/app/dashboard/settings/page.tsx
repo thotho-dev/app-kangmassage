@@ -39,6 +39,8 @@ type AppSettings = {
   midtrans_server_key: string;
   midtrans_client_key: string;
   midtrans_is_production: boolean;
+  maintenance_mode: boolean;
+  maintenance_message: string;
 };
 
 const defaultSettings: AppSettings = {
@@ -72,6 +74,8 @@ const defaultSettings: AppSettings = {
   midtrans_server_key: '',
   midtrans_client_key: '',
   midtrans_is_production: false,
+  maintenance_mode: false,
+  maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
 };
 
 type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
@@ -278,6 +282,29 @@ export default function SettingsPage() {
                     className="input-field"
                     placeholder="https://tawk.to/chat/..."
                   />
+                </div>
+                <div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.maintenance_mode}
+                      onChange={e => updateField('maintenance_mode', e.target.checked)}
+                      className="w-4 h-4 rounded border-ui-border text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-text-primary/60">Mode Pemeliharaan (Maintenance Mode)</span>
+                  </label>
+                  <p className="text-xs text-text-muted/60 mt-1">Aktifkan untuk memblokir akses aplikasi terapis dan menampilkan pesan pemeliharaan.</p>
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Pesan Pemeliharaan</label>
+                  <textarea
+                    value={settings.maintenance_message}
+                    onChange={e => updateField('maintenance_message', e.target.value)}
+                    className="input-field min-h-[80px]"
+                    placeholder="Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti."
+                    rows={3}
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">Pesan yang ditampilkan ke terapis saat mode pemeliharaan aktif.</p>
                 </div>
               </div>
             </div>

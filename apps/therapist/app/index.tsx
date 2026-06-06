@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useThemeColors } from '@/store/themeStore';
-import { View, StyleSheet, Animated, Easing, Image } from 'react-native';
+import { View, StyleSheet, Animated, Easing, Image, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { TYPOGRAPHY } from '@/constants/Theme';
-import { getAppSettings } from '@/lib/appSettings';
+import { getAppSettings, checkMaintenanceMode } from '@/lib/appSettings';
 import { supabase } from '@/lib/supabase';
 import { useTherapistStore } from '@/store/therapistStore';
 import Constants from 'expo-constants';
@@ -18,6 +18,8 @@ export default function SplashScreen() {
   const router = useRouter();
   const [platformName, setPlatformName] = useState('Kang Massage');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.');
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
@@ -105,6 +107,14 @@ export default function SplashScreen() {
       // Minimum splash display time (1.5 detik — animasi logo sempat jalan)
       await new Promise(r => setTimeout(r, 1500));
 
+      // Check maintenance mode
+      const maintenance = await checkMaintenanceMode();
+      if (maintenance.maintenance_mode) {
+        setMaintenanceMode(true);
+        setMaintenanceMessage(maintenance.maintenance_message);
+        return;
+      }
+
       const done = await SecureStore.getItemAsync('onboarding_completed');
       if (!done) { router.replace('/onboarding'); return; }
 
@@ -137,6 +147,19 @@ export default function SplashScreen() {
 
   const rippleScale = ripple.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });
   const rippleOpacity = ripple.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] });
+
+  if (maintenanceMode) {
+    return (
+      <View style={styles.maintenanceContainer}>
+        <View style={styles.maintenanceCard}>
+          <Ionicons name="construct" size={64} color={t.warning} />
+          <Text style={styles.maintenanceTitle}>Pemeliharaan Sistem</Text>
+          <Text style={styles.maintenanceMessage}>{maintenanceMessage}</Text>
+          <Text style={styles.maintenanceNote}>Silakan coba lagi nanti. Terima kasih atas pengertiannya.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -181,6 +204,44 @@ const getStyles = (t: any) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: t.background,
+  },
+  maintenanceContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.background,
+    paddingHorizontal: 32,
+  },
+  maintenanceCard: {
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: t.card,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: t.border,
+    shadowColor: t.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  maintenanceTitle: {
+    ...TYPOGRAPHY.h2,
+    color: t.text,
+    marginTop: 16,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  maintenanceMessage: {
+    ...TYPOGRAPHY.body,
+    color: t.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  maintenanceNote: {
+    ...TYPOGRAPHY.caption,
+    color: t.textMuted,
+    textAlign: 'center',
   },
   ripple: {
     position: 'absolute',

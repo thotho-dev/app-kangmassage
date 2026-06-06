@@ -495,6 +495,10 @@ CREATE TABLE app_settings (
   platform_name           VARCHAR(100) NOT NULL DEFAULT 'Kang Massage',
   support_email           VARCHAR(255) NOT NULL DEFAULT 'support@kangmassage.app',
 
+  -- Maintenance Mode
+  maintenance_mode        BOOLEAN NOT NULL DEFAULT false,
+  maintenance_message     TEXT NOT NULL DEFAULT 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+
   -- Branding Assets
   logo_url                TEXT,
 

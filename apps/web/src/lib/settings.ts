@@ -28,6 +28,8 @@ export type AppSettings = {
   midtrans_server_key: string;
   midtrans_client_key: string;
   midtrans_is_production: boolean;
+  maintenance_mode: boolean;
+  maintenance_message: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -58,6 +60,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   midtrans_server_key: '',
   midtrans_client_key: '',
   midtrans_is_production: false,
+  maintenance_mode: false,
+  maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -101,6 +105,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       midtrans_server_key: data.midtrans_server_key ?? '',
       midtrans_client_key: data.midtrans_client_key ?? '',
       midtrans_is_production: data.midtrans_is_production ?? false,
+      maintenance_mode: data.maintenance_mode ?? DEFAULT_SETTINGS.maintenance_mode,
+      maintenance_message: data.maintenance_message ?? DEFAULT_SETTINGS.maintenance_message,
     };
   } catch {
     return DEFAULT_SETTINGS;
