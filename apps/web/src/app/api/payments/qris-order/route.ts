@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAppSettings } from '@/lib/settings';
-import { createXenditPayment } from '@/lib/xendit-core';
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,34 +22,63 @@ export async function POST(req: NextRequest) {
     }
 
     const settings = await getAppSettings();
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
-    if (!secretKey) {
-      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    const serverKey = settings.midtrans_server_key;
+    if (!serverKey) {
+      return NextResponse.json({ error: 'Midtrans server key not configured' }, { status: 500 });
     }
 
-    const external_id = order.order_number;
+    const isProduction = settings.midtrans_is_production;
+    const MIDTRANS_BASE_URL = isProduction
+      ? 'https://api.midtrans.com/v2'
+      : 'https://api.sandbox.midtrans.com/v2';
+    const authHeader = `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`;
 
-    const payment = await createXenditPayment('qris', {
-      external_id,
-      amount: order.total_price,
-      customer_name: order.user?.full_name || 'Guest',
-      customer_phone: order.user?.phone,
-      customer_email: order.user?.email || `${order.user?.phone}@pijat.com`,
-      secret_key: secretKey,
+    const orderNumber = order.order_number;
+
+    const midtransBody = {
+      payment_type: 'qris',
+      transaction_details: {
+        order_id: orderNumber,
+        gross_amount: order.total_price,
+      },
+      customer_details: {
+        first_name: order.user?.full_name || 'Guest',
+        phone: order.user?.phone,
+        email: order.user?.email || `${order.user?.phone}@pijat.com`,
+      },
+    };
+
+    const midtransRes = await fetch(`${MIDTRANS_BASE_URL}/charge`, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(midtransBody),
     });
 
+    const midtransData = await midtransRes.json();
+
+    if (!midtransRes.ok) {
+      console.error('Midtrans QRIS Order Error:', midtransData);
+      return NextResponse.json({ error: midtransData.status_message || 'Midtrans charge error' }, { status: 400 });
+    }
+
     await supabase.from('orders').update({
-      payment_data: payment,
+      payment_data: midtransData,
+      payment_method: 'midtrans',
     }).eq('id', order_id);
+
+    const qrString = midtransData.qr_string || midtransData.actions?.find((a: any) => a.name === 'generate-qr-code')?.url;
 
     return NextResponse.json({
       status: 'success',
       data: {
-        ...payment,
-        qr_code_url: payment.qr_string
-          ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payment.qr_string)}`
+        qr_code_url: qrString
+          ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`
           : null,
-        external_id,
+        external_id: orderNumber,
         amount: order.total_price,
       }
     });
