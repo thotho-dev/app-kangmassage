@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useTherapistStore } from '@/store/therapistStore';
 
@@ -86,6 +86,50 @@ export const initializeNotifee = async () => {
           });
         }
       }
+
+      // Minta izin full screen intent
+      try {
+        const granted = await PermissionsAndroid.request(
+          'android.permission.USE_FULL_SCREEN_INTENT' as any,
+          {
+            title: 'Izin Notifikasi Prioritas',
+            message: 'Izinkan Kang Massage menampilkan notifikasi prioritas tinggi untuk pesanan baru.',
+            buttonPositive: 'Izinkan',
+            buttonNegative: 'Tolak',
+          }
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('[Notif] USE_FULL_SCREEN_INTENT granted');
+        }
+      } catch {}
+
+      // Panduan untuk Chinese ROM (MIUI/Oppo/Realme/Vivo)
+      try {
+        const manufacturer = (Platform.constants as any)?.Manufacturer?.toLowerCase() || '';
+        const isChineseRom = ['xiaomi', 'oppo', 'realme', 'vivo', 'oneplus'].some(m => manufacturer.includes(m));
+        if (isChineseRom) {
+          const batGranted = await PermissionsAndroid.request(
+            'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' as any,
+          );
+          if (batGranted !== PermissionsAndroid.RESULTS.GRANTED) {
+            const brand = (Platform.constants as any)?.Manufacturer || 'HP ini';
+            setTimeout(() => {
+              Alert.alert(
+                '🔔 Atur Notifikasi',
+                `Agar notifikasi pesanan baru tidak terblokir di ${brand}, aktifkan:\n\n` +
+                `1. 📌 Auto-start — izinkan app berjalan di latar\n` +
+                `2. 🔋 Optimasi Baterai — pilih "Tidak Dioptimasi"\n` +
+                `3. 🪟 Izin Pop-up — aktifkan tampilan mengambang\n\n` +
+                `Buka Pengaturan → Aplikasi → Kang Massage Therapist`,
+                [
+                  { text: 'Tutup', style: 'cancel' },
+                  { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
+                ]
+              );
+            }, 1000);
+          }
+        }
+      } catch {}
     }
   } catch (e) {
     console.error('Expo Notifications Init Error:', e);

@@ -61,6 +61,8 @@ export async function POST(req: NextRequest) {
       payment_method,
       therapist_preference,
       user_gender,
+      therapist_id,
+      duration,
     } = body;
 
     // Get service price
@@ -123,6 +125,8 @@ export async function POST(req: NextRequest) {
       therapist_preference,
       user_gender,
       user_notes,
+      therapist_id,
+      duration,
       })
       .select(`
         *,
@@ -150,82 +154,84 @@ export async function POST(req: NextRequest) {
       data: { order_id: order.id },
     });
 
-    // Push notification to eligible therapists
-    try {
-      const serviceCategory = service.category_slug || [];
-      let therapistQuery = supabase
-        .from('therapists')
-        .select('id, push_token, specializations, gender')
-        .eq('is_verified', true)
-        .eq('is_active', true)
-        .eq('status', 'online')
-        .not('push_token', 'is', null);
+    // Push notification to eligible therapists (skip if direct assignment)
+    if (!therapist_id) {
+      try {
+        const serviceCategory = service.category_slug || [];
+        let therapistQuery = supabase
+          .from('therapists')
+          .select('id, push_token, specializations, gender')
+          .eq('is_verified', true)
+          .eq('is_active', true)
+          .eq('status', 'online')
+          .not('push_token', 'is', null);
 
-      if (therapist_preference && therapist_preference !== 'any') {
-        therapistQuery = therapistQuery.eq('gender', therapist_preference);
-      }
-
-      const { data: therapists } = await therapistQuery;
-
-      if (therapists && therapists.length > 0) {
-        const eligible = therapists.filter((t: any) => {
-          const skills: string[] = t.specializations || [];
-          const hasSkill = serviceCategory.length === 0 || 
-            serviceCategory.some((s: string) => 
-              skills.some((ts: string) => ts.toLowerCase() === s.toLowerCase())
-            );
-          return hasSkill;
-        });
-
-        const userData = await supabase
-          .from('users')
-          .select('full_name, avatar_url')
-          .eq('id', user_id)
-          .single();
-
-        const userName = userData.data?.full_name || 'Pelanggan';
-
-        // Build order data with full relations for IncomingOrderModal (expects `users` and `services` keys)
-        const orderWithRelations = {
-          ...order,
-          users: userData.data || { full_name: 'Pelanggan' },
-          services: { id: service.id, name: service.name, duration_min: service.duration_min, price_type: service.price_type },
-        };
-
-        for (const therapist of eligible) {
-          if (!therapist.push_token) continue;
-
-          fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: therapist.push_token,
-              title: 'Pesanan Baru Masuk!',
-              body: `Pelanggan ${userName} sedang mencari therapist. Ketuk untuk detail.`,
-              data: {
-                type: 'order_new',
-                orderId: order.id,
-                orderData: JSON.stringify(orderWithRelations),
-              },
-              sound: 'default',
-              priority: 'high',
-              channelId: 'orders_high_priority',
-            }),
-          }).catch(err => console.warn('[Push] Gagal kirim ke therapist:', therapist.id, err.message));
-
-          await supabase.from('notifications').insert({
-            therapist_id: therapist.id,
-            title: 'Pesanan Baru',
-            body: `Pelanggan ${userName} mencari therapist untuk layanan ${service.name}`,
-            type: 'order_new',
-            data: { order_id: order.id },
-          });
+        if (therapist_preference && therapist_preference !== 'any') {
+          therapistQuery = therapistQuery.eq('gender', therapist_preference);
         }
 
-        console.log(`[Push] Notifikasi dikirim ke ${eligible.length} therapist`);
+        const { data: therapists } = await therapistQuery;
+
+        if (therapists && therapists.length > 0) {
+          const eligible = therapists.filter((t: any) => {
+            const skills: string[] = t.specializations || [];
+            const hasSkill = serviceCategory.length === 0 || 
+              serviceCategory.some((s: string) => 
+                skills.some((ts: string) => ts.toLowerCase() === s.toLowerCase())
+              );
+            return hasSkill;
+          });
+
+          const userData = await supabase
+            .from('users')
+            .select('full_name, avatar_url')
+            .eq('id', user_id)
+            .single();
+
+          const userName = userData.data?.full_name || 'Pelanggan';
+
+          // Build order data with full relations for IncomingOrderModal (expects `users` and `services` keys)
+          const orderWithRelations = {
+            ...order,
+            users: userData.data || { full_name: 'Pelanggan' },
+            services: { id: service.id, name: service.name, duration_min: service.duration_min, price_type: service.price_type },
+          };
+
+          for (const therapist of eligible) {
+            if (!therapist.push_token) continue;
+
+            fetch('https://exp.host/--/api/v2/push/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: therapist.push_token,
+                title: 'Pesanan Baru Masuk!',
+                body: `Pelanggan ${userName} sedang mencari therapist. Ketuk untuk detail.`,
+                data: {
+                  type: 'order_new',
+                  orderId: order.id,
+                  orderData: JSON.stringify(orderWithRelations),
+                },
+                sound: 'default',
+                priority: 'high',
+                channelId: 'orders_high_priority',
+              }),
+            }).catch(err => console.warn('[Push] Gagal kirim ke therapist:', therapist.id, err.message));
+
+            await supabase.from('notifications').insert({
+              therapist_id: therapist.id,
+              title: 'Pesanan Baru',
+              body: `Pelanggan ${userName} mencari therapist untuk layanan ${service.name}`,
+              type: 'order_new',
+              data: { order_id: order.id },
+            });
+          }
+
+          console.log(`[Push] Notifikasi dikirim ke ${eligible.length} therapist`);
+        }
+      } catch (pushErr) {
+        console.warn('[Push] Error mengirim notifikasi ke therapist:', pushErr);
       }
-    } catch (pushErr) {
-      console.warn('[Push] Error mengirim notifikasi ke therapist:', pushErr);
     }
 
     return NextResponse.json({ data: order }, { status: 201 });

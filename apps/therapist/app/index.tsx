@@ -7,6 +7,10 @@ import * as SecureStore from 'expo-secure-store';
 import { TYPOGRAPHY } from '@/constants/Theme';
 import { getAppSettings } from '@/lib/appSettings';
 import { supabase } from '@/lib/supabase';
+import { useTherapistStore } from '@/store/therapistStore';
+import Constants from 'expo-constants';
+
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 export default function SplashScreen() {
   const t = useThemeColors();
@@ -25,6 +29,42 @@ export default function SplashScreen() {
       setLogoUrl(s.logo_url);
     });
   }, []);
+
+  const checkPendingOrders = async (therapistId: string) => {
+    if (!isExpoGo) {
+      try {
+        const notifee = await import('@notifee/react-native');
+        const displayed = await notifee.default.getDisplayedNotifications();
+        for (const n of displayed) {
+          if (n?.notification?.data?.orderData) {
+            const raw = n.notification.data.orderData;
+            const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const current = useTherapistStore.getState().incomingOrder;
+            if (orderData.id !== current?.id) {
+              useTherapistStore.getState().setIncomingOrder(orderData);
+              return;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const { data } = await supabase
+      .from('orders')
+      .select('*, users(full_name, avatar_url), services:service_id(name, duration_min, price_type)')
+      .eq('status', 'pending')
+      .or(`therapist_id.eq.${therapistId},therapist_id.is.null`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      const current = useTherapistStore.getState().incomingOrder;
+      if (data.id !== current?.id) {
+        useTherapistStore.getState().setIncomingOrder(data);
+      }
+    }
+  };
 
   useEffect(() => {
     Animated.sequence([
@@ -57,32 +97,38 @@ export default function SplashScreen() {
       })
     ).start();
 
-      const timer = setTimeout(async () => {
-        const done = await SecureStore.getItemAsync('onboarding_completed');
-        if (!done) { router.replace('/onboarding'); return; }
+    const performSetup = async () => {
+      // Minimum splash display time (1.5 detik — animasi logo sempat jalan)
+      await new Promise(r => setTimeout(r, 1500));
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const { data: therapist } = await supabase
-            .from('therapists')
-            .select('id, registration_step, is_active')
-            .eq('supabase_uid', session.user.id)
-            .single();
-          if (therapist && therapist.is_active !== false) {
-            const step = therapist.registration_step;
-            if (step === 'pending' || step === 'otp_sent') {
-              router.replace('/(auth)/register-otp');
-            } else if (step === 'otp_verified') {
-              router.replace('/(auth)/register?continue=1');
-            } else {
-              router.replace('/(tabs)');
-            }
-            return;
+      const done = await SecureStore.getItemAsync('onboarding_completed');
+      if (!done) { router.replace('/onboarding'); return; }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: therapist } = await supabase
+          .from('therapists')
+          .select('id, registration_step, is_active')
+          .eq('supabase_uid', session.user.id)
+          .single();
+        if (therapist && therapist.is_active !== false) {
+          const step = therapist.registration_step;
+          if (step === 'pending' || step === 'otp_sent') {
+            router.replace('/(auth)/register-otp');
+          } else if (step === 'otp_verified') {
+            router.replace('/(auth)/register?continue=1');
+          } else {
+            // Cek pending order duluan sebelum navigasi ke tabs
+            checkPendingOrders(therapist.id);
+            router.replace('/(tabs)');
           }
+          return;
         }
-        router.replace('/(auth)/login');
-      }, 3000);
-    return () => clearTimeout(timer);
+      }
+      router.replace('/(auth)/login');
+    };
+
+    performSetup();
   }, []);
 
   const rippleScale = ripple.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });

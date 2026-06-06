@@ -3,11 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useTopupListener } from '@/hooks/useTopupListener';
-
-SplashScreen.preventAutoHideAsync();
 
 import CustomAlert from '@/components/CustomAlert';
 
@@ -27,7 +24,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded || error) {
-      SplashScreen.hideAsync();
     }
   }, [loaded, error]);
 

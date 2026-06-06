@@ -21,6 +21,7 @@ import {
   Package,
   Radio,
   MessageSquare,
+  FlaskConical,
 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect } from 'react';
@@ -64,6 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/dashboard/users', label: t('users'), icon: Users },
     { href: '/dashboard/therapists', label: t('therapists'), icon: UserCheck },
     { href: '/dashboard/orders', label: t('orders'), icon: ShoppingBag },
+    { href: '/dashboard/orders/test', label: 'Test Order', icon: FlaskConical },
     { href: '/dashboard/services', label: t('services'), icon: Tag },
     { href: '/dashboard/vouchers', label: t('vouchers'), icon: Ticket },
     { href: '/dashboard/reports', label: t('reports'), icon: BarChart3 },

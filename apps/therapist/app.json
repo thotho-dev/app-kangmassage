@@ -2,10 +2,10 @@
   "expo": {
     "name": "Kang Massage Therapist",
     "slug": "pijat-therapist",
-    "version": "1.0.0",
+    "version": "1.5.0",
     "scheme": "kang-massage-therapist",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-km.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.rmhbgr.kangmassagetherapist",
+      "versionCode": 2,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -20,7 +21,10 @@
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ]
     },
     "web": {
@@ -28,6 +32,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withLockScreenActivity",
       [
         "expo-notifications",
         {
@@ -44,15 +49,7 @@
         }
       ],
       "expo-secure-store",
-      "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#0F172A"
-        }
-      ]
+      "expo-font"
     ],
     "extra": {
       "router": {},

@@ -5,17 +5,12 @@
     "scheme": "kangmassage",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-km.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F172A"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "googleServicesFile": "./GoogleService-Info.plist",
-      "bundleIdentifier": "com.thotho.kangmassage.user"
     },
     "android": {
       "package": "com.thotho.kangmassage.user",
@@ -52,6 +47,7 @@
       "eas": {
         "projectId": "c8845bdc-1012-476f-b835-26b65bed6fa9"
       }
-    }
+    },
+    "owner": "rmhbgr"
   }
 }

@@ -15,18 +15,25 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
     const notifications: { user_id?: string; therapist_id?: string; title: string; body: string; type: string; data: any }[] = [];
+    const pushTargets: { push_token: string; recipientName?: string }[] = [];
 
     if (target === 'users' || target === 'all') {
-      const { data: users } = await supabase.from('users').select('id').eq('is_active', true);
+      const { data: users } = await supabase.from('users').select('id, push_token').eq('is_active', true);
       if (users) {
-        users.forEach(u => notifications.push({ user_id: u.id, title, body, type: 'broadcast', data: { target } }));
+        users.forEach(u => {
+          notifications.push({ user_id: u.id, title, body, type: 'broadcast', data: { target } });
+          if (u.push_token) pushTargets.push({ push_token: u.push_token });
+        });
       }
     }
 
     if (target === 'therapists' || target === 'all') {
-      const { data: therapists } = await supabase.from('therapists').select('id').eq('is_active', true);
+      const { data: therapists } = await supabase.from('therapists').select('id, push_token').eq('is_active', true);
       if (therapists) {
-        therapists.forEach(t => notifications.push({ therapist_id: t.id, title, body, type: 'broadcast', data: { target } }));
+        therapists.forEach(t => {
+          notifications.push({ therapist_id: t.id, title, body, type: 'broadcast', data: { target } });
+          if (t.push_token) pushTargets.push({ push_token: t.push_token });
+        });
       }
     }
 
@@ -34,11 +41,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No active recipients found' }, { status: 404 });
     }
 
-    const { error } = await supabase.from('notifications').insert(notifications);
+    const { error: notifError } = await supabase.from('notifications').insert(notifications);
+    if (notifError) throw notifError;
 
-    if (error) throw error;
+    // Send Expo push notifications
+    for (const pt of pushTargets) {
+      fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pt.push_token,
+          title,
+          body,
+          data: { type: 'broadcast' },
+          sound: 'default',
+          priority: 'high',
+        }),
+      }).catch(err => console.warn('[Push] Gagal kirim broadcast:', err.message));
+    }
 
-    return NextResponse.json({ success: true, count: notifications.length });
+    return NextResponse.json({ success: true, count: notifications.length, pushCount: pushTargets.length });
   } catch (err) {
     console.error('Broadcast error:', err);
     return NextResponse.json({ error: 'Failed to send broadcast' }, { status: 500 });

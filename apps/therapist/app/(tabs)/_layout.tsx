@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RADIUS } from '@/constants/Theme';
 import { useThemeColors } from '@/store/themeStore';
@@ -10,7 +10,7 @@ import { useLocationTracker } from '@/hooks/useLocationTracker';
 import { useOrderListener } from '@/hooks/useOrderListener';
 import IncomingOrderModal from '@/components/IncomingOrderModal';
 import { useAlert } from '@/components/CustomAlert';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
@@ -42,6 +42,42 @@ export default function TabLayout() {
   const { profile, isOnline, fetchProfile, setIncomingOrder, welcomeMessage, setWelcomeMessage, subscribeToDeactivation, unsubscribeDeactivation } = useTherapistStore();
   const { showAlert, AlertComponent } = useAlert();
 
+  const checkPendingOrders = useCallback(async (therapistId: string) => {
+    if (!isExpoGo) {
+      try {
+        const notifee = await import('@notifee/react-native');
+        const displayed = await notifee.default.getDisplayedNotifications();
+        for (const n of displayed) {
+          if (n?.notification?.data?.orderData) {
+            const raw = n.notification.data.orderData;
+            const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const current = useTherapistStore.getState().incomingOrder;
+            if (orderData.id !== current?.id) {
+              setIncomingOrder(orderData);
+              return;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const { data } = await supabase
+      .from('orders')
+      .select('*, users(full_name, avatar_url), services:service_id(name, duration_min, price_type)')
+      .eq('status', 'pending')
+      .or(`therapist_id.eq.${therapistId},therapist_id.is.null`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      const current = useTherapistStore.getState().incomingOrder;
+      if (data.id !== current?.id) {
+        setIncomingOrder(data);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (welcomeMessage) {
       showAlert('success', 'Selamat Datang!', welcomeMessage, [
@@ -52,7 +88,7 @@ export default function TabLayout() {
   }, [welcomeMessage]);
 
   useEffect(() => {
-    fetchProfile().then(() => {
+    fetchProfile().then(async () => {
       const p = useTherapistStore.getState().profile;
       if (!p?.id) return;
 
@@ -97,6 +133,8 @@ export default function TabLayout() {
         )
         .subscribe();
 
+      // Cold start: check for pending orders missed while app was killed
+      await checkPendingOrders(p.id);
     });
     
     // Handle notification tap that opened the app (cold start)
@@ -154,9 +192,19 @@ export default function TabLayout() {
       }
     });
 
+    // Detect app returning to foreground → check missed orders
+    const appStateSub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        const p = useTherapistStore.getState().profile;
+        if (!p?.id) return;
+        await checkPendingOrders(p.id);
+      }
+    });
+
     return () => {
       subscription.remove();
       if (notifeeUnsub) notifeeUnsub();
+      appStateSub.remove();
       unsubscribeDeactivation();
       if (verifyChannel) supabase.removeChannel(verifyChannel);
     };
