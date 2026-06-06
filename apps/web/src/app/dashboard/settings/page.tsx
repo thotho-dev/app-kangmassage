@@ -104,7 +104,7 @@ export default function SettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ name: string; url: string } | null>(null);
   const [paymentTab, setPaymentTab] = useState<'xendit' | 'midtrans'>('midtrans');
 
-  const hasChanges = Object.keys(defaultSettings).some(
+  const hasChanges = Object.keys(settings).some(
     key => settings[key as keyof AppSettings] !== originalSettings[key as keyof AppSettings]
   );
   const [activeTab, setActiveTab] = useState<TabKey>('general');
