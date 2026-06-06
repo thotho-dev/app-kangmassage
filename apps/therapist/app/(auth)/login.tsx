@@ -13,11 +13,12 @@ import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/components/CustomAlert';
 import { useTherapistStore } from '@/store/therapistStore';
 import { getAppSettings } from '@/lib/appSettings';
+import { WEB_API_URL } from '@/lib/config';
 
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 
-const API_BASE = 'https://app-kangmassage-web.vercel.app';
+const API_BASE = WEB_API_URL;
 
 async function fetchJSON(url: string, opts: RequestInit) {
   const res = await fetch(url, opts);

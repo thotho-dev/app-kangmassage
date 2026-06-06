@@ -11,9 +11,10 @@ import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
 
 const { width, height } = Dimensions.get('window');
-const API_BASE = 'https://app-kangmassage-web.vercel.app';
+const API_BASE = API_URL;
 
 type Step = 'phone' | 'otp' | 'form';
 

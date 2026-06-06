@@ -8,8 +8,9 @@ import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 
 import { useTherapistStore } from '@/store/therapistStore';
 import { useAlert } from '@/components/CustomAlert';
+import { WEB_API_URL } from '@/lib/config';
 
-const API_BASE = 'https://app-kangmassage-web.vercel.app';
+const API_BASE = WEB_API_URL;
 
 async function fetchJSON(url: string, opts: RequestInit) {
   const res = await fetch(url, opts);

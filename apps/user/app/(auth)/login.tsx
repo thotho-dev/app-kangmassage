@@ -14,8 +14,9 @@ import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
 
-const API_BASE = 'https://app-kangmassage-web.vercel.app';
+const API_BASE = API_URL;
 
 async function fetchJSON(url: string, opts: RequestInit) {
   const res = await fetch(url, opts);

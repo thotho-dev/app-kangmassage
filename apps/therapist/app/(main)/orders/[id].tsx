@@ -1260,7 +1260,7 @@ export default function OrderDetailScreen() {
 
                   {order.service_fee > 0 && (
                     <View style={styles.payRow}>
-                      <Text style={styles.payLabel}>Biaya Layanan (User)</Text>
+                      <Text style={styles.payLabel}>Biaya Layanan (Customer)</Text>
                       <Text style={[styles.payAmount, { color: t.text }]}>Rp {order.service_fee.toLocaleString('id-ID')}</Text>
                     </View>
                   )}
@@ -1269,7 +1269,7 @@ export default function OrderDetailScreen() {
 
                   <View style={styles.payRow}>
                     <Text style={[styles.payLabel, { fontFamily: 'Inter_700Bold', color: t.text }]}>
-                      {order.payment_method === 'saldo' ? 'Total (Saldo Pembeli)' : 'TAGIHAN KE CUSTOMER'}
+                      {order.payment_method === 'saldo' ? 'Total (Saldo Pembeli)' : 'Tagihan ke Customer'}
                     </Text>
                     <Text style={[styles.payAmount, { fontSize: 16 }]}>
                       Rp {(order.total_price || 0).toLocaleString('id-ID')}
@@ -1565,20 +1565,20 @@ function getStyles(t: any) {
   treatmentStatusText: { fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 },
   customerCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: t.surface, margin: SPACING.lg, borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1, borderColor: t.border },
   avatar: { width: 48, height: 48, borderRadius: 14, backgroundColor: t.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' },
+  avatarText: { fontSize: 18, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   customerName: { fontSize: 16, color: t.text, fontFamily: 'Inter_700Bold' },
   serviceLabel: { fontSize: 12, color: t.textSecondary },
   callBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: t.success + '20', alignItems: 'center', justifyContent: 'center' },
   chatBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: t.secondary + '20', alignItems: 'center', justifyContent: 'center' },
   section: { paddingHorizontal: SPACING.lg, marginTop: SPACING.sm, marginBottom: SPACING.lg },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: t.text, marginBottom: SPACING.sm },
+  sectionTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: t.text, marginBottom: SPACING.sm },
   stepsCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.md, borderWidth: 1, borderColor: t.border },
   step: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: 8 },
   stepIcon: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   stepDone: { backgroundColor: t.success },
   stepPending: { backgroundColor: t.border },
   stepLabel: { fontSize: 14, color: t.textMuted },
-  stepLabelDone: { color: t.text, fontWeight: '600' },
+  stepLabelDone: { color: t.text, fontFamily: 'Inter_600SemiBold' },
   accContent: { paddingVertical: 10 },
   accSectionLabel: { fontSize: 10, color: t.textSecondary, marginBottom: 4 },
   accBodyText: { fontSize: 14, color: t.text, marginBottom: 10 },
@@ -1593,7 +1593,7 @@ function getStyles(t: any) {
   payHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   payTitle: { fontSize: 10, color: t.textSecondary, fontFamily: 'Inter_700Bold' },
   payRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
-  payLabel: { fontSize: 13, color: t.textSecondary },
+  payLabel: { fontSize: 13, color: t.textSecondary, fontFamily: 'Inter_500Medium' },
   payAmount: { fontSize: 14, color: t.primary, fontFamily: 'Inter_700Bold' },
   payBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   payBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold' },
