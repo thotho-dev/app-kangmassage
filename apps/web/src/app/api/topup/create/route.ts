@@ -81,12 +81,14 @@ export async function POST(req: NextRequest) {
       midtransBody.payment_type = 'qris';
     } else if (payment_method === 'mandiri_va') {
       midtransBody.payment_type = 'echannel';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.echannel = {
         bill_info1: 'Topup Saldo Mitra',
         bill_info2: therapist.full_name.slice(0, 30),
       };
     } else {
       midtransBody.payment_type = 'bank_transfer';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       let bankName = '';
       if (payment_method === 'bni_va') bankName = 'bni';
       else if (payment_method === 'bri_va') bankName = 'bri';

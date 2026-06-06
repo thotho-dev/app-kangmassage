@@ -83,27 +83,34 @@ export async function POST(req: NextRequest) {
       midtransBody.payment_type = 'qris';
     } else if (payment_method === 'mandiri_va') {
       midtransBody.payment_type = 'echannel';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.echannel = {
         bill_info1: 'Topup Saldo',
         bill_info2: user.full_name.slice(0, 30),
       };
     } else if (payment_method === 'bca_va') {
       midtransBody.payment_type = 'bank_transfer';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.bank_transfer = { bank: 'bca' };
     } else if (payment_method === 'bni_va') {
       midtransBody.payment_type = 'bank_transfer';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.bank_transfer = { bank: 'bni' };
     } else if (payment_method === 'bri_va') {
       midtransBody.payment_type = 'bank_transfer';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.bank_transfer = { bank: 'bri' };
     } else if (payment_method === 'permata_va') {
       midtransBody.payment_type = 'bank_transfer';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.bank_transfer = { bank: 'permata' };
     } else if (payment_method === 'bsi_va') {
       midtransBody.payment_type = 'bank_transfer';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.bank_transfer = { bank: 'bsi' };
     } else if (payment_method === 'cimb_va') {
       midtransBody.payment_type = 'bank_transfer';
+      midtransBody.customer_details.first_name = 'Kang Massage';
       midtransBody.bank_transfer = { bank: 'cimb' };
     } else if (retailMethods.includes(payment_method)) {
       midtransBody.payment_type = 'cstore';
