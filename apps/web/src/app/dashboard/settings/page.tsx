@@ -98,6 +98,7 @@ export default function SettingsPage() {
   const [previousLogos, setPreviousLogos] = useState<{ name: string; url: string; created_at: string }[]>([]);
   const [loadingLogos, setLoadingLogos] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ name: string; url: string } | null>(null);
+  const [paymentTab, setPaymentTab] = useState<'xendit' | 'midtrans'>('midtrans');
 
   const hasChanges = Object.keys(defaultSettings).some(
     key => settings[key as keyof AppSettings] !== originalSettings[key as keyof AppSettings]
@@ -562,96 +563,126 @@ export default function SettingsPage() {
 
           {/* Payment Gateway */}
           {activeTab === 'payment' && (
-            <div className="glass-card p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-600/30 flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-emerald-400" />
-                </div>
-                <h2 className="font-semibold text-text-primary">{t('payment_gateway')}</h2>
-              </div>
-              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi API key Xendit untuk topup & penarikan saldo.</p>
-              <div className="space-y-4 max-w-lg">
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key (Invoice / Topup)</label>
-                  <textarea
-                    value={settings.xendit_secret_key}
-                    onChange={e => updateField('xendit_secret_key', e.target.value)}
-                    className="input-field min-h-[80px] font-mono text-xs"
-                    placeholder="xnd_production_..."
-                    rows={2}
-                  />
-                  <p className="text-xs text-text-muted/60 mt-1">Secret key untuk Xendit Invoice API (topup saldo).</p>
-                </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key (Disbursement / Tarik Saldo)</label>
-                  <textarea
-                    value={settings.xendit_disbursement_secret_key}
-                    onChange={e => updateField('xendit_disbursement_secret_key', e.target.value)}
-                    className="input-field min-h-[80px] font-mono text-xs"
-                    placeholder="xnd_production_..."
-                    rows={2}
-                  />
-                  <p className="text-xs text-text-muted/60 mt-1">Secret key khusus untuk Xendit Disbursements API (penarikan saldo). Jika dikosongkan akan pakai key yang sama dengan Invoice.</p>
-                </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Xendit Webhook Verification Token</label>
-                  <textarea
-                    value={settings.xendit_webhook_verification_token}
-                    onChange={e => updateField('xendit_webhook_verification_token', e.target.value)}
-                    className="input-field min-h-[80px] font-mono text-xs"
-                    placeholder="webhook_verification_token"
-                    rows={2}
-                  />
-                  <p className="text-xs text-text-muted/60 mt-1">Token untuk verifikasi webhook callback Xendit.</p>
-                </div>
+            <>
+              {/* Sub-tabs */}
+              <div className="flex gap-1 mb-6 p-1 rounded-xl bg-muted w-fit">
+                <button
+                  onClick={() => setPaymentTab('midtrans')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    paymentTab === 'midtrans'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  Midtrans
+                </button>
+                <button
+                  onClick={() => setPaymentTab('xendit')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    paymentTab === 'xendit'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  Xendit
+                </button>
               </div>
 
-              <div className="border-t border-ui-border my-6" />
+              {paymentTab === 'xendit' && (
+                <div className="glass-card p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600/30 flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <h2 className="font-semibold text-text-primary">Xendit</h2>
+                  </div>
+                  <p className="text-xs text-text-muted/70 mb-4">Konfigurasi API key Xendit untuk penarikan saldo.</p>
+                  <div className="space-y-4 max-w-lg">
+                    <div>
+                      <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key (Invoice / Topup)</label>
+                      <textarea
+                        value={settings.xendit_secret_key}
+                        onChange={e => updateField('xendit_secret_key', e.target.value)}
+                        className="input-field min-h-[80px] font-mono text-xs"
+                        placeholder="xnd_production_..."
+                        rows={2}
+                      />
+                      <p className="text-xs text-text-muted/60 mt-1">Secret key untuk Xendit Invoice API.</p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-primary/60 mb-2 block">Xendit Secret Key (Disbursement / Tarik Saldo)</label>
+                      <textarea
+                        value={settings.xendit_disbursement_secret_key}
+                        onChange={e => updateField('xendit_disbursement_secret_key', e.target.value)}
+                        className="input-field min-h-[80px] font-mono text-xs"
+                        placeholder="xnd_production_..."
+                        rows={2}
+                      />
+                      <p className="text-xs text-text-muted/60 mt-1">Secret key khusus untuk Xendit Disbursements API (penarikan saldo). Jika dikosongkan akan pakai key yang sama dengan Invoice.</p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-primary/60 mb-2 block">Xendit Webhook Verification Token</label>
+                      <textarea
+                        value={settings.xendit_webhook_verification_token}
+                        onChange={e => updateField('xendit_webhook_verification_token', e.target.value)}
+                        className="input-field min-h-[80px] font-mono text-xs"
+                        placeholder="webhook_verification_token"
+                        rows={2}
+                      />
+                      <p className="text-xs text-text-muted/60 mt-1">Token untuk verifikasi webhook callback Xendit.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-orange-600/30 flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-orange-400" />
+              {paymentTab === 'midtrans' && (
+                <div className="glass-card p-6">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-orange-600/30 flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-orange-400" />
+                    </div>
+                    <h2 className="font-semibold text-text-primary">Midtrans (Topup Saldo)</h2>
+                  </div>
+                  <p className="text-xs text-text-muted/70 mb-4">Konfigurasi Midtrans untuk topup saldo user & terapis.</p>
+                  <div className="space-y-4 max-w-lg">
+                    <div>
+                      <label className="text-sm text-text-primary/60 mb-2 block">Midtrans Server Key</label>
+                      <textarea
+                        value={settings.midtrans_server_key}
+                        onChange={e => updateField('midtrans_server_key', e.target.value)}
+                        className="input-field min-h-[80px] font-mono text-xs"
+                        placeholder="Mid-server-..."
+                        rows={2}
+                      />
+                      <p className="text-xs text-text-muted/60 mt-1">Server Key dari Midtrans Dashboard → Settings → Access Keys.</p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-primary/60 mb-2 block">Midtrans Client Key</label>
+                      <textarea
+                        value={settings.midtrans_client_key}
+                        onChange={e => updateField('midtrans_client_key', e.target.value)}
+                        className="input-field min-h-[80px] font-mono text-xs"
+                        placeholder="Mid-client-..."
+                        rows={2}
+                      />
+                      <p className="text-xs text-text-muted/60 mt-1">Client Key dari Midtrans Dashboard (digunakan di mobile apps).</p>
+                    </div>
+                    <div>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.midtrans_is_production}
+                          onChange={e => updateField('midtrans_is_production', e.target.checked)}
+                          className="w-4 h-4 rounded border-ui-border text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm text-text-primary/60">Production Mode</span>
+                      </label>
+                      <p className="text-xs text-text-muted/60 mt-1">Aktifkan untuk menggunakan environment production. Nonaktifkan untuk sandbox.</p>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-text-primary">Midtrans (Topup Saldo)</h3>
-              </div>
-              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi Midtrans untuk topup saldo user & terapis.</p>
-              <div className="space-y-4 max-w-lg">
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Midtrans Server Key</label>
-                  <textarea
-                    value={settings.midtrans_server_key}
-                    onChange={e => updateField('midtrans_server_key', e.target.value)}
-                    className="input-field min-h-[80px] font-mono text-xs"
-                    placeholder="Mid-server-..."
-                    rows={2}
-                  />
-                  <p className="text-xs text-text-muted/60 mt-1">Server Key dari Midtrans Dashboard → Settings → Access Keys.</p>
-                </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Midtrans Client Key</label>
-                  <textarea
-                    value={settings.midtrans_client_key}
-                    onChange={e => updateField('midtrans_client_key', e.target.value)}
-                    className="input-field min-h-[80px] font-mono text-xs"
-                    placeholder="Mid-client-..."
-                    rows={2}
-                  />
-                  <p className="text-xs text-text-muted/60 mt-1">Client Key dari Midtrans Dashboard (digunakan di mobile apps).</p>
-                </div>
-                <div>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.midtrans_is_production}
-                      onChange={e => updateField('midtrans_is_production', e.target.checked)}
-                      className="w-4 h-4 rounded border-ui-border text-primary focus:ring-primary"
-                    />
-                    <span className="text-sm text-text-primary/60">Production Mode</span>
-                  </label>
-                  <p className="text-xs text-text-muted/60 mt-1">Aktifkan untuk menggunakan environment production. Nonaktifkan untuk sandbox.</p>
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
           {/* AI Settings */}
