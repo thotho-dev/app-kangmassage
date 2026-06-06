@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, LayoutAnimation, Image, Linking, RefreshControl } from 'react-native';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,10 +19,12 @@ const PAYMENT_GROUPS = [
     title: 'E-Wallet & QRIS',
     icon: 'qr-code-outline',
     items: [
-      { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png') },
-      { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png') },
-      { id: 'ovo', name: 'OVO', image: require('@/assets/ovo.png') },
-      { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png') },
+      { id: 'gopay', name: 'GoPay', image: require('@/assets/Gopay.png') },
+      { id: 'qris', name: 'QRIS Dinamis GoPay', image: require('@/assets/Gopay.png') },
+      { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png'), disabled: true },
+      { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png'), disabled: true },
+      { id: 'ovo', name: 'OVO', image: require('@/assets/ovo.png'), disabled: true },
+      { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png'), disabled: true },
     ]
   },
   {
@@ -30,12 +32,12 @@ const PAYMENT_GROUPS = [
     title: 'Virtual Account (Transfer Bank)',
     icon: 'card-outline',
     items: [
-      { id: 'bca_va', name: 'BCA Virtual Account', image: require('@/assets/bca.png') },
+      { id: 'bca_va', name: 'BCA Virtual Account', image: require('@/assets/bca.png'), disabled: true },
       { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: require('@/assets/mandiri.png') },
       { id: 'bni_va', name: 'BNI Virtual Account', image: require('@/assets/bni.png') },
       { id: 'bri_va', name: 'BRI Virtual Account', image: require('@/assets/bri.png') },
       { id: 'permata_va', name: 'Permata Virtual Account', image: require('@/assets/permata.png') },
-      { id: 'bsi_va', name: 'BSI Virtual Account', image: require('@/assets/bsi.png') },
+      { id: 'bsi_va', name: 'BSI Virtual Account', image: require('@/assets/bsi.png'), disabled: true },
       { id: 'cimb_va', name: 'CIMB Virtual Account', image: require('@/assets/cimb.png') },
     ]
   },
@@ -44,8 +46,8 @@ const PAYMENT_GROUPS = [
     title: 'Gerai Retail',
     icon: 'storefront-outline',
     items: [
-      { id: 'alfamart', name: 'Alfamart', image: require('@/assets/Alfamart.png') },
-      { id: 'indomaret', name: 'Indomaret', image: require('@/assets/Indomaret.png') },
+      { id: 'alfamart', name: 'Alfamart', image: require('@/assets/Alfamart.png'), disabled: true },
+      { id: 'indomaret', name: 'Indomaret', image: require('@/assets/Indomaret.png'), disabled: true },
     ]
   }
 ];
@@ -62,6 +64,7 @@ export default function TopupScreen() {
   const [selectedMethod, setSelectedMethod] = useState('');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useFocusEffect(
@@ -128,13 +131,19 @@ export default function TopupScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      if (result.data?.invoice_url) {
-        router.push({
-          pathname: '/profile/webview-payment',
-          params: { url: result.data.invoice_url, topup_id: result.data.topup_id },
-        });
+      if (result.data.type === 'ewallet') {
+        const url = result.data.actions?.mobile_web_checkout_url || result.data.actions?.deeplink_checkout_url;
+        if (url) {
+          await Linking.openURL(url);
+          router.push('/profile/topup-history');
+        } else {
+          throw new Error('URL pembayaran tidak ditemukan');
+        }
       } else {
-        throw new Error('URL pembayaran tidak ditemukan');
+        router.push({
+          pathname: '/profile/payment-details',
+          params: { data: JSON.stringify(result.data) },
+        });
       }
     } catch (error: any) {
       showAlert('error', 'Gagal', error.message || 'Terjadi kesalahan sistem.');
@@ -142,6 +151,15 @@ export default function TopupScreen() {
       setLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      getAppSettings().then(setSettings),
+      useTherapistStore.getState().fetchProfile(),
+    ]);
+    setRefreshing(false);
+  }, []);
 
   const isAmountValid = getRawAmount() >= minTopup;
   const currentSelectedMethodName = PAYMENT_GROUPS.flatMap(g => g.items).find(i => i.id === selectedMethod)?.name || '-';
@@ -160,7 +178,9 @@ export default function TopupScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[t.secondary]} tintColor={t.secondary} />}
+        >
           <View style={styles.infoCard}>
             <View>
               <Text style={styles.infoLabel}>Saldo Saat Ini</Text>
@@ -201,15 +221,31 @@ export default function TopupScreen() {
 
                 {expandedGroup === group.id && (
                   <View style={styles.groupContent}>
-                    {group.items.map((item) => (
-                      <TouchableOpacity key={item.id} style={[styles.methodItem, selectedMethod === item.id && { borderColor: t.secondary, backgroundColor: t.secondary + '05' }]} onPress={() => setSelectedMethod(item.id)}>
-                        <Image source={item.image} style={styles.paymentLogo} />
-                        <Text style={styles.methodName}>{item.name}</Text>
-                        <View style={[styles.radio, selectedMethod === item.id && { borderColor: t.secondary }]}>
-                          {selectedMethod === item.id && <View style={[styles.radioInner, { backgroundColor: t.secondary }]} />}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
+                    {group.items.map((item) => {
+                      const isItemDisabled = item.disabled;
+                      return (
+                        <TouchableOpacity 
+                          key={item.id} 
+                          disabled={isItemDisabled}
+                          style={[
+                            styles.methodItem, 
+                            selectedMethod === item.id && { borderColor: t.secondary, backgroundColor: t.secondary + '05' },
+                            isItemDisabled && { opacity: 0.4 }
+                          ]} 
+                          onPress={() => setSelectedMethod(item.id)}
+                        >
+                          <Image source={item.image} style={styles.paymentLogo} />
+                          <Text style={styles.methodName}>{item.name}</Text>
+                          {isItemDisabled ? (
+                            <Text style={[styles.disabledBadge, { color: t.textMuted, borderColor: t.border }]}>Tidak Didukung</Text>
+                          ) : (
+                            <View style={[styles.radio, selectedMethod === item.id && { borderColor: t.secondary }]}>
+                              {selectedMethod === item.id && <View style={[styles.radioInner, { backgroundColor: t.secondary }]} />}
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 )}
               </View>
@@ -289,6 +325,7 @@ const getStyles = (t: any) => StyleSheet.create({
   methodName: { ...TYPOGRAPHY.bodySmall, color: t.text, flex: 1, fontFamily: 'Inter_500Medium' },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: t.border, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
+  disabledBadge: { fontSize: 10, fontFamily: 'Inter_500Medium', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderStyle: 'dashed' },
   summaryCard: { backgroundColor: t.surface, borderRadius: RADIUS.xl, padding: SPACING.lg, borderWidth: 1, borderColor: t.secondary + '30', marginTop: SPACING.md },
   summaryTitle: { ...TYPOGRAPHY.body, color: t.text, fontFamily: 'Inter_700Bold', marginBottom: SPACING.md },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
@@ -298,4 +335,3 @@ const getStyles = (t: any) => StyleSheet.create({
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: RADIUS.full, shadowColor: t.secondary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   btnText: { ...TYPOGRAPHY.h4, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
 });
-

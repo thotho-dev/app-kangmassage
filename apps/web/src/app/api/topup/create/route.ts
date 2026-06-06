@@ -32,11 +32,11 @@ export async function POST(req: NextRequest) {
     const ADMIN_FEE = Number(settings.topup_admin_fee);
     const netAmount = amount - ADMIN_FEE;
 
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
-    if (!secretKey) {
-      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    if (!serverKey) {
+      return NextResponse.json({ error: 'Midtrans server key not configured' }, { status: 500 });
     }
-    const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
+    const authHeader = `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`;
 
     const { data: topup, error: topupError } = await supabase
       .from('therapist_topups')
@@ -53,43 +53,118 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
-    const invoiceRes = await fetch('https://api.xendit.co/v2/invoices', {
+    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    const MIDTRANS_BASE_URL = isProduction
+      ? 'https://api.midtrans.com/v2'
+      : 'https://api.sandbox.midtrans.com/v2';
+
+    let midtransBody: any = {
+      payment_type: '',
+      transaction_details: {
+        order_id: order_id,
+        gross_amount: amount,
+      },
+      customer_details: {
+        first_name: therapist.full_name,
+        phone: therapist.phone,
+        email: therapist.email || `${therapist.phone}@pijat.com`,
+      },
+    };
+
+    if (payment_method === 'gopay') {
+      midtransBody.payment_type = 'gopay';
+      midtransBody.gopay = {
+        enable_callback: true,
+        callback_url: 'kang-massage-therapist://profile/topup-history',
+      };
+    } else if (payment_method === 'qris') {
+      midtransBody.payment_type = 'qris';
+    } else if (payment_method === 'mandiri_va') {
+      midtransBody.payment_type = 'echannel';
+      midtransBody.echannel = {
+        bill_info1: 'Topup Saldo Mitra',
+        bill_info2: therapist.full_name.slice(0, 30),
+      };
+    } else {
+      midtransBody.payment_type = 'bank_transfer';
+      let bankName = '';
+      if (payment_method === 'bni_va') bankName = 'bni';
+      else if (payment_method === 'bri_va') bankName = 'bri';
+      else if (payment_method === 'permata_va') bankName = 'permata';
+      else if (payment_method === 'cimb_va') bankName = 'cimb';
+
+      midtransBody.bank_transfer = {
+        bank: bankName,
+      };
+    }
+
+    const midtransRes = await fetch(`${MIDTRANS_BASE_URL}/charge`, {
       method: 'POST',
-      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        external_id: order_id,
-        amount,
-        description: `Top Up Saldo Mitra Kang Massage - ${therapist.full_name}`,
-        customer: {
-          given_names: therapist.full_name,
-          mobile_number: therapist.phone,
-          email: therapist.email || `${therapist.phone}@pijat.com`
-        },
-        success_redirect_url: 'kang-massage-therapist://profile/topup-history',
-        failure_redirect_url: 'kang-massage-therapist://profile/topup',
-      }),
+      headers: { 
+        Authorization: authHeader, 
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(midtransBody),
     });
 
-    const invoiceData = await invoiceRes.json();
+    const midtransData = await midtransRes.json();
 
-    if (!invoiceRes.ok) {
-      console.error('Xendit Invoice Error:', invoiceData);
-      return NextResponse.json({ error: invoiceData.message || 'Xendit error' }, { status: 400 });
+    if (!midtransRes.ok) {
+      console.error('Midtrans Charge Error:', midtransData);
+      return NextResponse.json({ error: midtransData.status_message || 'Midtrans charge error' }, { status: 400 });
     }
 
     await supabase
       .from('therapist_topups')
-      .update({ payment_data: invoiceData })
+      .update({ payment_data: midtransData })
       .eq('id', topup.id);
+
+    // Format response to match therapist client's expectation
+    let formattedData: any = {
+      amount,
+      external_id: order_id,
+      topup_id: topup.id,
+    };
+
+    if (payment_method === 'gopay') {
+      const actions = midtransData.actions || [];
+      const deeplinkAction = actions.find((a: any) => a.name === 'deeplink-redirect');
+      const qrCodeAction = actions.find((a: any) => a.name === 'generate-qr-code');
+      formattedData.type = 'ewallet';
+      formattedData.qr_string = midtransData.qr_string || qrCodeAction?.url;
+      formattedData.actions = {
+        mobile_web_checkout_url: deeplinkAction?.url,
+        deeplink_checkout_url: deeplinkAction?.url,
+      };
+    } else if (payment_method === 'qris') {
+      const actions = midtransData.actions || [];
+      const qrCodeAction = actions.find((a: any) => a.name === 'generate-qr-code');
+      formattedData.type = 'qris';
+      formattedData.qr_string = midtransData.qr_string || qrCodeAction?.url;
+    } else if (payment_method === 'mandiri_va') {
+      formattedData.type = 'va';
+      formattedData.bank_code = 'MANDIRI';
+      formattedData.va_number = `${midtransData.biller_code} - ${midtransData.bill_key}`;
+    } else {
+      formattedData.type = 'va';
+      let bankCode = '';
+      if (payment_method === 'bni_va') bankCode = 'BNI';
+      else if (payment_method === 'bri_va') bankCode = 'BRI';
+      else if (payment_method === 'permata_va') bankCode = 'PERMATA';
+      else if (payment_method === 'cimb_va') bankCode = 'CIMB';
+
+      formattedData.bank_code = bankCode;
+      if (payment_method === 'permata_va') {
+        formattedData.va_number = midtransData.permata_va_number;
+      } else {
+        formattedData.va_number = midtransData.va_numbers?.[0]?.va_number;
+      }
+    }
 
     return NextResponse.json({
       status: 'success',
-      data: {
-        invoice_url: invoiceData.invoice_url,
-        external_id: order_id,
-        amount,
-        topup_id: topup.id,
-      },
+      data: formattedData,
     });
 
   } catch (error: any) {
@@ -97,3 +172,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }
+

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAppSettings } from '@/lib/settings';
-import { createXenditPayment } from '@/lib/xendit-core';
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,14 +28,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Maksimal topup adalah Rp ${Number(settings.topup_max_amount).toLocaleString('id-ID')}` }, { status: 400 });
     }
 
-    const external_id = `UTOPUP-${Date.now()}-${user.id.slice(0, 8)}`;
+    const order_id = `UTOPUP-${Date.now()}-${user.id.slice(0, 8)}`;
     const ADMIN_FEE = Number(settings.topup_admin_fee);
     const netAmount = amount - ADMIN_FEE;
 
-    const secretKey = settings.xendit_secret_key || process.env.XENDIT_SECRET_KEY;
-    if (!secretKey) {
-      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    if (!serverKey) {
+      return NextResponse.json({ error: 'Midtrans server key not configured' }, { status: 500 });
     }
+    const authHeader = `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`;
 
     const { data: topup, error: topupError } = await supabase
       .from('user_topups')
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         amount: netAmount,
         fee: ADMIN_FEE,
         status: 'pending',
-        external_id,
+        external_id: order_id,
         payment_method,
       }])
       .select()
@@ -53,23 +53,140 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
-    const payment = await createXenditPayment(payment_method, {
-      external_id,
-      amount,
-      customer_name: user.full_name,
-      customer_phone: user.phone,
-      customer_email: user.email || `${user.phone}@pijat.com`,
-      secret_key: secretKey,
+    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    const MIDTRANS_BASE_URL = isProduction
+      ? 'https://api.midtrans.com/v2'
+      : 'https://api.sandbox.midtrans.com/v2';
+
+    let midtransBody: any = {
+      payment_type: '',
+      transaction_details: {
+        order_id: order_id,
+        gross_amount: amount,
+      },
+      customer_details: {
+        first_name: user.full_name,
+        phone: user.phone,
+        email: user.email || `${user.phone}@pijat.com`,
+      },
+    };
+
+    // Map payment methods to Midtrans payment types
+    const ewalletMethods = ['shopeepay'];
+    const qrisMethods = ['dana', 'ovo', 'linkaja'];
+    const vaMethods = ['bca_va', 'bni_va', 'bri_va', 'permata_va', 'bsi_va', 'cimb_va'];
+    const retailMethods = ['alfamart', 'indomaret'];
+
+    if (payment_method === 'shopeepay') {
+      midtransBody.payment_type = 'shopeepay';
+    } else if (qrisMethods.includes(payment_method)) {
+      midtransBody.payment_type = 'qris';
+    } else if (payment_method === 'mandiri_va') {
+      midtransBody.payment_type = 'echannel';
+      midtransBody.echannel = {
+        bill_info1: 'Topup Saldo',
+        bill_info2: user.full_name.slice(0, 30),
+      };
+    } else if (payment_method === 'bca_va') {
+      midtransBody.payment_type = 'bank_transfer';
+      midtransBody.bank_transfer = { bank: 'bca' };
+    } else if (payment_method === 'bni_va') {
+      midtransBody.payment_type = 'bank_transfer';
+      midtransBody.bank_transfer = { bank: 'bni' };
+    } else if (payment_method === 'bri_va') {
+      midtransBody.payment_type = 'bank_transfer';
+      midtransBody.bank_transfer = { bank: 'bri' };
+    } else if (payment_method === 'permata_va') {
+      midtransBody.payment_type = 'bank_transfer';
+      midtransBody.bank_transfer = { bank: 'permata' };
+    } else if (payment_method === 'bsi_va') {
+      midtransBody.payment_type = 'bank_transfer';
+      midtransBody.bank_transfer = { bank: 'bsi' };
+    } else if (payment_method === 'cimb_va') {
+      midtransBody.payment_type = 'bank_transfer';
+      midtransBody.bank_transfer = { bank: 'cimb' };
+    } else if (retailMethods.includes(payment_method)) {
+      midtransBody.payment_type = 'cstore';
+      midtransBody.cstore = {
+        store: payment_method === 'alfamart' ? 'alfamart' : 'indomaret',
+        message: 'Pembayaran Topup Saldo',
+      };
+    } else {
+      return NextResponse.json({ error: `Metode pembayaran ${payment_method} tidak didukung` }, { status: 400 });
+    }
+
+    const midtransRes = await fetch(`${MIDTRANS_BASE_URL}/charge`, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(midtransBody),
     });
+
+    const midtransData = await midtransRes.json();
+
+    if (!midtransRes.ok) {
+      console.error('Midtrans Charge Error:', midtransData);
+      return NextResponse.json({ error: midtransData.status_message || 'Midtrans charge error' }, { status: 400 });
+    }
 
     await supabase
       .from('user_topups')
-      .update({ payment_data: payment })
+      .update({ payment_data: midtransData })
       .eq('id', topup.id);
+
+    // Format response to match payment-details expectations
+    let formattedData: any = {
+      amount,
+      external_id: order_id,
+      topup_id: topup.id,
+      payment_method,
+    };
+
+    if (payment_method === 'shopeepay') {
+      const actions = midtransData.actions || [];
+      const deeplinkAction = actions.find((a: any) => a.name === 'deeplink-redirect');
+      formattedData.type = 'ewallet';
+      formattedData.actions = {
+        mobile_web_checkout_url: deeplinkAction?.url,
+        deeplink_checkout_url: deeplinkAction?.url,
+      };
+    } else if (qrisMethods.includes(payment_method)) {
+      const actions = midtransData.actions || [];
+      const qrCodeAction = actions.find((a: any) => a.name === 'generate-qr-code');
+      formattedData.type = 'qris';
+      formattedData.qr_string = midtransData.qr_string || qrCodeAction?.url;
+    } else if (payment_method === 'mandiri_va') {
+      formattedData.type = 'va';
+      formattedData.bank_code = 'MANDIRI';
+      formattedData.va_number = `${midtransData.biller_code} - ${midtransData.bill_key}`;
+    } else if (retailMethods.includes(payment_method)) {
+      formattedData.type = 'retail';
+      formattedData.retail_outlet_name = payment_method === 'alfamart' ? 'ALFAMART' : 'INDOMARET';
+      formattedData.payment_code = midtransData.payment_code;
+    } else {
+      formattedData.type = 'va';
+      let bankCode = '';
+      if (payment_method === 'bca_va') bankCode = 'BCA';
+      else if (payment_method === 'bni_va') bankCode = 'BNI';
+      else if (payment_method === 'bri_va') bankCode = 'BRI';
+      else if (payment_method === 'permata_va') bankCode = 'PERMATA';
+      else if (payment_method === 'bsi_va') bankCode = 'BSI';
+      else if (payment_method === 'cimb_va') bankCode = 'CIMB';
+
+      formattedData.bank_code = bankCode;
+      if (payment_method === 'permata_va') {
+        formattedData.va_number = midtransData.permata_va_number;
+      } else {
+        formattedData.va_number = midtransData.va_numbers?.[0]?.va_number;
+      }
+    }
 
     return NextResponse.json({
       status: 'success',
-      data: { ...payment, topup_id: topup.id },
+      data: formattedData,
     });
 
   } catch (error: any) {

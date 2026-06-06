@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -37,6 +37,8 @@ export default function PaymentDetailsScreen() {
   } else if (type === 'retail') {
     code = payment_code;
     label = `Kode Bayar ${retail_outlet_name}`;
+  } else if (type === 'qris') {
+    label = 'QRIS';
   }
 
   const ewalletUrl = actions?.mobile_web_checkout_url || actions?.deeplink_checkout_url;
@@ -146,16 +148,28 @@ export default function PaymentDetailsScreen() {
               </View>
               <Text style={styles.title}>{label}</Text>
               <Text style={styles.desc}>
-                Gunakan kode di bawah untuk melakukan pembayaran.
+                {type === 'qris' ? 'Scan QRIS di bawah menggunakan aplikasi pembayaran.' : 'Gunakan kode di bawah untuk melakukan pembayaran.'}
               </Text>
 
-              <View style={styles.codeBox}>
-                <Text style={styles.paymentCode}>{code}</Text>
-                <TouchableOpacity onPress={() => copyCode(code)} style={styles.copyBtn}>
-                  <Ionicons name="copy-outline" size={18} color={PURPLE} />
-                  <Text style={styles.copyBtnText}>Salin Kode</Text>
-                </TouchableOpacity>
-              </View>
+              {type === 'qris' && qr_string ? (
+                <View style={styles.qrisBox}>
+                  <Image source={{ uri: qr_string }} style={styles.qrImage} resizeMode="contain" />
+                  <TouchableOpacity onPress={() => copyCode(qr_string)} style={styles.copyBtn}>
+                    <Ionicons name="copy-outline" size={18} color={PURPLE} />
+                    <Text style={styles.copyBtnText}>Salin QR</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.codeBox}>
+                  <Text style={styles.paymentCode}>{code}</Text>
+                  {code ? (
+                    <TouchableOpacity onPress={() => copyCode(code)} style={styles.copyBtn}>
+                      <Ionicons name="copy-outline" size={18} color={PURPLE} />
+                      <Text style={styles.copyBtnText}>Salin Kode</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              )}
 
               <View style={styles.amountBox}>
                 <Text style={styles.amountLabel}>Total Tagihan</Text>
@@ -244,6 +258,12 @@ const styles = StyleSheet.create({
   stepTitle: { fontSize: 14, fontWeight: '700', color: TEXT_DARK, marginBottom: 4 },
   instrStep: { fontSize: 14, color: TEXT_MUTED, lineHeight: 22 },
 
+  qrisBox: {
+    backgroundColor: '#FFFFFF', padding: 24, borderRadius: 20,
+    borderWidth: 1, borderColor: '#E2E8F0', width: '100%',
+    alignItems: 'center', gap: 16,
+  },
+  qrImage: { width: 200, height: 200 },
   doneBtn: {
     backgroundColor: PURPLE, paddingVertical: 18,
     borderRadius: 16, alignItems: 'center', width: '100%',

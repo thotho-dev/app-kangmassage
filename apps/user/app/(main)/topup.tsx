@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, 
-  LayoutAnimation, Image, StatusBar, Linking 
+  LayoutAnimation, Image, StatusBar, Linking, RefreshControl 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -75,6 +75,7 @@ export default function TopupScreen() {
   const [selectedMethod, setSelectedMethod] = useState('dana');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useFocusEffect(
@@ -160,6 +161,15 @@ export default function TopupScreen() {
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      getAppSettings().then(setSettings),
+      refreshProfile(),
+    ]);
+    setRefreshing(false);
+  }, [refreshProfile]);
+
   const isAmountValid = getRawAmount() >= minTopup;
   const balance = profile?.wallet_balance || 0;
   const currentSelectedMethodName = PAYMENT_GROUPS.flatMap(g => g.items).find(i => i.id === selectedMethod)?.name || '-';
@@ -182,6 +192,7 @@ export default function TopupScreen() {
         <ScrollView 
           showsVerticalScrollIndicator={false} 
           contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[PURPLE]} tintColor={PURPLE} />}
         >
           {/* Balance Info Card */}
           <LinearGradient
