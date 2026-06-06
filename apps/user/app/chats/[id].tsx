@@ -261,6 +261,8 @@ export default function ChatDetailScreen() {
 
   const renderMessage = ({ item }: { item: any }) => {
     const isMe = item.sender_type === 'user';
+    const isPhoto = item.content?.startsWith('📷 [Foto] ');
+    const photoUrl = isPhoto ? item.content.replace('📷 [Foto] ', '') : null;
     return (
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
         {!isMe && (
@@ -281,9 +283,13 @@ export default function ChatDetailScreen() {
           isMe ? { marginRight: 8 } : { marginLeft: 8 },
           { backgroundColor: isMe ? COLORS.primary[500] : (isDark ? '#1E293B' : '#F1F5F9') }
         ]}>
-          <Text style={[styles.messageText, { color: isMe ? '#FFFFFF' : theme.text }]}>
-            {item.content}
-          </Text>
+          {isPhoto && photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.photoMessage} resizeMode="cover" />
+          ) : (
+            <Text style={[styles.messageText, { color: isMe ? '#FFFFFF' : theme.text }]}>
+              {item.content}
+            </Text>
+          )}
           <Text style={[styles.timeText, { color: isMe ? 'rgba(255,255,255,0.7)' : theme.textSecondary }]}>
             {format(new Date(item.created_at), 'HH:mm')}
           </Text>
@@ -539,6 +545,12 @@ const styles = StyleSheet.create({
   myBubble: { borderBottomRightRadius: 4 },
   otherBubble: { borderBottomLeftRadius: 4 },
   messageText: { fontSize: 14, fontFamily: 'PlusJakartaSans-Regular' },
+  photoMessage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
   timeText: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
   inputContainer: {
     flexDirection: 'row',

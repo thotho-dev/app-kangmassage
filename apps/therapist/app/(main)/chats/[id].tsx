@@ -257,6 +257,8 @@ export default function ChatDetailScreen() {
 
   const renderMessage = ({ item }: { item: any }) => {
     const isMe = item.sender_type === 'therapist';
+    const isPhoto = item.content?.startsWith('📷 [Foto] ');
+    const photoUrl = isPhoto ? item.content.replace('📷 [Foto] ', '') : null;
     return (
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
         {!isMe && (
@@ -272,9 +274,13 @@ export default function ChatDetailScreen() {
         )}
         
         <View style={[styles.bubble, isMe ? styles.myBubble : styles.otherBubble, isMe ? { marginRight: 8 } : { marginLeft: 8 }]}>
-          <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText]}>
-            {item.content}
-          </Text>
+          {isPhoto && photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.photoMessage} resizeMode="cover" />
+          ) : (
+            <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText]}>
+              {item.content}
+            </Text>
+          )}
           <Text style={[styles.timeText, isMe ? styles.myTimeText : styles.otherTimeText]}>
             {format(new Date(item.created_at), 'HH:mm')}
           </Text>
@@ -527,6 +533,12 @@ const getStyles = (t: any) => StyleSheet.create({
   myBubble: { backgroundColor: t.secondary, borderBottomRightRadius: 4 },
   otherBubble: { backgroundColor: t.surface, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: t.border },
   messageText: { ...TYPOGRAPHY.bodySmall },
+  photoMessage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
   myMessageText: { color: '#FFFFFF' },
   otherMessageText: { color: t.text },
   timeText: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
