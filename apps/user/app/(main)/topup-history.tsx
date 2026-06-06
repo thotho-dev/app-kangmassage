@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Linking, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Wallet, Clock, AlertCircle } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
@@ -54,10 +54,26 @@ export default function TopupHistoryScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (profile) fetchHistory();
+    }, [profile])
+  );
+
   useEffect(() => {
-    if (profile) {
-      fetchHistory();
-    }
+    if (!profile) return;
+    const channel = supabase
+      .channel(`user-topup-history-${profile.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_topups',
+        filter: `user_id=eq.${profile.id}`,
+      }, () => {
+        fetchHistory();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
   const onRefresh = () => {

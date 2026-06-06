@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Linking } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
 import { format, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
@@ -50,10 +50,26 @@ export default function TopupHistoryScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (profile) fetchHistory();
+    }, [profile])
+  );
+
   useEffect(() => {
-    if (profile) {
-      fetchHistory();
-    }
+    if (!profile) return;
+    const channel = supabase
+      .channel(`topup-history-${profile.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'therapist_topups',
+        filter: `therapist_id=eq.${profile.id}`,
+      }, () => {
+        fetchHistory();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [profile]);
 
   const onRefresh = () => {
