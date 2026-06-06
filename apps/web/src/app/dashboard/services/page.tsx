@@ -312,7 +312,7 @@ function ServiceModal({
                 <div className="relative group">
                   <div className="w-full min-w-[280px] h-40 rounded-2xl bg-primary/5 border-2 border-dashed border-ui-border flex items-center justify-center overflow-hidden transition-all group-hover:border-primary/50">
                     {imagePreview ? (
-                      <Image src={imagePreview} alt="Preview" fill unoptimized={true} className="object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      <Image src={imagePreview} alt="Preview" fill unoptimized={true} className="object-cover" onError={(e: React.SyntheticEvent<HTMLImageElement>) => (e.currentTarget.style.display = 'none')} />
                     ) : (
                       <div className="text-center p-4">
                         <Upload className="w-8 h-8 mx-auto text-text-primary/20 mb-2" />

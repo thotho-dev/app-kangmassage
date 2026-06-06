@@ -157,7 +157,7 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
               <div className="relative group">
                 <div className="w-32 h-32 rounded-2xl bg-primary/5 border-2 border-dashed border-ui-border flex items-center justify-center overflow-hidden transition-all group-hover:border-primary/50">
                   {imagePreview ? (
-                    <Image src={imagePreview} alt="Preview" fill unoptimized={true} className="object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                    <Image src={imagePreview} alt="Preview" fill unoptimized={true} className="object-cover" onError={(e: React.SyntheticEvent<HTMLImageElement>) => (e.currentTarget.style.display = 'none')} />
                   ) : (
                     <div className="text-center p-4">
                       <Upload className="w-8 h-8 mx-auto text-text-primary/20 mb-2" />
@@ -448,7 +448,7 @@ export default function VouchersPage() {
                           fill
                           unoptimized={true}
                           className="object-cover" 
-                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                          onError={(e: React.SyntheticEvent<HTMLImageElement>) => (e.currentTarget.style.display = 'none')}
                         />
                       ) : (
                         <Ticket className="w-5 h-5 text-gold-400" />
