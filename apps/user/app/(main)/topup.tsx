@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { 
   ChevronLeft, Wallet, ArrowRight, Receipt, 
-  CreditCard, QrCode, Store, ChevronDown, ChevronUp 
+  QrCode, ChevronDown, ChevronUp 
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/context/AuthContext';
@@ -41,29 +41,6 @@ const PAYMENT_GROUPS = [
       { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png') },
     ]
   },
-  {
-    id: 'va',
-    title: 'Virtual Account (Transfer Bank)',
-    icon: CreditCard,
-    items: [
-      { id: 'bca_va', name: 'BCA Virtual Account', image: require('@/assets/bca.png') },
-      { id: 'mandiri_va', name: 'Mandiri Virtual Account', image: require('@/assets/mandiri.png') },
-      { id: 'bni_va', name: 'BNI Virtual Account', image: require('@/assets/bni.png') },
-      { id: 'bri_va', name: 'BRI Virtual Account', image: require('@/assets/bri.png') },
-      { id: 'permata_va', name: 'Permata Virtual Account', image: require('@/assets/permata.png') },
-      { id: 'bsi_va', name: 'BSI Virtual Account', image: require('@/assets/bsi.png') },
-      { id: 'cimb_va', name: 'CIMB Virtual Account', image: require('@/assets/cimb.png') },
-    ]
-  },
-  {
-    id: 'retail',
-    title: 'Gerai Retail',
-    icon: Store,
-    items: [
-      { id: 'alfamart', name: 'Alfamart', image: require('@/assets/Alfamart.png') },
-      { id: 'indomaret', name: 'Indomaret', image: require('@/assets/Indomaret.png') },
-    ]
-  }
 ];
 
 export default function TopupScreen() {
