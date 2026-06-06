@@ -61,6 +61,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       }
     }
 
+    // Fetch current therapist data before updating
+    const { data: currentTherapist } = await supabase
+      .from('therapists')
+      .select('is_verified, push_token')
+      .eq('id', params.id)
+      .single();
+
     const { data: therapist, error } = await supabase
       .from('therapists')
       .update(body)
@@ -75,8 +82,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const pushToken = therapist?.push_token;
 
-    // Notifikasi approve (is_verified true)
-    if (body.is_verified === true) {
+    // Notifikasi approve (is_verified berubah dari false ke true)
+    if (body.is_verified === true && currentTherapist?.is_verified !== true) {
       const settings = await getAppSettings();
       const platformName = settings.platform_name || DEFAULT_SETTINGS.platform_name;
       await supabase.from('notifications').insert({
