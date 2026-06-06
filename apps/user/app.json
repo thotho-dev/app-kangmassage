@@ -14,10 +14,12 @@
     },
     "ios": {
       "supportsTablet": true,
+      "googleServicesFile": "./GoogleService-Info.plist",
       "bundleIdentifier": "com.thotho.kangmassage.user"
     },
     "android": {
       "package": "com.thotho.kangmassage.user",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F172A"
@@ -32,7 +34,15 @@
     },
     "plugins": [
       "expo-router",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "assets/raw/sound_expo.mp3"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
