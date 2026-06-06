@@ -318,10 +318,9 @@ export default function TherapistsPage() {
                               fill
                               unoptimized={true}
                               className="rounded-xl object-cover" 
-                              onError={(e) => {
+                              onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                                 // Fallback to initial if image fails
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
+                                e.currentTarget.style.display = 'none';
                               }}
                             />
                           </div>
