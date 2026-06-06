@@ -619,6 +619,11 @@ const getStyles = (t: any) => StyleSheet.create({
     padding: SPACING.lg,
     paddingBottom: Platform.OS === 'ios' ? 40 : SPACING.lg,
     alignItems: 'center',
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
   dragIndicator: {
     width: 40,
