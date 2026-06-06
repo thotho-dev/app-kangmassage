@@ -619,6 +619,73 @@ CREATE POLICY "user_withdrawals_own" ON user_withdrawals FOR ALL USING (
 );
 
 -- ============================================================
+-- USER-THERAPIST CHAT
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    therapist_id UUID NOT NULL REFERENCES therapists(id) ON DELETE CASCADE,
+    last_message TEXT,
+    last_message_at TIMESTAMPTZ DEFAULT NOW(),
+    user_unread_count INTEGER DEFAULT 0,
+    therapist_unread_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, therapist_id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL,
+    sender_type TEXT NOT NULL CHECK (sender_type IN ('user', 'therapist')),
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Conversations access" ON conversations
+FOR ALL USING (
+    auth.uid() IN (SELECT supabase_uid FROM users WHERE id = user_id)
+    OR auth.uid() IN (SELECT supabase_uid FROM therapists WHERE id = therapist_id)
+);
+
+CREATE POLICY "Messages access" ON messages
+FOR ALL USING (
+    conversation_id IN (
+        SELECT id FROM conversations WHERE 
+        user_id IN (SELECT id FROM users WHERE supabase_uid = auth.uid())
+        OR therapist_id IN (SELECT id FROM therapists WHERE supabase_uid = auth.uid())
+    )
+);
+
+CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX idx_conversations_user_id ON conversations(user_id);
+CREATE INDEX idx_conversations_therapist_id ON conversations(therapist_id);
+CREATE INDEX idx_conversations_last_message_at ON conversations(last_message_at DESC);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
+
+-- RPC: atomic unread count increment (prevents race condition)
+CREATE OR REPLACE FUNCTION increment_conversation_unread(
+  p_conversation_id UUID,
+  p_field TEXT
+) RETURNS void AS $$
+BEGIN
+  IF p_field = 'user_unread_count' THEN
+    UPDATE conversations SET user_unread_count = user_unread_count + 1 WHERE id = p_conversation_id;
+  ELSIF p_field = 'therapist_unread_count' THEN
+    UPDATE conversations SET therapist_unread_count = therapist_unread_count + 1 WHERE id = p_conversation_id;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
 -- SUPPORT CHAT (Therapist ↔ Admin)
 -- ============================================================
 

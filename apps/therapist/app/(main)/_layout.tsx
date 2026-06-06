@@ -22,8 +22,11 @@ export default function MainLayout() {
       <Stack.Screen name="profile/change-phone" />
       <Stack.Screen name="profile/address" />
       <Stack.Screen name="profile/payment" />
+      <Stack.Screen name="profile/topup-history" />
+      <Stack.Screen name="profile/topup-detail" />
       <Stack.Screen name="profile/withdraw" />
       <Stack.Screen name="profile/withdraw-history" />
+      <Stack.Screen name="profile/withdraw-detail" />
       <Stack.Screen name="profile/tier-info" />
       <Stack.Screen name="profile/reviews" />
       <Stack.Screen name="support/chat" />

@@ -64,6 +64,7 @@ export default function WithdrawHistoryScreen() {
     switch (status) {
       case 'completed': return t.success;
       case 'pending': return t.warning;
+      case 'cancelled': return t.textMuted;
       case 'failed': return t.danger;
       default: return t.textMuted;
     }
@@ -73,6 +74,7 @@ export default function WithdrawHistoryScreen() {
     switch (status) {
       case 'completed': return 'Selesai';
       case 'pending': return 'Diproses';
+      case 'cancelled': return 'Dibatalkan';
       case 'failed': return 'Gagal';
       default: return status;
     }
@@ -145,7 +147,7 @@ export default function WithdrawHistoryScreen() {
   };
 
   const renderItem = ({ item }: { item: Withdrawal }) => (
-    <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
+    <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/profile/withdraw-detail?id=${item.id}`)} style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
       <View style={styles.cardHeader}>
         <View style={[styles.iconBox, { backgroundColor: getStatusColor(item.status) + '15' }]}>
           <Ionicons 
@@ -183,7 +185,7 @@ export default function WithdrawHistoryScreen() {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (

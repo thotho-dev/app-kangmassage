@@ -5,11 +5,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAlert } from '../../context/AlertContext';
 import { supabase } from '../../lib/supabase';
+import { API_URL } from '../../lib/config';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/Theme';
 import { format } from 'date-fns';
@@ -27,7 +29,6 @@ export default function ChatDetailScreen() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
   const [hasActiveOrder, setHasActiveOrder] = useState(true);
   
   // Attachments & Quick Responses States
@@ -39,41 +40,13 @@ export default function ChatDetailScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        fetchConversation();
-        fetchMessages();
-        markAsRead();
-        checkActiveOrder(user.id);
-      }
-    };
-    init();
-  }, [conversationId]);
-
-  const checkActiveOrder = async (uid: string) => {
-    try {
-      // Dapatkan internal user ID
-      const { data: u } = await supabase.from('users').select('id').eq('supabase_uid', uid).single();
-      if (!u) return;
-
-      // Dapatkan therapist_id dari conversation
-      const { data: conv } = await supabase.from('conversations').select('therapist_id').eq('id', conversationId).single();
-      if (!conv) return;
-
-      const { count } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', u.id)
-        .eq('therapist_id', conv.therapist_id)
-        .not('status', 'in', '("completed","cancelled")');
-      
-      setHasActiveOrder((count || 0) > 0);
-    } catch (e) {
-      console.error('Error checking active order:', e);
+    if (conversationId && profile) {
+      fetchConversation();
+      fetchMessages();
+      markAsRead();
+      checkActiveOrder();
     }
-  };
+  }, [conversationId, profile]);
 
   useEffect(() => {
     if (conversationId) {
@@ -83,6 +56,25 @@ export default function ChatDetailScreen() {
       };
     }
   }, [conversationId]);
+
+  const checkActiveOrder = async () => {
+    if (!profile) return;
+    try {
+      const { data: conv } = await supabase.from('conversations').select('therapist_id').eq('id', conversationId).single();
+      if (!conv) return;
+
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', profile.id)
+        .eq('therapist_id', conv.therapist_id)
+        .not('status', 'in', '("completed","cancelled")');
+      
+      setHasActiveOrder((count || 0) > 0);
+    } catch (e) {
+      console.error('Error checking active order:', e);
+    }
+  };
 
   const fetchConversation = async () => {
     try {
@@ -148,30 +140,21 @@ export default function ChatDetailScreen() {
   };
 
   const sendDirectMessage = async (text: string) => {
-    if (!userId || !conversation) return;
+    if (!profile || !conversation) return;
     try {
-      const { data: msgData, error: msgError } = await supabase
-        .from('messages')
-        .insert({
+      const res = await fetch(`${API_URL}/api/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           conversation_id: conversationId,
-          sender_id: userId,
+          sender_id: profile.id,
           sender_type: 'user',
           content: text
-        })
-        .select()
-        .single();
-
-      if (msgError) throw msgError;
-
-      // Update conversation last message
-      await supabase
-        .from('conversations')
-        .update({
-          last_message: text,
-          last_message_at: new Date().toISOString(),
-          therapist_unread_count: (conversation.therapist_unread_count || 0) + 1
-        })
-        .eq('id', conversationId);
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { message } = await res.json();
+      return message;
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -200,30 +183,68 @@ export default function ChatDetailScreen() {
     }
   };
 
-  const handleSendPhoto = () => {
+  const handleSendPhoto = async () => {
     setAttachModalVisible(false);
-    setUploadingImage(true);
-    setUploadProgress(10);
-    
-    let progress = 10;
-    const interval = setInterval(() => {
-      progress += 30;
-      if (progress >= 100) {
-        clearInterval(interval);
-        setUploadProgress(100);
-        setTimeout(async () => {
-          setUploadingImage(false);
-          const mockImgUrl = `📷 [Foto Terkirim] https://images.unsplash.com/photo-1544022613-e87ca75a784a?q=80&w=600`;
-          await sendDirectMessage(mockImgUrl);
-        }, 500);
-      } else {
-        setUploadProgress(progress);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Izin Diperlukan', 'Izin akses galeri diperlukan untuk mengirim foto.');
+        return;
       }
-    }, 300);
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        allowsEditing: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const uri = result.assets[0].uri;
+      setUploadingImage(true);
+      setUploadProgress(10);
+
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `chat_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      setUploadProgress(40);
+
+      const { data, error } = await supabase.storage
+        .from('chat-images')
+        .upload(fileName, blob, {
+          contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
+          upsert: true
+        });
+
+      if (error) {
+        console.warn('Upload to storage failed, sending as link:', error.message);
+        setUploadingImage(false);
+        await sendDirectMessage(`📷 [Foto] ${uri}`);
+        return;
+      }
+
+      setUploadProgress(75);
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-images')
+        .getPublicUrl(fileName);
+
+      setUploadProgress(100);
+      setTimeout(async () => {
+        setUploadingImage(false);
+        await sendDirectMessage(`📷 [Foto] ${publicUrl}`);
+      }, 300);
+    } catch (e) {
+      console.error('Error sending photo:', e);
+      setUploadingImage(false);
+      showAlert('Gagal', 'Gagal mengirim foto.');
+    }
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() || !userId || !conversation || sending) return;
+    if (!inputText.trim() || !profile || !conversation || sending) return;
 
     const text = inputText.trim();
     setInputText('');

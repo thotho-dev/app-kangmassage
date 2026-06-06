@@ -36,6 +36,7 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/icon-notif.png",
           "sounds": [
             "assets/raw/sound_expo.mp3",
             "assets/raw/sound_notifee.mp3"
@@ -49,7 +50,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-build-properties"
     ],
     "extra": {
       "router": {},

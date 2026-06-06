@@ -31,6 +31,9 @@ export default function SplashScreen() {
   }, []);
 
   const checkPendingOrders = async (therapistId: string) => {
+    const rejected = useTherapistStore.getState().rejectedOrderIds;
+    const isRejected = (id: string) => rejected.includes(id);
+
     if (!isExpoGo) {
       try {
         const notifee = await import('@notifee/react-native');
@@ -39,6 +42,7 @@ export default function SplashScreen() {
           if (n?.notification?.data?.orderData) {
             const raw = n.notification.data.orderData;
             const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (isRejected(orderData.id)) continue;
             const current = useTherapistStore.getState().incomingOrder;
             if (orderData.id !== current?.id) {
               useTherapistStore.getState().setIncomingOrder(orderData);
@@ -58,7 +62,7 @@ export default function SplashScreen() {
       .limit(1)
       .maybeSingle();
 
-    if (data) {
+    if (data && !isRejected(data.id)) {
       const current = useTherapistStore.getState().incomingOrder;
       if (data.id !== current?.id) {
         useTherapistStore.getState().setIncomingOrder(data);

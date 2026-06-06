@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Bell, BellOff, CheckCheck } from 'lucide-react-native';
+import { ChevronLeft, Bell, BellOff, CheckCheck, MessageSquare } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 
@@ -107,10 +107,28 @@ export default function NotificationsScreen() {
           }
         >
           {notifications.length > 0 ? (
-            notifications.map((item) => (
-              <View key={item.id} style={[styles.card, !item.is_read && styles.unreadCard]}>
+            notifications.map((item) => {
+              const d = item.data || {};
+              const handlePress = async () => {
+                if (!item.is_read) {
+                  await supabase.from('notifications').update({ is_read: true }).eq('id', item.id).maybeSingle();
+                  setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, is_read: true } : n));
+                }
+                if (d.order_id) router.push(`/order/${d.order_id}`);
+                else if (d.conversation_id) router.push(`/chats/${d.conversation_id}`);
+                else if (d.topup_id) router.push(`/topup-detail?id=${d.topup_id}`);
+                else if (d.withdrawal_id) router.push(`/withdraw-detail?id=${d.withdrawal_id}`);
+                else if (item.type === 'support_chat') router.push('/support');
+                else if (item.type === 'chat_message') router.push(`/chats/${d.conversation_id}`);
+              };
+              return (
+              <TouchableOpacity key={item.id} onPress={handlePress} style={[styles.card, !item.is_read && styles.unreadCard]}>
                 <View style={styles.iconBox}>
-                  <Bell size={20} color={PURPLE} />
+                  {item.type === 'chat_message' ? (
+                    <MessageSquare size={20} color={PURPLE} />
+                  ) : (
+                    <Bell size={20} color={PURPLE} />
+                  )}
                 </View>
                 <View style={styles.content}>
                   <View style={styles.row}>
@@ -120,8 +138,9 @@ export default function NotificationsScreen() {
                   <Text style={styles.message}>{item.body}</Text>
                   <Text style={styles.time}>{formatTime(item.created_at)}</Text>
                 </View>
-              </View>
-            ))
+              </TouchableOpacity>
+              );
+            })
           ) : (
             <View style={styles.emptyState}>
               <BellOff size={64} color={TEXT_MUTED} />

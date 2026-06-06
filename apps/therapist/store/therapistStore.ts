@@ -40,11 +40,15 @@ interface TherapistState {
   isOnline: boolean;
   loading: boolean;
   incomingOrder: any | null;
+  rejectedOrderIds: string[];
+  unreadNotifCount: number;
   welcomeMessage: string | null;
   _deactivationUnsub: (() => void) | null;
   setProfile: (profile: any) => void;
   setIsOnline: (isOnline: boolean) => void;
   setIncomingOrder: (order: any | null) => void;
+  addRejectedOrderId: (id: string) => void;
+  setUnreadNotifCount: (count: number) => void;
   setWelcomeMessage: (msg: string | null) => void;
   fetchProfile: () => Promise<void>;
   toggleOnline: () => Promise<void>;
@@ -89,11 +93,17 @@ export const useTherapistStore = create<TherapistState>((set, get) => ({
   isOnline: false,
   loading: false,
   incomingOrder: null,
+  rejectedOrderIds: [],
+  unreadNotifCount: 0,
   welcomeMessage: null,
   _deactivationUnsub: null,
   setProfile: (profile) => set({ profile, isOnline: profile?.status === 'online' }),
   setIsOnline: (isOnline) => set({ isOnline }),
   setIncomingOrder: (incomingOrder) => set({ incomingOrder }),
+  addRejectedOrderId: (id) => set((s) => ({
+    rejectedOrderIds: s.rejectedOrderIds.includes(id) ? s.rejectedOrderIds : [...s.rejectedOrderIds, id],
+  })),
+  setUnreadNotifCount: (unreadNotifCount) => set({ unreadNotifCount }),
   setWelcomeMessage: (welcomeMessage) => set({ welcomeMessage }),
   
   fetchProfile: async () => {

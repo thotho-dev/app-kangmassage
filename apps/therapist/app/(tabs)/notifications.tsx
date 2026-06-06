@@ -35,6 +35,7 @@ const getNotifDetails = (type: string) => {
     case 'order_cancelled':
       return { icon: 'close-circle', color: '#EF4444' }; // Red
     case 'support_chat':
+    case 'chat_message':
       return { icon: 'chatbubble-ellipses', color: '#3B82F6' }; // Blue
     default:
       return { icon: 'notifications', color: '#F97316' }; // Orange
@@ -44,7 +45,7 @@ const getNotifDetails = (type: string) => {
 export default function NotificationsScreen() {
   const t = useThemeColors();
   const router = useRouter();
-  const { profile } = useTherapistStore();
+  const { profile, setUnreadNotifCount } = useTherapistStore();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,7 +60,9 @@ export default function NotificationsScreen() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setNotifications(deduplicateNotifications(data || []));
+      const items = deduplicateNotifications(data || []);
+      setNotifications(items);
+      setUnreadNotifCount(items.filter(n => !n.is_read).length);
     } catch (error) {
       console.error('Error fetching therapist notifications:', error);
     } finally {
@@ -93,7 +96,7 @@ export default function NotificationsScreen() {
   useEffect(() => {
     if (!profile?.id) return;
     const channel = supabase
-      .channel('notifications')
+      .channel(`notifications-${profile.id}-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `therapist_id=eq.${profile.id}` },
         (payload) => {
@@ -106,6 +109,9 @@ export default function NotificationsScreen() {
             }
             return updated;
           });
+          if (!newNotif.is_read) {
+            setUnreadNotifCount(useTherapistStore.getState().unreadNotifCount + 1);
+          }
         }
       )
       .subscribe();
@@ -126,9 +132,11 @@ export default function NotificationsScreen() {
         .eq('therapist_id', profile.id);
 
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setUnreadNotifCount(0);
     } catch (error) {
       console.warn('Could not mark all therapist notifications as read:', error);
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setUnreadNotifCount(0);
     }
   };
 
@@ -171,16 +179,38 @@ export default function NotificationsScreen() {
           renderItem={({ item }) => {
             const { icon, color } = getNotifDetails(item.type);
             const isUnread = !item.is_read;
-            const handlePress = () => {
-              if (item.type === 'support_chat') {
+            const handlePress = async () => {
+              // Mark as read
+              if (!item.is_read) {
+                try {
+                  await supabase.from('notifications').update({ is_read: true }).eq('id', item.id);
+                } catch {}
+                setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, is_read: true } : n));
+                setUnreadNotifCount(Math.max(0, useTherapistStore.getState().unreadNotifCount - 1));
+              }
+              // Navigate
+              const d = item.data || {};
+              if (d.order_id) {
+                router.push(`/orders/${d.order_id}`);
+              } else if (d.topup_id) {
+                router.push(`/profile/topup-detail?id=${d.topup_id}`);
+              } else if (d.withdrawal_id) {
+                router.push(`/profile/withdraw-detail?id=${d.withdrawal_id}`);
+              } else if (item.type === 'support_chat' || d.chat_id) {
                 router.push('/support/chat');
+              } else if (item.type === 'chat_message') {
+                router.push(`/chats/${d.conversation_id}`);
+              } else if (item.type === 'topup_success') {
+                router.push('/profile/topup-history');
+              } else if (item.type === 'withdrawal_success' || item.type === 'withdrawal_failed') {
+                router.push('/profile/withdraw-history');
               }
             };
             return (
               <TouchableOpacity onPress={handlePress} style={[
                 styles.card, 
-                { backgroundColor: t.surface, borderColor: isUnread ? color + '40' : t.border },
-                isUnread && { borderWidth: 1.5 }
+                { backgroundColor: t.surface, borderColor: isUnread ? color + '60' : t.border },
+                isUnread && { borderWidth: 2.5 }
               ]}>
                 <View style={[styles.iconWrap, { backgroundColor: color + '15' }]}>
                   <Ionicons name={icon as any} size={24} color={color} />

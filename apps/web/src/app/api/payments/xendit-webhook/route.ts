@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
             title: 'Top Up Berhasil!',
             body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
             type: 'topup_success',
+            data: { topup_id: topup.id },
           });
         }
       }
@@ -167,6 +168,7 @@ export async function POST(req: NextRequest) {
             title: 'Top Up Berhasil!',
             body: `Saldo Anda telah bertambah Rp ${topup.amount.toLocaleString('id-ID')}.`,
             type: 'topup_success',
+            data: { topup_id: topup.id },
           });
         }
       }

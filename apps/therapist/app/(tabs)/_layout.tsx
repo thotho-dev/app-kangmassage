@@ -43,6 +43,9 @@ export default function TabLayout() {
   const { showAlert, AlertComponent } = useAlert();
 
   const checkPendingOrders = useCallback(async (therapistId: string) => {
+    const rejected = useTherapistStore.getState().rejectedOrderIds;
+    const isRejected = (id: string) => rejected.includes(id);
+
     if (!isExpoGo) {
       try {
         const notifee = await import('@notifee/react-native');
@@ -51,6 +54,7 @@ export default function TabLayout() {
           if (n?.notification?.data?.orderData) {
             const raw = n.notification.data.orderData;
             const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (isRejected(orderData.id)) continue;
             const current = useTherapistStore.getState().incomingOrder;
             if (orderData.id !== current?.id) {
               setIncomingOrder(orderData);
@@ -70,13 +74,33 @@ export default function TabLayout() {
       .limit(1)
       .maybeSingle();
 
-    if (data) {
+    if (data && !isRejected(data.id)) {
       const current = useTherapistStore.getState().incomingOrder;
       if (data.id !== current?.id) {
         setIncomingOrder(data);
       }
     }
   }, []);
+
+  const handleNotifNav = useCallback((type: string, data: any) => {
+    if (type.startsWith('order_')) {
+      const id = data?.order_id || data?.orderId;
+      if (id) { router.push(`/orders/${id}`); }
+    } else if (type.startsWith('topup_')) {
+      const id = data?.topup_id || data?.topupId;
+      if (id) { router.push(`/profile/topup-detail?id=${id}`); }
+    } else if (type.startsWith('withdrawal_')) {
+      const id = data?.withdrawal_id || data?.withdrawalId;
+      if (id) { router.push(`/profile/withdraw-detail?id=${id}`); }
+    } else if (type === 'support_chat' || type === 'chat') {
+      router.push('/support/chat');
+    } else if (type === 'chat_message') {
+      const id = data?.conversation_id || data?.conversationId;
+      if (id) { router.push(`/chats/${id}`); }
+    } else if (type === 'account_verified' || type === 'revision_request' || type === 'profile_update') {
+      router.push('/profile');
+    }
+  }, [router]);
 
   useEffect(() => {
     if (welcomeMessage) {
@@ -140,23 +164,31 @@ export default function TabLayout() {
     // Handle notification tap that opened the app (cold start)
     (async () => {
       try {
+        const rejected = useTherapistStore.getState().rejectedOrderIds;
+        let notifData: any = null;
         if (!isExpoGo) {
           const notifee = await import('@notifee/react-native').catch(() => null);
           if (notifee) {
             const initial = await notifee.default.getInitialNotification();
-            if (initial?.notification?.data?.orderData) {
-              const raw = initial.notification.data.orderData;
-              setIncomingOrder(typeof raw === 'string' ? JSON.parse(raw) : raw);
-              return;
-            }
+            if (initial?.notification?.data) notifData = initial.notification.data;
           }
         }
-
-        const response = await Notifications.getLastNotificationResponseAsync();
-        if (response?.notification?.request?.content?.data?.orderData) {
-          const raw = response.notification.request.content.data.orderData;
-          const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          setIncomingOrder(orderData);
+        if (!notifData) {
+          const response = await Notifications.getLastNotificationResponseAsync();
+          if (response?.notification?.request?.content?.data) {
+            notifData = response.notification.request.content.data;
+          }
+        }
+        if (notifData) {
+          if (notifData.orderData) {
+            const raw = notifData.orderData;
+            const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (!rejected.includes(orderData.id)) {
+              setIncomingOrder(orderData);
+            }
+          } else if (notifData.type) {
+            handleNotifNav(notifData.type, notifData);
+          }
         }
       } catch (e) {
         console.warn('Failed to process cold-start notification', e);
@@ -169,9 +201,18 @@ export default function TabLayout() {
       import('@notifee/react-native').then(notifee => {
         if (notifee) {
           notifeeUnsub = notifee.default.onForegroundEvent(({ type, detail }: any) => {
-            if (type === 1 && detail?.notification?.data?.orderData) {
-              const raw = detail.notification.data.orderData;
-              setIncomingOrder(typeof raw === 'string' ? JSON.parse(raw) : raw);
+            if (type === 1 && detail?.notification?.data) {
+              const d = detail.notification.data;
+              if (d.orderData) {
+                const raw = d.orderData;
+                const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                const rejected = useTherapistStore.getState().rejectedOrderIds;
+                if (!rejected.includes(orderData.id)) {
+                  setIncomingOrder(orderData);
+                }
+              } else if (d.type) {
+                handleNotifNav(d.type, d);
+              }
             }
           });
         }
@@ -180,14 +221,22 @@ export default function TabLayout() {
 
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const notification = response.notification;
-      if (notification?.request?.content?.data?.orderData) {
+      if (notification?.request?.content?.data) {
+        const data = notification.request.content.data;
         try {
-          const orderData = typeof notification.request.content.data.orderData === 'string'
-            ? JSON.parse(notification.request.content.data.orderData)
-            : notification.request.content.data.orderData;
-          setIncomingOrder(orderData);
+          if (data.orderData) {
+            const rejected = useTherapistStore.getState().rejectedOrderIds;
+            const orderData = typeof data.orderData === 'string'
+              ? JSON.parse(data.orderData)
+              : data.orderData;
+            if (!rejected.includes(orderData.id)) {
+              setIncomingOrder(orderData);
+            }
+          } else if (data.type) {
+            handleNotifNav(data.type, data);
+          }
         } catch (e) {
-          console.warn('Failed to parse orderData from notification', e);
+          console.warn('Failed to parse notification', e);
         }
       }
     });

@@ -350,7 +350,7 @@ export default function OrderDetailScreen() {
 
     // Realtime listener for order updates (e.g. customer cancels)
     const subscription = supabase
-      .channel(`order_detail_${id}`)
+      .channel(`order_detail_${id}_${Math.random().toString(36).substring(7)}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${id}` },

@@ -95,9 +95,10 @@ export async function POST(req: NextRequest) {
       // Create In-App Notification
       await supabase.from('notifications').insert({
         user_id: topup.user_id,
-        title: 'Top Up Berhasil! ⚡',
+        title: 'Top Up Berhasil! ?',
         body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} berhasil ditambahkan ke dompet Anda.`,
         type: 'topup_success',
+        data: { topup_id: topup.id },
       });
 
       // Send Push Notification if Push Token Available
@@ -164,9 +165,10 @@ export async function POST(req: NextRequest) {
       // Create In-App Notification
       await supabase.from('notifications').insert({
         therapist_id: topup.therapist_id,
-        title: 'Top Up Berhasil! ⚡',
+        title: 'Top Up Berhasil! ?',
         body: `Saldo Rp ${topupAmount.toLocaleString('id-ID')} berhasil ditambahkan ke dompet Anda.`,
         type: 'topup_success',
+        data: { topup_id: topup.id },
       });
 
       // Send Push Notification if Push Token Available

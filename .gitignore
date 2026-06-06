@@ -45,6 +45,12 @@ yarn-error.log*
 # MacOS
 .DS_Store
 
+# Firebase Admin SDK Key (sensitive!)
+kang-massage-9d445-firebase-adminsdk-fbsvc-65d51ec3c2.json
+
+# SQL scratch files
+midtrans_settings.sql
+
 # Temporary
 tmp/
 scratch/

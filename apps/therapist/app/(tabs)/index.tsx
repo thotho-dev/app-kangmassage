@@ -41,7 +41,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { profile, loading: profileLoading } = useTherapistStore();
+  const { profile, loading: profileLoading, unreadNotifCount, setUnreadNotifCount } = useTherapistStore();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
@@ -203,6 +203,14 @@ export default function DashboardScreen() {
         totalHours: totalHoursToday,
         totalTreatments: totalTreatmentsToday
       });
+
+      // 3. Hitung notifikasi belum dibaca
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('therapist_id', profile.id)
+        .eq('is_read', false);
+      setUnreadNotifCount(count ?? 0);
     } catch (error) {
       console.error('Dashboard Fetch Error:', error);
     } finally {
@@ -261,7 +269,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(tabs)/notifications')} style={styles.iconBtn}>
             <Ionicons name="notifications-outline" size={22} color={t.text} />
-            <View style={[styles.notifDot, { backgroundColor: t.secondary }]} />
+            {unreadNotifCount > 0 && <View style={[styles.notifDot, { backgroundColor: t.secondary }]} />}
           </TouchableOpacity>
         </View>
       </View>

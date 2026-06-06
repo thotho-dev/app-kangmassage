@@ -13,7 +13,7 @@ import { CustomAlertTrigger } from '../store/alertStore';
 import { API_URL } from '../lib/config';
 
 export default function IncomingOrderModal() {
-  const { incomingOrder, setIncomingOrder, profile } = useTherapistStore();
+  const { incomingOrder, setIncomingOrder, addRejectedOrderId, profile } = useTherapistStore();
   const t = useThemeColors();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -220,11 +220,13 @@ export default function IncomingOrderModal() {
         console.error('[DEBUG Reject] Error rejecting targeted order:', err);
       } finally {
         setLoading(false);
+        addRejectedOrderId(incomingOrder.id);
         setIncomingOrder(null);
       }
     } else {
       // Jika pesanan broadcast (rebutan), cukup tutup modal secara lokal saja
       // Biar terapis lain masih bisa ambil
+      addRejectedOrderId(incomingOrder.id);
       setIncomingOrder(null);
     }
   };

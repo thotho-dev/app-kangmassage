@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { format } from 'date-fns';
@@ -37,32 +39,23 @@ export default function ChatDetailScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
-  // Direct Message Sending Helper
+  // Direct Message Sending via API (handles push notification + atomic unread)
   const sendDirectMessage = async (text: string) => {
     if (!profile || !conversation) return;
     try {
-      const { data: msgData, error: msgError } = await supabase
-        .from('messages')
-        .insert({
+      const res = await fetch(`${API_URL}/api/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           conversation_id: conversationId,
           sender_id: profile.id,
           sender_type: 'therapist',
           content: text
-        })
-        .select()
-        .single();
-
-      if (msgError) throw msgError;
-
-      // Update conversation last message
-      await supabase
-        .from('conversations')
-        .update({
-          last_message: text,
-          last_message_at: new Date().toISOString(),
-          user_unread_count: (conversation.user_unread_count || 0) + 1
-        })
-        .eq('id', conversationId);
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { message } = await res.json();
+      return message;
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -91,26 +84,65 @@ export default function ChatDetailScreen() {
     }
   };
 
-  const handleSendPhoto = () => {
+  const handleSendPhoto = async () => {
     setAttachModalVisible(false);
-    setUploadingImage(true);
-    setUploadProgress(10);
-    
-    let progress = 10;
-    const interval = setInterval(() => {
-      progress += 30;
-      if (progress >= 100) {
-        clearInterval(interval);
-        setUploadProgress(100);
-        setTimeout(async () => {
-          setUploadingImage(false);
-          const mockImgUrl = `📷 [Foto Terkirim] https://images.unsplash.com/photo-1544022613-e87ca75a784a?q=80&w=600`;
-          await sendDirectMessage(mockImgUrl);
-        }, 500);
-      } else {
-        setUploadProgress(progress);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Izin akses galeri diperlukan untuk mengirim foto.');
+        return;
       }
-    }, 300);
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        allowsEditing: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const uri = result.assets[0].uri;
+      setUploadingImage(true);
+      setUploadProgress(10);
+
+      // Upload to Supabase Storage
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `chat_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      setUploadProgress(40);
+
+      const { data, error } = await supabase.storage
+        .from('chat-images')
+        .upload(fileName, blob, {
+          contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
+          upsert: true
+        });
+
+      if (error) {
+        console.warn('Upload to storage failed, sending as link:', error.message);
+        setUploadingImage(false);
+        await sendDirectMessage(`📷 [Foto] ${uri}`);
+        return;
+      }
+
+      setUploadProgress(75);
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-images')
+        .getPublicUrl(fileName);
+
+      setUploadProgress(100);
+      setTimeout(async () => {
+        setUploadingImage(false);
+        await sendDirectMessage(`📷 [Foto] ${publicUrl}`);
+      }, 300);
+    } catch (e) {
+      console.error('Error sending photo:', e);
+      setUploadingImage(false);
+      alert('Gagal mengirim foto.');
+    }
   };
 
   useEffect(() => {
@@ -215,32 +247,9 @@ export default function ChatDetailScreen() {
     setSending(true);
 
     try {
-      const { data: msgData, error: msgError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_id: profile.id,
-          sender_type: 'therapist',
-          content: text
-        })
-        .select()
-        .single();
-
-      if (msgError) throw msgError;
-
-      // Update conversation last message
-      await supabase
-        .from('conversations')
-        .update({
-          last_message: text,
-          last_message_at: new Date().toISOString(),
-          user_unread_count: (conversation.user_unread_count || 0) + 1
-        })
-        .eq('id', conversationId);
-
+      await sendDirectMessage(text);
     } catch (error) {
       console.error('Error sending message:', error);
-      // Restore text if failed? Maybe just show error
     } finally {
       setSending(false);
     }

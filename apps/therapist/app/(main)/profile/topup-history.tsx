@@ -59,7 +59,7 @@ export default function TopupHistoryScreen() {
   useEffect(() => {
     if (!profile) return;
     const channel = supabase
-      .channel(`topup-history-${profile.id}`)
+      .channel(`topup-history-${profile.id}-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -77,6 +77,15 @@ export default function TopupHistoryScreen() {
     fetchHistory();
   };
 
+  const markAsCancelled = async (id: string) => {
+    try {
+      await supabase.from('therapist_topups').update({ status: 'cancelled' }).eq('id', id);
+      setHistory(prev => prev.map(h => h.id === id ? { ...h, status: 'cancelled' } : h));
+    } catch (e) {
+      console.error('Cancel error:', e);
+    }
+  };
+
   const markAsFailed = async (id: string) => {
     try {
       await supabase.from('therapist_topups').update({ status: 'failed' }).eq('id', id);
@@ -90,6 +99,7 @@ export default function TopupHistoryScreen() {
     switch (status) {
       case 'paid': return { color: t.success, bg: t.success + '15', label: 'Sukses' };
       case 'pending': return { color: t.warning, bg: t.warning + '15', label: 'Pending' };
+      case 'cancelled': return { color: t.textMuted, bg: t.border, label: 'Dibatalkan' };
       case 'failed': return { color: t.danger, bg: t.danger + '15', label: 'Gagal' };
       default: return { color: t.textSecondary, bg: t.border, label: status };
     }
@@ -140,7 +150,7 @@ export default function TopupHistoryScreen() {
             const isPending = item.status === 'pending';
             
             return (
-              <View key={item.id} style={styles.card}>
+              <TouchableOpacity key={item.id} activeOpacity={0.85} onPress={() => router.push(`/profile/topup-detail?id=${item.id}`)} style={styles.card}>
                 <View style={styles.cardTop}>
                   <View style={[styles.iconBox, { backgroundColor: t.background }]}>
                     <Ionicons name="wallet-outline" size={20} color={t.primary} />
@@ -176,8 +186,8 @@ export default function TopupHistoryScreen() {
                       <Text style={styles.detailLabel}>Metode</Text>
                       <Text style={[styles.detailValue, { textTransform: 'uppercase' }]}>{item.payment_method.replace('_', ' ')}</Text>
                     </View>
-                  )}
-                </View>
+                )}
+                  </View>
 
                 {isPending && (
                   <View style={styles.timerContainer}>
@@ -195,7 +205,7 @@ export default function TopupHistoryScreen() {
                       onPress={() => {
                         showAlert('warning', 'Batalkan Transaksi', 'Apakah Anda yakin ingin membatalkan top up ini?', [
                           { text: 'Kembali', style: 'cancel' },
-                          { text: 'Ya, Batalkan', style: 'destructive', onPress: () => markAsFailed(item.id) }
+                          { text: 'Ya, Batalkan', style: 'destructive', onPress: () => markAsCancelled(item.id) }
                         ]);
                       }}
                     >
@@ -223,7 +233,7 @@ export default function TopupHistoryScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })
         )}

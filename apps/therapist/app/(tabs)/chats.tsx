@@ -65,7 +65,7 @@ export default function ChatsScreen() {
     <TouchableOpacity 
       style={[styles.chatCard, { backgroundColor: t.surface, borderColor: t.border }]}
       activeOpacity={0.7}
-      onPress={() => router.push(`/chats/${item.id}`)}
+      onPress={() => router.push(`/(main)/chats/${item.id}`)}
     >
       <View style={styles.avatarContainer}>
         {item.users?.avatar_url ? (

@@ -39,7 +39,7 @@ No typecheck, test, or formatter scripts configured. No pre-commit hooks.
 
 All schema + RLS + triggers + seed data in `supabase/schema.sql`. Run in Supabase SQL Editor to bootstrap.
 
-Key tables: `users`, `therapists`, `therapist_locations`, `services`, `orders`, `order_logs`, `transactions`, `vouchers`, `voucher_usages`, `notifications`, `user_topups`, `user_withdrawals`.
+Key tables: `users`, `therapists`, `therapist_locations`, `services`, `orders`, `order_logs`, `transactions`, `vouchers`, `voucher_usages`, `notifications`, `user_topups`, `user_withdrawals`, `conversations`, `messages`.
 
 Enums: `user_role`, `order_status` (pending → accepted → on_the_way → in_progress → completed / cancelled / rejected), `payment_status`, `therapist_status`, `voucher_type`, `voucher_category`.
 
@@ -61,6 +61,21 @@ Dapatkan token dengan membuat app di https://puter.com.
 Default model: `qwen/qwen3.6-plus-preview:free` (gratis tanpa batas via Puter). Bisa diganti ke model lain di chat.tsx.
 
 Server-side fallback via `apps/web/src/app/api/chat-ai/route.ts` (untuk admin dashboard).
+
+### Chat System (Customer ↔ Therapist)
+
+Sent messages via `POST /api/chat/send` (Next.js API, not direct Supabase insert). Endpoint handles:
+- Insert message into `messages`
+- Atomic unread count increment via `increment_conversation_unread()` RPC (prevents race condition)
+- Expo push notification + in-app notification to recipient
+
+**Photo upload**: Uses `expo-image-picker` → Supabase Storage bucket `chat-images` (auto-created by `/api/upload`). Falls back to sending URI as text if Storage fails.
+
+**Realtime**: `messages` and `conversations` tables added to `supabase_realtime` publication. Channel names use `chat:{conversationId}`.
+
+**Notification types**: `chat_message` type with `{ conversation_id, message_id }` data. Tapping navigates to `/chats/{conversation_id}`.
+
+**Setup**: Create `chat-images` bucket in Supabase Dashboard → Storage if auto-creation doesn't work.
 
 ## Design system
 

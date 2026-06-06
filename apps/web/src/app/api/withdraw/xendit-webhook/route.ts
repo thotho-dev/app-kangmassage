@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
           title: 'Penarikan Dana Berhasil!',
           body: `Dana Rp ${amount.toLocaleString('id-ID')} telah berhasil dicairkan ke rekening Anda.`,
           type: 'withdrawal_success',
+          data: { withdrawal_id: withdrawal.id },
         });
 
       } else if (status === 'FAILED') {
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
           title: 'Penarikan Dana Gagal',
           body: `Pencairan dana Rp ${amount.toLocaleString('id-ID')} gagal. Saldo telah dikembalikan ke dompet Anda.`,
           type: 'withdrawal_failed',
+          data: { withdrawal_id: withdrawal.id },
         });
       }
 
@@ -180,6 +182,7 @@ export async function POST(req: NextRequest) {
           title: 'Penarikan Dana Berhasil!',
           body: `Dana Rp ${amount.toLocaleString('id-ID')} telah berhasil dicairkan ke rekening Anda.`,
           type: 'withdrawal_success',
+          data: { withdrawal_id: withdrawal.id },
         });
 
       } else if (status === 'FAILED') {
@@ -221,6 +224,7 @@ export async function POST(req: NextRequest) {
           title: 'Penarikan Dana Gagal',
           body: `Pencairan dana Rp ${amount.toLocaleString('id-ID')} gagal. Saldo telah dikembalikan ke dompet Anda.`,
           type: 'withdrawal_failed',
+          data: { withdrawal_id: withdrawal.id },
         });
       }
 
