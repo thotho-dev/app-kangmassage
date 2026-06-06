@@ -610,7 +610,7 @@ const getStyles = (t: any) => StyleSheet.create({
   /* Attachment Modal Styles */
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   attachSheet: {
