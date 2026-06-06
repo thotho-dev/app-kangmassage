@@ -10,6 +10,24 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminClient();
 
+    const paymentMethodLabels: Record<string, string> = {
+      gopay: 'GoPay',
+      qris: 'QRIS',
+      dana: 'DANA',
+      ovo: 'OVO',
+      linkaja: 'LinkAja',
+      shopeepay: 'ShopeePay',
+      bca_va: 'BCA Virtual Account',
+      bni_va: 'BNI Virtual Account',
+      bri_va: 'BRI Virtual Account',
+      mandiri_va: 'Mandiri Virtual Account',
+      permata_va: 'Permata Virtual Account',
+      bsi_va: 'BSI Virtual Account',
+      cimb_va: 'CIMB Virtual Account',
+      alfamart: 'Alfamart',
+      indomaret: 'Indomaret',
+    };
+
     // 1. Determine Payment Status
     let paymentStatus: 'paid' | 'failed' | 'pending';
     if (transaction_status === 'capture' && fraud_status === 'accept') {
@@ -63,7 +81,7 @@ export async function POST(req: NextRequest) {
               amount: topup.amount,
               balance_before: user?.wallet_balance || 0,
               balance_after: newBalance,
-              description: `Topup Saldo via Midtrans`,
+              description: `Top Up Saldo (${paymentMethodLabels[topup.payment_method] || topup.payment_method || 'Midtrans'})`,
               reference_id: body.transaction_id,
             });
             if (transError) console.error('Webhook Error: Failed to insert transaction record', transError);
@@ -114,7 +132,7 @@ export async function POST(req: NextRequest) {
               amount: topup.amount,
               balance_before: therapist?.wallet_balance || 0,
               balance_after: newBalance,
-              description: `Topup Saldo via Midtrans`,
+              description: `Top Up Saldo (${paymentMethodLabels[topup.payment_method] || topup.payment_method || 'Midtrans'})`,
               reference_id: body.transaction_id,
             });
             if (transError) console.error('Webhook Error: Failed to insert transaction record', transError);
