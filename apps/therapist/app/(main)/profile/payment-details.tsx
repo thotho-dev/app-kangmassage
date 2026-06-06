@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useAlert } from '@/components/CustomAlert';
+import QRCode from 'react-native-qrcode-svg';
 
 export default function PaymentDetailsScreen() {
   const t = useThemeColors();
@@ -49,11 +50,9 @@ export default function PaymentDetailsScreen() {
         <View style={styles.paymentCard}>
           <Text style={styles.paymentMethodTitle}>{label}</Text>
 
-          {type === 'qris' ? (
+          {type === 'qris' && qr_string ? (
             <View style={styles.codeRow}>
-              <Text style={styles.qrLabel}>QR Code</Text>
-              <Ionicons name="qr-code-outline" size={32} color={t.primary} />
-              <Text style={styles.qrString}>{qr_string}</Text>
+              <QRCode value={qr_string} size={200} backgroundColor="white" />
               <TouchableOpacity onPress={() => copyToClipboard(qr_string)} style={styles.copyBtn}>
                 <Ionicons name="copy-outline" size={20} color={t.secondary} />
                 <Text style={{ color: t.secondary, fontWeight: 'bold' }}>Salin QR</Text>

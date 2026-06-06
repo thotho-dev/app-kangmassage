@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
 import * as Clipboard from 'expo-clipboard';
+import QRCode from 'react-native-qrcode-svg';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -153,7 +154,7 @@ export default function PaymentDetailsScreen() {
 
               {type === 'qris' && qr_string ? (
                 <View style={styles.qrisBox}>
-                  <Image source={{ uri: qr_string }} style={styles.qrImage} resizeMode="contain" />
+                  <QRCode value={qr_string} size={200} backgroundColor="white" />
                   <TouchableOpacity onPress={() => copyCode(qr_string)} style={styles.copyBtn}>
                     <Ionicons name="copy-outline" size={18} color={PURPLE} />
                     <Text style={styles.copyBtnText}>Salin QR</Text>
