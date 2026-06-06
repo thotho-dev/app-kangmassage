@@ -25,6 +25,9 @@ export type AppSettings = {
   xendit_secret_key: string;
   xendit_webhook_verification_token: string;
   xendit_disbursement_secret_key: string;
+  midtrans_server_key: string;
+  midtrans_client_key: string;
+  midtrans_is_production: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -52,6 +55,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   xendit_secret_key: '',
   xendit_webhook_verification_token: '',
   xendit_disbursement_secret_key: '',
+  midtrans_server_key: '',
+  midtrans_client_key: '',
+  midtrans_is_production: false,
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -92,6 +98,9 @@ export async function getAppSettings(): Promise<AppSettings> {
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
       xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
+      midtrans_server_key: data.midtrans_server_key ?? '',
+      midtrans_client_key: data.midtrans_client_key ?? '',
+      midtrans_is_production: data.midtrans_is_production ?? false,
     };
   } catch {
     return DEFAULT_SETTINGS;

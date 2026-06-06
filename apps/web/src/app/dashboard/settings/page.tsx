@@ -36,6 +36,9 @@ type AppSettings = {
   xendit_secret_key: string;
   xendit_webhook_verification_token: string;
   xendit_disbursement_secret_key: string;
+  midtrans_server_key: string;
+  midtrans_client_key: string;
+  midtrans_is_production: boolean;
 };
 
 const defaultSettings: AppSettings = {
@@ -66,6 +69,9 @@ const defaultSettings: AppSettings = {
   xendit_secret_key: '',
   xendit_webhook_verification_token: '',
   xendit_disbursement_secret_key: '',
+  midtrans_server_key: '',
+  midtrans_client_key: '',
+  midtrans_is_production: false,
 };
 
 type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
@@ -156,7 +162,7 @@ export default function SettingsPage() {
     }
   };
 
-  const updateField = (field: keyof AppSettings, value: string | number | null) => {
+  const updateField = (field: keyof AppSettings, value: string | number | boolean | null) => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
@@ -597,6 +603,52 @@ export default function SettingsPage() {
                     rows={2}
                   />
                   <p className="text-xs text-text-muted/60 mt-1">Token untuk verifikasi webhook callback Xendit.</p>
+                </div>
+              </div>
+
+              <div className="border-t border-ui-border my-6" />
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-orange-600/30 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-orange-400" />
+                </div>
+                <h3 className="font-semibold text-text-primary">Midtrans (Topup Saldo)</h3>
+              </div>
+              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi Midtrans untuk topup saldo user & terapis.</p>
+              <div className="space-y-4 max-w-lg">
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Midtrans Server Key</label>
+                  <textarea
+                    value={settings.midtrans_server_key}
+                    onChange={e => updateField('midtrans_server_key', e.target.value)}
+                    className="input-field min-h-[80px] font-mono text-xs"
+                    placeholder="Mid-server-..."
+                    rows={2}
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">Server Key dari Midtrans Dashboard → Settings → Access Keys.</p>
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Midtrans Client Key</label>
+                  <textarea
+                    value={settings.midtrans_client_key}
+                    onChange={e => updateField('midtrans_client_key', e.target.value)}
+                    className="input-field min-h-[80px] font-mono text-xs"
+                    placeholder="Mid-client-..."
+                    rows={2}
+                  />
+                  <p className="text-xs text-text-muted/60 mt-1">Client Key dari Midtrans Dashboard (digunakan di mobile apps).</p>
+                </div>
+                <div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.midtrans_is_production}
+                      onChange={e => updateField('midtrans_is_production', e.target.checked)}
+                      className="w-4 h-4 rounded border-ui-border text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-text-primary/60">Production Mode</span>
+                  </label>
+                  <p className="text-xs text-text-muted/60 mt-1">Aktifkan untuk menggunakan environment production. Nonaktifkan untuk sandbox.</p>
                 </div>
               </div>
             </div>

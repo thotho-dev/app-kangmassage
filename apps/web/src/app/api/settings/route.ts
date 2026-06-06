@@ -50,6 +50,9 @@ export async function GET() {
         xendit_secret_key: '',
         xendit_webhook_verification_token: '',
         xendit_disbursement_secret_key: '',
+        midtrans_server_key: '',
+        midtrans_client_key: '',
+        midtrans_is_production: false,
       }, { headers: noCacheHeaders });
     }
 
@@ -81,6 +84,9 @@ export async function GET() {
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
       xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
+      midtrans_server_key: data.midtrans_server_key ?? '',
+      midtrans_client_key: data.midtrans_client_key ?? '',
+      midtrans_is_production: data.midtrans_is_production ?? false,
     }, { headers: noCacheHeaders });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
@@ -124,6 +130,7 @@ export async function PUT(req: NextRequest) {
       'puter_auth_token', 'puter_model_name', 'puter_ocr_model_name',
       'xendit_secret_key', 'xendit_webhook_verification_token',
       'xendit_disbursement_secret_key',
+      'midtrans_server_key', 'midtrans_client_key', 'midtrans_is_production',
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -189,6 +196,9 @@ export async function PUT(req: NextRequest) {
       xendit_secret_key: data.xendit_secret_key ?? '',
       xendit_webhook_verification_token: data.xendit_webhook_verification_token ?? '',
       xendit_disbursement_secret_key: data.xendit_disbursement_secret_key ?? '',
+      midtrans_server_key: data.midtrans_server_key ?? '',
+      midtrans_client_key: data.midtrans_client_key ?? '',
+      midtrans_is_production: data.midtrans_is_production ?? false,
     }, { headers: noCacheHeaders });
   } catch (err) {
     console.error(err);

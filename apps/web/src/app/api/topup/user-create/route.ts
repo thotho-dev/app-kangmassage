@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const ADMIN_FEE = Number(settings.topup_admin_fee);
     const netAmount = amount - ADMIN_FEE;
 
-    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const serverKey = settings.midtrans_server_key;
     if (!serverKey) {
       return NextResponse.json({ error: 'Midtrans server key not configured' }, { status: 500 });
     }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     if (topupError) throw topupError;
 
-    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    const isProduction = settings.midtrans_is_production;
     const MIDTRANS_BASE_URL = isProduction
       ? 'https://api.midtrans.com/v2'
       : 'https://api.sandbox.midtrans.com/v2';

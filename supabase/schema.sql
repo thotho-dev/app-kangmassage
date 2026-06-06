@@ -512,6 +512,11 @@ CREATE TABLE app_settings (
   xendit_webhook_verification_token    TEXT NOT NULL DEFAULT '',
   xendit_disbursement_secret_key       TEXT NOT NULL DEFAULT '',
 
+  -- Midtrans Configuration
+  midtrans_server_key                  TEXT NOT NULL DEFAULT '',
+  midtrans_client_key                  TEXT NOT NULL DEFAULT '',
+  midtrans_is_production               BOOLEAN NOT NULL DEFAULT false,
+
   updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by              UUID REFERENCES users(id)
 );
