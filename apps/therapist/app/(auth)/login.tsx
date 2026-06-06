@@ -52,23 +52,6 @@ export default function LoginScreen() {
   const [lockoutTime, setLockoutTime] = useState(0); // seconds remaining
 
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: therapist } = await supabase
-          .from('therapists')
-          .select('id')
-          .eq('supabase_uid', session.user.id)
-          .single();
-        if (therapist) {
-          await supabase.from('therapists').update({ status: 'offline' }).eq('id', therapist.id);
-        }
-        await supabase.auth.signOut();
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
     let interval: any;
     if (lockoutTime > 0) {
       interval = setInterval(() => {

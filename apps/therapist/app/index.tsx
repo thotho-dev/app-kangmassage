@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { TYPOGRAPHY } from '@/constants/Theme';
 import { getAppSettings } from '@/lib/appSettings';
+import { supabase } from '@/lib/supabase';
 
 export default function SplashScreen() {
   const t = useThemeColors();
@@ -58,7 +59,28 @@ export default function SplashScreen() {
 
       const timer = setTimeout(async () => {
         const done = await SecureStore.getItemAsync('onboarding_completed');
-        router.replace(done ? '/(auth)/login' : '/onboarding');
+        if (!done) { router.replace('/onboarding'); return; }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: therapist } = await supabase
+            .from('therapists')
+            .select('id, registration_step, is_active')
+            .eq('supabase_uid', session.user.id)
+            .single();
+          if (therapist && therapist.is_active !== false) {
+            const step = therapist.registration_step;
+            if (step === 'pending' || step === 'otp_sent') {
+              router.replace('/(auth)/register-otp');
+            } else if (step === 'otp_verified') {
+              router.replace('/(auth)/register?continue=1');
+            } else {
+              router.replace('/(tabs)');
+            }
+            return;
+          }
+        }
+        router.replace('/(auth)/login');
       }, 3000);
     return () => clearTimeout(timer);
   }, []);
