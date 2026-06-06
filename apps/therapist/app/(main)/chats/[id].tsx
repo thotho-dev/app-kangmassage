@@ -76,7 +76,11 @@ export default function ChatDetailScreen() {
       }
       
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const mapUrl = `📍 Lokasi Terkini Saya:\nhttps://www.google.com/maps?q=${loc.coords.latitude},${loc.coords.longitude}`;
+      const addr = await Location.reverseGeocodeAsync(loc.coords);
+      const address = addr?.[0] 
+        ? [addr[0].street, addr[0].district, addr[0].city, addr[0].region].filter(Boolean).join(', ')
+        : `${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`;
+      const mapUrl = `📍 ${address}\nhttps://www.google.com/maps?q=${loc.coords.latitude},${loc.coords.longitude}`;
       await sendDirectMessage(mapUrl);
     } catch (e) {
       console.error('Error sharing location:', e);
@@ -259,6 +263,9 @@ export default function ChatDetailScreen() {
     const isMe = item.sender_type === 'therapist';
     const isPhoto = item.content?.startsWith('📷 [Foto] ');
     const photoUrl = isPhoto ? item.content.replace('📷 [Foto] ', '') : null;
+    const isLocation = item.content?.startsWith('📍');
+    const locUrl = isLocation ? item.content?.split('\n')?.find((l: string) => l.startsWith('https://www.google.com/maps?q=')) : null;
+    const locAddress = isLocation ? item.content?.replace('\n' + locUrl, '').replace('📍 ', '') : null;
     return (
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
         {!isMe && (
@@ -276,6 +283,16 @@ export default function ChatDetailScreen() {
         <View style={[styles.bubble, isMe ? styles.myBubble : styles.otherBubble, isMe ? { marginRight: 8 } : { marginLeft: 8 }]}>
           {isPhoto && photoUrl ? (
             <Image source={{ uri: photoUrl }} style={styles.photoMessage} resizeMode="cover" />
+          ) : isLocation && locUrl ? (
+            <View>
+              <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText, { marginBottom: 8 }]}>
+                {locAddress}
+              </Text>
+              <TouchableOpacity onPress={() => Linking.openURL(locUrl)} style={[styles.mapBtn, { backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : t.primary + '15' }]}>
+                <Ionicons name="map-outline" size={16} color={isMe ? '#FFFFFF' : t.primary} />
+                <Text style={[styles.mapBtnText, { color: isMe ? '#FFFFFF' : t.primary }]}>Lihat Google Maps</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText]}>
               {item.content}
@@ -538,6 +555,19 @@ const getStyles = (t: any) => StyleSheet.create({
     height: 200,
     borderRadius: 12,
     marginBottom: 4,
+  },
+  mapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  mapBtnText: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
   },
   myMessageText: { color: '#FFFFFF' },
   otherMessageText: { color: t.text },
