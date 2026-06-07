@@ -22,10 +22,40 @@ function formatCurrency(amount: number) {
   return `Rp ${amount.toLocaleString('id-ID')}`;
 }
 
-function ViewOrderDetailModal({ order, onClose }: {
+function ViewOrderDetailModal({ order, onClose, onRefresh }: {
   order: Order;
   onClose: () => void;
+  onRefresh?: () => void;
 }) {
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const canCancel = ['pending', 'accepted', 'on_the_way', 'in_progress'].includes(order.status);
+
+  const handleCancel = async () => {
+    if (!cancelReason.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled', cancellation_reason: cancelReason.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Gagal membatalkan pesanan');
+      }
+      import('react-hot-toast').then(m => m.default.success('Pesanan berhasil dibatalkan'));
+      setCancelling(false);
+      onClose();
+      onRefresh?.();
+    } catch (err: any) {
+      import('react-hot-toast').then(m => m.default.error(err.message || 'Gagal membatalkan pesanan'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const statusColor = (status: string) => clsx('badge', STATUS_COLORS[status] || 'badge');
   const paymentBadge = (status: string) => clsx('badge',
     status === 'paid' ? 'badge-completed' :
@@ -240,11 +270,48 @@ function ViewOrderDetailModal({ order, onClose }: {
           )}
         </div>
 
-        <div className="modal-footer">
-          <button onClick={onClose} className="btn-primary w-full py-4 text-sm font-bold shadow-lg shadow-primary/20">
-            Tutup
-          </button>
-        </div>
+        {cancelling ? (
+          <div className="p-4 border-t border-ui-border space-y-3">
+            <p className="text-sm font-bold text-danger">Konfirmasi Pembatalan</p>
+            <textarea
+              className="input-field"
+              placeholder="Alasan pembatalan..."
+              rows={3}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setCancelling(false); setCancelReason(''); }}
+                className="btn-secondary flex-1 py-3 text-sm font-semibold"
+                disabled={submitting}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleCancel}
+                className="bg-danger text-white flex-1 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                disabled={submitting || !cancelReason.trim()}
+              >
+                {submitting ? 'Memproses...' : 'Ya, Batalkan'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="modal-footer">
+            {canCancel && (
+              <button
+                onClick={() => setCancelling(true)}
+                className="bg-danger text-white py-4 rounded-xl text-sm font-bold w-full shadow-lg shadow-danger/20"
+              >
+                Batalkan Pesanan
+              </button>
+            )}
+            <button onClick={onClose} className="btn-primary w-full py-4 text-sm font-bold shadow-lg shadow-primary/20">
+              Tutup
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -440,6 +507,7 @@ export default function OrdersPage() {
           <ViewOrderDetailModal
             order={detailData || viewModal.order}
             onClose={() => { setViewModal({ open: false, order: null }); setDetailData(null); }}
+            onRefresh={fetchOrders}
           />
         </Portal>
       )}
