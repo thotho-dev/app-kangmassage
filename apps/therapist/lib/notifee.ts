@@ -358,19 +358,19 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
             vibrationPattern: [500, 500],
             color: '#F97316',
             fullScreenAction: { id: 'default', launchActivity: 'default' },
-            category: 'call',
+            category: notifee.AndroidCategory.CALL,
             visibility: notifee.AndroidVisibility.PUBLIC,
             style: {
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
             },
             actions: [
-              { id: 'accept', title: 'Terima' },
-              { id: 'reject', title: 'Tolak' },
+              { title: 'Terima', pressAction: { id: 'accept' } },
+              { title: 'Tolak', pressAction: { id: 'reject' } },
             ],
           },
           ios: {
-            categoryIdentifier: 'call',
+            categoryId: 'call',
             sound: 'sound_notifee',
             foregroundPresentationOptions: {
               alert: true,
