@@ -225,86 +225,101 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           {/* General */}
           {activeTab === 'general' && (
-            <div className="glass-card p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-primary/30 flex items-center justify-center">
-                  <Settings className="w-5 h-5 text-primary-400" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* General Settings */}
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-xl bg-primary/30 flex items-center justify-center">
+                    <Settings className="w-5 h-5 text-primary-400" />
+                  </div>
+                  <h2 className="font-semibold text-text-primary">{t('general')}</h2>
                 </div>
-                <h2 className="font-semibold text-text-primary">{t('general')}</h2>
-              </div>
-              <div className="space-y-4 max-w-lg">
-                <div>
-                  <CustomSelect
-                    label={t('language')}
-                    value={language}
-                    onChange={(val) => setLanguage(val as any)}
-                    options={[
-                      { value: 'id', label: 'Bahasa Indonesia' },
-                      { value: 'en', label: 'English' }
-                    ]}
-                    icon={Globe}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">{t('platform_name')}</label>
-                  <input
-                    type="text"
-                    value={settings.platform_name}
-                    onChange={e => updateField('platform_name', e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">{t('support_email')}</label>
-                  <input
-                    type="email"
-                    value={settings.support_email}
-                    onChange={e => updateField('support_email', e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">WhatsApp Support</label>
-                  <input
-                    type="text"
-                    value={settings.support_whatsapp}
-                    onChange={e => updateField('support_whatsapp', e.target.value)}
-                    className="input-field"
-                    placeholder="6281234567890"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Link Chat (Tawk.to / Live Chat)</label>
-                  <input
-                    type="text"
-                    value={settings.chat_link}
-                    onChange={e => updateField('chat_link', e.target.value)}
-                    className="input-field"
-                    placeholder="https://tawk.to/chat/..."
-                  />
-                </div>
-                <div>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.maintenance_mode}
-                      onChange={e => updateField('maintenance_mode', e.target.checked)}
-                      className="w-4 h-4 rounded border-ui-border text-primary focus:ring-primary"
+                <div className="space-y-4">
+                  <div>
+                    <CustomSelect
+                      label={t('language')}
+                      value={language}
+                      onChange={(val) => setLanguage(val as any)}
+                      options={[
+                        { value: 'id', label: 'Bahasa Indonesia' },
+                        { value: 'en', label: 'English' }
+                      ]}
+                      icon={Globe}
                     />
-                    <span className="text-sm text-text-primary/60">Mode Pemeliharaan (Maintenance Mode)</span>
-                  </label>
-                  <p className="text-xs text-text-muted/60 mt-1">Aktifkan untuk memblokir akses aplikasi terapis dan menampilkan pesan pemeliharaan.</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">{t('platform_name')}</label>
+                    <input
+                      type="text"
+                      value={settings.platform_name}
+                      onChange={e => updateField('platform_name', e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">{t('support_email')}</label>
+                    <input
+                      type="email"
+                      value={settings.support_email}
+                      onChange={e => updateField('support_email', e.target.value)}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">WhatsApp Support</label>
+                    <input
+                      type="text"
+                      value={settings.support_whatsapp}
+                      onChange={e => updateField('support_whatsapp', e.target.value)}
+                      className="input-field"
+                      placeholder="6281234567890"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Link Chat (Tawk.to / Live Chat)</label>
+                    <input
+                      type="text"
+                      value={settings.chat_link}
+                      onChange={e => updateField('chat_link', e.target.value)}
+                      className="input-field"
+                      placeholder="https://tawk.to/chat/..."
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm text-text-primary/60 mb-2 block">Pesan Pemeliharaan</label>
-                  <textarea
-                    value={settings.maintenance_message}
-                    onChange={e => updateField('maintenance_message', e.target.value)}
-                    className="input-field min-h-[80px]"
-                    placeholder="Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti."
-                    rows={3}
-                  />
-                  <p className="text-xs text-text-muted/60 mt-1">Pesan yang ditampilkan ke terapis saat mode pemeliharaan aktif.</p>
+              </div>
+
+              {/* Maintenance Settings */}
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-xl bg-warning/20 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-warning" />
+                  </div>
+                  <h2 className="font-semibold text-text-primary">{t('maintenance_mode') || 'Mode Pemeliharaan'}</h2>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="text-sm text-text-primary/70">Aktifkan Mode Pemeliharaan</p>
+                      <p className="text-xs text-text-muted/60 mt-0.5">Blokir akses aplikasi terapis & tampilkan pesan</p>
+                    </div>
+                    <button
+                      onClick={() => updateField('maintenance_mode', !settings.maintenance_mode)}
+                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${settings.maintenance_mode ? 'bg-warning' : 'bg-dark-600'}`}
+                    >
+                      <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform absolute top-0.5 ${settings.maintenance_mode ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Pesan Pemeliharaan</label>
+                    <textarea
+                      value={settings.maintenance_message}
+                      onChange={e => updateField('maintenance_message', e.target.value)}
+                      className="input-field min-h-[100px]"
+                      placeholder="Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti."
+                      rows={4}
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">Pesan yang ditampilkan ke terapis saat mode pemeliharaan aktif.</p>
+                  </div>
                 </div>
               </div>
             </div>
