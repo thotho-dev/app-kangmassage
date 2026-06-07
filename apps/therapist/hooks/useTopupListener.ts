@@ -11,7 +11,9 @@ export const useTopupListener = () => {
 
   useEffect(() => {
     if (profile?.id) {
-      registerForPushNotificationsAsync(profile.id);
+      registerForPushNotificationsAsync(profile.id).catch(e =>
+        console.error('[TopupListener] Push registration failed:', e)
+      );
     }
   }, [profile?.id]);
 

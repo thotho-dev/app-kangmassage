@@ -80,7 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (!error && data) {
       setProfile(data);
-      registerForPushNotificationsAsync(data.id);
+      await registerForPushNotificationsAsync(data.id).catch(e =>
+        console.error('[Auth] Push registration failed:', e)
+      );
     }
   };
 
