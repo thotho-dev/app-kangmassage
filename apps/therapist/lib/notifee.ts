@@ -176,7 +176,7 @@ export const displayOrderNotification = async (order: any) => {
             pressAction: { id: 'default' },
             sound: 'sound_notifee',
             loopSound: true,
-            ongoing: false,
+            ongoing: true,
             autoCancel: true,
             lights: ['#F97316', 500, 500],
             vibrationPattern: [500, 500],
@@ -184,10 +184,26 @@ export const displayOrderNotification = async (order: any) => {
             color: '#F97316',
             asForegroundService: false,
             fullScreenAction: { id: 'default', launchActivity: 'default' },
+            category: 'call',
+            visibility: notifee.AndroidVisibility.PUBLIC,
+            localOnly: false,
             style: {
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
             },
+          },
+          ios: {
+            categoryIdentifier: 'call',
+            sound: 'sound_notifee',
+            foregroundPresentationOptions: {
+              alert: true,
+              badge: true,
+              sound: true,
+              banner: true,
+              list: true,
+            },
+            critical: true,
+            criticalVolume: 1.0,
           },
           data: {
             orderId: order.id,
@@ -208,6 +224,11 @@ export const displayOrderNotification = async (order: any) => {
           orderData: JSON.stringify(order),
         },
         sound: 'sound_expo',
+        ...(Platform.OS === 'ios' && {
+          categoryIdentifier: 'call',
+          interruptionLevel: 'critical',
+          shouldPlaySound: true,
+        }),
       },
       trigger: null,
     });

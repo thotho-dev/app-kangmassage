@@ -11,6 +11,22 @@ import * as Location from 'expo-location';
 import { calculateDistance } from '../lib/utils';
 import { CustomAlertTrigger } from '../store/alertStore';
 import { API_URL } from '../lib/config';
+import Constants from 'expo-constants';
+
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+const cancelOrderNotification = async () => {
+  if (isExpoGo) return;
+  try {
+    const notifee = await import('@notifee/react-native');
+    const displayed = await notifee.default.getDisplayedNotifications();
+    for (const n of displayed) {
+      if (n?.notification?.data?.orderData) {
+        await notifee.default.cancelNotification(n.notification.id!);
+      }
+    }
+  } catch {}
+};
 
 export default function IncomingOrderModal() {
   const { incomingOrder, setIncomingOrder, addRejectedOrderId, profile } = useTherapistStore();
@@ -74,6 +90,7 @@ export default function IncomingOrderModal() {
     }
 
     return () => {
+      cancelOrderNotification();
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
         countdownRef.current = null;

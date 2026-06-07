@@ -676,6 +676,7 @@ CREATE INDEX idx_conversations_last_message_at ON conversations(last_message_at 
 
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
+ALTER PUBLICATION supabase_realtime ADD TABLE orders;
 
 -- RPC: atomic unread count increment (prevents race condition)
 CREATE OR REPLACE FUNCTION increment_conversation_unread(
