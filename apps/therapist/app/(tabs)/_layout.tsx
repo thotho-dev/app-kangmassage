@@ -14,7 +14,6 @@ import { useEffect, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
-import { API_URL } from '@/lib/config';
 
 let verifyChannel: any = null;
 import { CustomAlertTrigger } from '@/store/alertStore';
@@ -180,7 +179,14 @@ export default function TabLayout() {
           }
         }
         if (notifData) {
-          if (notifData.type) {
+          if (notifData.orderData) {
+            const raw = notifData.orderData;
+            const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const rejected = useTherapistStore.getState().rejectedOrderIds;
+            if (!rejected.includes(orderData.id)) {
+              setIncomingOrder(orderData);
+            }
+          } else if (notifData.type) {
             handleNotifNav(notifData.type, notifData);
           }
         }
@@ -195,51 +201,12 @@ export default function TabLayout() {
       import('@notifee/react-native').then(notifee => {
         if (notifee) {
           notifeeUnsub = notifee.default.onForegroundEvent(({ type, detail }: any) => {
-            // TYPE 1 = DELIVERED — ignore, notification with actions is the UI
-            // TYPE 2 = ACTION_PRESS — handle accept/reject
-            if (type === 2 && detail?.pressAction?.id && detail?.notification?.data?.orderData) {
-              const actionId = detail.pressAction.id;
-              const raw = detail.notification.data.orderData;
-              const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-              const therapistId = detail.notification.data.therapistId;
-
-              if (actionId === 'accept' && therapistId) {
-                fetch(`${API_URL}/api/orders/accept`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ orderId: orderData.id, therapistId }),
-                })
-                  .then(res => res.json())
-                  .then(json => {
-                    if (json.data) {
-                      setIncomingOrder(null);
-                      router.push(`/orders/${orderData.id}`);
-                    } else {
-                      CustomAlertTrigger.show({
-                        type: 'warning', title: 'Gagal',
-                        message: 'Pesanan sudah diambil terapis lain.',
-                      });
-                    }
-                  })
-                  .catch(() => {});
-              } else if (actionId === 'reject') {
-                if (orderData.therapist_id) {
-                  supabase
-                    .from('orders')
-                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-                    .eq('id', orderData.id)
-                    .eq('status', 'pending')
-                    .then(() => {
-                      supabase.from('order_logs').insert({
-                        order_id: orderData.id, status: 'cancelled', note: 'Ditolak oleh terapis',
-                      }).catch(() => {});
-                    }).catch(() => {});
-                }
-                setIncomingOrder(null);
-              }
-            } else if (type === 1 && detail?.notification?.data?.type) {
+            // Notif delivered (type 1) — ignore for orders (Realtime handles it), nav for others
+            if (type === 1 && detail?.notification?.data) {
               const d = detail.notification.data;
-              handleNotifNav(d.type, d);
+              if (d.type) {
+                handleNotifNav(d.type, d);
+              }
             }
           });
         }
