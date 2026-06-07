@@ -1,12 +1,13 @@
 {
   "expo": {
     "name": "Kang Massage Mitra",
-    "slug": "kang-massage-mitra",
+    "slug": "pijat-therapist",
     "version": "1.5.0",
     "scheme": "kang-massage-mitra",
     "orientation": "portrait",
     "icon": "./assets/icon-km.png",
     "splash": {
+      "image": "./assets/icon-km.png",
       "backgroundColor": "#0F172A",
       "resizeMode": "contain"
     },
