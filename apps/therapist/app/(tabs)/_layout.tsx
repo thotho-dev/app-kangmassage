@@ -14,6 +14,7 @@ import { useEffect, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
+import { API_URL } from '@/lib/config';
 
 let verifyChannel: any = null;
 import { CustomAlertTrigger } from '@/store/alertStore';
@@ -164,7 +165,6 @@ export default function TabLayout() {
     // Handle notification tap that opened the app (cold start)
     (async () => {
       try {
-        const rejected = useTherapistStore.getState().rejectedOrderIds;
         let notifData: any = null;
         if (!isExpoGo) {
           const notifee = await import('@notifee/react-native').catch(() => null);
@@ -180,13 +180,7 @@ export default function TabLayout() {
           }
         }
         if (notifData) {
-          if (notifData.orderData) {
-            const raw = notifData.orderData;
-            const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            if (!rejected.includes(orderData.id)) {
-              setIncomingOrder(orderData);
-            }
-          } else if (notifData.type) {
+          if (notifData.type) {
             handleNotifNav(notifData.type, notifData);
           }
         }
@@ -201,18 +195,51 @@ export default function TabLayout() {
       import('@notifee/react-native').then(notifee => {
         if (notifee) {
           notifeeUnsub = notifee.default.onForegroundEvent(({ type, detail }: any) => {
-            if (type === 1 && detail?.notification?.data) {
-              const d = detail.notification.data;
-              if (d.orderData) {
-                const raw = d.orderData;
-                const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-                const rejected = useTherapistStore.getState().rejectedOrderIds;
-                if (!rejected.includes(orderData.id)) {
-                  setIncomingOrder(orderData);
+            // TYPE 1 = DELIVERED — ignore, notification with actions is the UI
+            // TYPE 2 = ACTION_PRESS — handle accept/reject
+            if (type === 2 && detail?.pressAction?.id && detail?.notification?.data?.orderData) {
+              const actionId = detail.pressAction.id;
+              const raw = detail.notification.data.orderData;
+              const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              const therapistId = detail.notification.data.therapistId;
+
+              if (actionId === 'accept' && therapistId) {
+                fetch(`${API_URL}/api/orders/accept`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ orderId: orderData.id, therapistId }),
+                })
+                  .then(res => res.json())
+                  .then(json => {
+                    if (json.data) {
+                      setIncomingOrder(null);
+                      router.push(`/orders/${orderData.id}`);
+                    } else {
+                      CustomAlertTrigger.show({
+                        type: 'warning', title: 'Gagal',
+                        message: 'Pesanan sudah diambil terapis lain.',
+                      });
+                    }
+                  })
+                  .catch(() => {});
+              } else if (actionId === 'reject') {
+                if (orderData.therapist_id) {
+                  supabase
+                    .from('orders')
+                    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+                    .eq('id', orderData.id)
+                    .eq('status', 'pending')
+                    .then(() => {
+                      supabase.from('order_logs').insert({
+                        order_id: orderData.id, status: 'cancelled', note: 'Ditolak oleh terapis',
+                      }).catch(() => {});
+                    }).catch(() => {});
                 }
-              } else if (d.type) {
-                handleNotifNav(d.type, d);
+                setIncomingOrder(null);
               }
+            } else if (type === 1 && detail?.notification?.data?.type) {
+              const d = detail.notification.data;
+              handleNotifNav(d.type, d);
             }
           });
         }
@@ -224,15 +251,7 @@ export default function TabLayout() {
       if (notification?.request?.content?.data) {
         const data = notification.request.content.data;
         try {
-          if (data.orderData) {
-            const rejected = useTherapistStore.getState().rejectedOrderIds;
-            const orderData = typeof data.orderData === 'string'
-              ? JSON.parse(data.orderData)
-              : data.orderData;
-            if (!rejected.includes(orderData.id)) {
-              setIncomingOrder(orderData);
-            }
-          } else if (data.type) {
+          if (data.type) {
             handleNotifNav(data.type, data);
           }
         } catch (e) {

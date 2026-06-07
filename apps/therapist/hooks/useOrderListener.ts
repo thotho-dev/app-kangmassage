@@ -144,7 +144,7 @@ export const useOrderListener = () => {
 
           console.log('[DEBUG OrderListener] Memanggil displayOrderNotification...');
           // Trigger Notifee Local Notification for Background visibility
-          await displayOrderNotification(orderData);
+          await displayOrderNotification(orderData, profile.id);
           console.log('[DEBUG OrderListener] displayOrderNotification selesai dipanggil.');
 
           setIncomingOrder(orderData);

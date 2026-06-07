@@ -2,19 +2,120 @@ import * as Notifications from 'expo-notifications';
 import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useTherapistStore } from '@/store/therapistStore';
+import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+// ── Helper: cancel all displayed order notifications ──
+const cancelOrderNotifications = async () => {
+  if (isExpoGo) return;
+  try {
+    const notifee = await import('@notifee/react-native');
+    const displayed = await notifee.default.getDisplayedNotifications();
+    for (const n of displayed) {
+      if (n?.notification?.data?.orderData) {
+        await notifee.default.cancelNotification(n.notification.id!);
+      }
+    }
+  } catch {}
+};
+
+// ── Helper: process accept in background ──
+const handleAcceptAction = async (orderData: any, therapistId: string) => {
+  try {
+    const res = await fetch(`${API_URL}/api/orders/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: orderData.id, therapistId }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.data) {
+      // Order already taken or cancelled
+      await cancelOrderNotifications();
+      const notifee = await import('@notifee/react-native');
+      await notifee.default.displayNotification({
+        title: 'Pesanan Sudah Diambil',
+        body: 'Maaf, pesanan ini sudah diterima oleh terapis lain atau dibatalkan.',
+        android: {
+          channelId: 'default',
+          pressAction: { id: 'default' },
+        },
+        data: { type: 'alert' },
+      });
+      return false;
+    }
+
+    // Success — cancel all order notifs
+    await cancelOrderNotifications();
+
+    // Show accepted notification that opens order page on tap
+    const notifee = await import('@notifee/react-native');
+    await notifee.default.displayNotification({
+      title: 'Pesanan Diterima!',
+      body: 'Pesanan berhasil diterima. Ketuk untuk melihat detail.',
+      android: {
+        channelId: 'default',
+        pressAction: { id: 'default' },
+      },
+      data: {
+        type: 'order_accepted',
+        order_id: orderData.id,
+      },
+    });
+
+    return true;
+  } catch (e) {
+    console.error('[Notif] Background accept error:', e);
+    return false;
+  }
+};
+
+// ── Helper: process reject in background ──
+const handleRejectAction = async (orderData: any) => {
+  // If targeted (has therapist_id), cancel in DB
+  if (orderData.therapist_id) {
+    try {
+      await supabase
+        .from('orders')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', orderData.id)
+        .eq('status', 'pending');
+
+      await supabase.from('order_logs').insert({
+        order_id: orderData.id,
+        status: 'cancelled',
+        note: 'Ditolak oleh terapis via notifikasi',
+      });
+    } catch {}
+  }
+
+  await cancelOrderNotifications();
+};
 
 // ── Notifee background event handler (module-level, build only) ──
 if (!isExpoGo) {
   import('@notifee/react-native').then(notifee => {
     if (notifee?.default?.onBackgroundEvent) {
       notifee.default.onBackgroundEvent(async ({ type, detail }: any) => {
-        if (type === 1 && detail?.notification?.data?.orderData) {
+        // ACTION_PRESS (type = 2)
+        if (type === 2 && detail?.pressAction?.id && detail?.notification?.data?.orderData) {
+          const actionId = detail.pressAction.id;
           const raw = detail.notification.data.orderData;
           const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          useTherapistStore.getState().setIncomingOrder(orderData);
+          const therapistId = detail.notification.data.therapistId;
+
+          if (actionId === 'accept' && therapistId) {
+            await handleAcceptAction(orderData, therapistId);
+          } else if (actionId === 'reject') {
+            await handleRejectAction(orderData);
+          }
+          return;
         }
+
+        // DELIVERED (type = 1) — do nothing, notification with actions is the UI
       });
     }
   }).catch(() => {});
@@ -136,7 +237,7 @@ export const initializeNotifee = async () => {
   }
 };
 
-export const displayOrderNotification = async (order: any) => {
+export const displayOrderNotification = async (order: any, therapistId?: string) => {
   const userName = order.users?.full_name || 'Pelanggan';
   const serviceName = order.services?.name || 'Layanan Pijat';
   const dur = order.duration || order.services?.duration_min || 60;
@@ -183,10 +284,19 @@ export const displayOrderNotification = async (order: any) => {
             smallIcon: 'ic_notification',
             color: '#F97316',
             asForegroundService: false,
-            fullScreenAction: { id: 'default', launchActivity: 'default' },
             category: 'call',
             visibility: notifee.AndroidVisibility.PUBLIC,
             localOnly: false,
+            actions: [
+              {
+                title: 'Terima',
+                pressAction: { id: 'accept' },
+              },
+              {
+                title: 'Tolak',
+                pressAction: { id: 'reject' },
+              },
+            ],
             style: {
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
@@ -208,13 +318,15 @@ export const displayOrderNotification = async (order: any) => {
           data: {
             orderId: order.id,
             orderData: JSON.stringify(order),
+            therapistId,
           },
         });
-        console.log('[Notif] Notifee notification sent');
+        console.log('[Notif] Notifee notification sent with actions');
         return;
       }
     }
 
+    // Fallback: Expo notification (no action buttons supported)
     const notifId = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Pesanan Baru Masuk!',
@@ -222,6 +334,7 @@ export const displayOrderNotification = async (order: any) => {
         data: {
           orderId: order.id,
           orderData: JSON.stringify(order),
+          therapistId,
         },
         sound: 'sound_expo',
         ...(Platform.OS === 'ios' && {
