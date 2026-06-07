@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 
@@ -32,6 +32,50 @@ const queryClient = new QueryClient();
 
 SplashScreen.preventAutoHideAsync();
 
+function NotificationInit() {
+  const router = useRouter();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (response?.notification?.request?.content?.data) {
+          handleNotifNav(response.notification.request.content.data, router);
+        }
+      } catch (e) {
+        console.warn('Failed to process cold-start notification', e);
+      }
+    })();
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response?.notification?.request?.content?.data;
+      if (data) {
+        handleNotifNav(data, router);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  return null;
+}
+
+function handleNotifNav(data: any, router: ReturnType<typeof useRouter>) {
+  const type = data?.type;
+  if (type === 'chat_message') {
+    const id = data?.conversation_id || data?.conversationId;
+    if (id) router.push(`/chats/${id}`);
+  } else if (type?.startsWith('order_')) {
+    const id = data?.order_id || data?.orderId;
+    if (id) router.push(`/order/${id}`);
+  } else if (type?.startsWith('topup_')) {
+    const id = data?.topup_id || data?.topupId;
+    if (id) router.push(`/topup-detail?id=${id}`);
+  } else if (type === 'support_chat') {
+    router.push('/support');
+  }
+}
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     'PlusJakartaSans-Regular': PlusJakartaSans_400Regular,
@@ -57,6 +101,7 @@ export default function RootLayout() {
         <ThemeProvider>
           <AlertProvider>
             <AuthProvider>
+              <NotificationInit />
               <Stack screenOptions={{ 
                 headerShown: false,
                 animation: 'slide_from_right'

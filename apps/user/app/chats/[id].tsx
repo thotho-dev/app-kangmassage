@@ -161,9 +161,11 @@ export default function ChatDetailScreen() {
     if (messages.length > 0) markMessagesAsRead();
   }, [messages]);
 
+  const channelRef = useRef<any>(null);
+
   const subscribeToMessages = () => {
     const channel = supabase
-      .channel(`chat:${conversationId}`)
+      .channel(`chat:${conversationId}-${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -182,8 +184,11 @@ export default function ChatDetailScreen() {
       })
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   };
 

@@ -28,18 +28,18 @@ const formatTime = (dateStr: string) => {
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchNotifications = async () => {
-    if (!user) return;
+    if (!profile?.id) return;
     try {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', profile.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -53,8 +53,8 @@ export default function NotificationsScreen() {
   };
 
   useEffect(() => {
-    if (user?.id) fetchNotifications();
-  }, [user?.id]);
+    if (profile?.id) fetchNotifications();
+  }, [profile?.id]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -62,12 +62,12 @@ export default function NotificationsScreen() {
   };
 
   const handleMarkAllRead = async () => {
-    if (!user || notifications.length === 0) return;
+    if (!profile?.id || notifications.length === 0) return;
     try {
       await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', user.id);
+        .eq('user_id', profile.id);
       
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
     } catch (error) {

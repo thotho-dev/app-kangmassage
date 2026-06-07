@@ -201,11 +201,29 @@ export default function TabLayout() {
       import('@notifee/react-native').then(notifee => {
         if (notifee) {
           notifeeUnsub = notifee.default.onForegroundEvent(({ type, detail }: any) => {
-            // Notif delivered (type 1) — ignore for orders (Realtime handles it), nav for others
-            if (type === 1 && detail?.notification?.data) {
-              const d = detail.notification.data;
-              if (d.type) {
-                handleNotifNav(d.type, d);
+            const notifData = detail?.notification?.data;
+
+            if (type === 1 && notifData) {
+              // DELIVERED — nav for non-order notifications (Realtime handles orders)
+              if (notifData.type) {
+                handleNotifNav(notifData.type, notifData);
+              }
+            } else if (type === 2 && detail?.pressAction?.id && notifData?.orderData) {
+              // ACTION_PRESS — Terima / Tolak from heads-up notification buttons
+              const raw = notifData.orderData;
+              const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              const actionId = detail.pressAction.id;
+
+              import('@/lib/notifee').then(({ processOrderAction, showActionResultNotif }) => {
+                processOrderAction(actionId, orderData).then(result => {
+                  if (actionId === 'accept' && (result === 'success' || result === 'taken' || result === 'gone')) {
+                    showActionResultNotif(orderData, result);
+                  }
+                });
+              });
+
+              if (detail.notification?.id) {
+                notifee.default.cancelNotification(detail.notification.id);
               }
             }
           });

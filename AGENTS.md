@@ -88,3 +88,41 @@ Sent messages via `POST /api/chat/send` (Next.js API, not direct Supabase insert
 - Therapist app has multiple fix scripts (`fix.js` through `fix4.js`, `fix_gradients.js`, etc.) in its root — cleanup candidates.
 - Scratch files in root `scratch/`, `apps/web/scratch/` — ephemeral development scripts.
 - `progress-develop.md` is the dev log — readable for context on recent changes.
+
+---
+
+## Current session (ANDROID_HOME fix — Android SDK CLI tools installed)
+
+### Problem
+`ANDROID_HOME`指向 `C:\Users\DIGITAL MARKETING\AppData\Local\Android\Sdk` yang tidak ada. Hanya `platform-tools` di `C:\Android\platform-tools`. Akibatnya Expo tidak bisa resolve SDK path dan selalu fallback ke Expo Go.
+
+### Fix applied
+1. **Download & install Android cmdline-tools** from Google to `C:\Android\cmdline-tools\latest\`
+2. **Accept SDK licenses** (6/7 accepted)
+3. **Install SDK packages**: `platforms;android-34` + `build-tools;34.0.0`
+4. **Set environment variable permanen**:
+   - `ANDROID_HOME` = `C:\Android`
+   - PATH ditambahkan `C:\Android\platform-tools` dan `C:\Android\cmdline-tools\latest\bin`
+
+### SDK structure
+```
+C:\Android\
+├── build-tools\34.0.0\
+├── cmdline-tools\latest\bin\sdkmanager.bat
+├── licenses\
+├── platform-tools\adb.exe
+└── platforms\android-34\
+```
+
+### Test plan for next session
+1. **Restart terminal** (biar env var `ANDROID_HOME` kebaca)
+2. Open PowerShell baru:
+   ```powershell
+   cd apps\therapist
+   adb reverse tcp:8081 tcp:8081
+   npx expo start
+   ```
+3. Press `a` — should connect via ADB without SDK path error
+4. If dev build not installed: `npx expo run:android` (first build ~10-15 min)
+5. Test: bikin order dari admin → cek tray notif → tekan **Terima** / **Tolak**
+6. Verify: order status berubah di DB, notif follow-up muncul

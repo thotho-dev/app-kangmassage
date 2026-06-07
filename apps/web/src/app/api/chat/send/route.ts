@@ -115,8 +115,15 @@ export async function POST(req: NextRequest) {
           data: { type: notifType, conversation_id, message_id: message.id },
           sound: 'default',
           priority: 'high',
+          channelId: 'default',
         }),
-      }).catch(() => {});
+      }).then(async (res) => {
+        const result = await res.json();
+        if (!res.ok) console.error('[ChatSend] Expo push failed:', result);
+        else console.log('[ChatSend] Expo push sent:', result?.data?.id || 'ok');
+      }).catch((err) => {
+        console.error('[ChatSend] Expo push error:', err);
+      });
     }
 
     return NextResponse.json({ message });

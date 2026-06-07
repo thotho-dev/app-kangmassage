@@ -2,8 +2,13 @@ import * as Notifications from 'expo-notifications';
 import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useTherapistStore } from '@/store/therapistStore';
+import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+// ── Dedup guard: skip duplicate order notifications within 60s ──
+const recentOrderIds = new Set<string>();
 
 // ── Helper: cancel all displayed order notifications ──
 const cancelOrderNotifications = async () => {
@@ -19,22 +24,160 @@ const cancelOrderNotifications = async () => {
   } catch {}
 };
 
+// ── Accept/reject logic shared by background + foreground handlers ──
+export async function processOrderAction(actionId: string, orderData: any): Promise<string> {
+  const profile = useTherapistStore.getState().profile;
+  if (!profile?.id) return 'error';
+
+  if (actionId === 'accept') {
+    const { data, error } = await supabase
+      .from('orders')
+      .update({
+        status: 'accepted',
+        therapist_id: profile.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderData.id)
+      .eq('status', 'pending')
+      .or(`therapist_id.is.null,therapist_id.eq.${profile.id}`)
+      .select();
+
+    if (error) return 'error';
+    if (!data || data.length === 0) {
+      const { data: check } = await supabase
+        .from('orders')
+        .select('status, therapist_id')
+        .eq('id', orderData.id)
+        .single();
+      return check?.status === 'accepted' && check?.therapist_id !== profile.id ? 'taken' : 'gone';
+    }
+
+    const name = profile.full_name || 'Kang Massage';
+    fetch(`${API_URL}/api/notifications/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: orderData.user_id,
+        title: 'Pesanan Diterima',
+        body: `Terapis ${name} telah menerima pesanan Anda dan akan segera menuju lokasi.`,
+        type: 'order_accepted',
+        data: { order_id: orderData.id },
+      }),
+    }).catch(() => {});
+
+    useTherapistStore.getState().setIncomingOrder(null);
+    return 'success';
+  }
+
+  if (actionId === 'reject') {
+    if (orderData.therapist_id) {
+      await supabase
+        .from('orders')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', orderData.id)
+        .eq('status', 'pending');
+
+      await supabase.from('order_logs').insert({
+        order_id: orderData.id,
+        status: 'cancelled',
+        note: 'Ditolak oleh terapis (dari notifikasi)',
+      });
+    }
+
+    useTherapistStore.getState().addRejectedOrderId(orderData.id);
+    useTherapistStore.getState().setIncomingOrder(null);
+    return 'rejected';
+  }
+
+  return 'error';
+}
+
+// ── Show a brief follow-up notification after action ──
+export async function showActionResultNotif(orderData: any, result: string) {
+  if (result === 'success') {
+    const n = await getNotifee();
+    if (!n) return;
+    try { await n.default.displayNotification({
+      title: '✅ Pesanan Diterima',
+      body: `Pesanan ${orderData.services?.name || ''} telah diterima.`,
+      android: { channelId: NOTIFICATION_CHANNELS.ORDERS, pressAction: { id: 'default' } },
+      data: { type: 'order_accepted', order_id: orderData.id },
+    }); } catch {}
+  } else if (result === 'taken') {
+    const n = await getNotifee();
+    if (!n) return;
+    try { await n.default.displayNotification({
+      title: '⚠️ Pesanan Diambil Terapis Lain',
+      body: 'Pesanan ini sudah diterima oleh terapis lain.',
+      android: { channelId: NOTIFICATION_CHANNELS.ORDERS, pressAction: { id: 'default' } },
+    }); } catch {}
+  } else if (result === 'gone') {
+    const n = await getNotifee();
+    if (!n) return;
+    try { await n.default.displayNotification({
+      title: '❌ Pesanan Tidak Tersedia',
+      body: 'Pesanan sudah tidak tersedia.',
+      android: { channelId: NOTIFICATION_CHANNELS.ORDERS, pressAction: { id: 'default' } },
+    }); } catch {}
+  }
+}
+
 // ── Notifee background event handler (module-level, build only) ──
 if (!isExpoGo) {
   import('@notifee/react-native').then(notifee => {
     if (notifee?.default?.onBackgroundEvent) {
       notifee.default.onBackgroundEvent(async ({ type, detail }: any) => {
-        // DELIVERED (type = 1) — set incoming order so modal is ready when app opens via fullScreenAction
         if (type === 1 && detail?.notification?.data?.orderData) {
+          // DELIVERED — set incoming order so modal is ready when app opens
           const raw = detail.notification.data.orderData;
           const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
           useTherapistStore.getState().setIncomingOrder(orderData);
+        } else if (type === 2 && detail?.pressAction?.id && detail?.notification?.data?.orderData) {
+          // ACTION_PRESS — user tapped Terima / Tolak from notification tray
+          const raw = detail.notification.data.orderData;
+          const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          const actionId = detail.pressAction.id;
+
+          const result = await processOrderAction(actionId, orderData);
+
+          // Cancel this notification
+          if (detail.notification?.id) {
+            await notifee.default.cancelNotification(detail.notification.id);
+          }
+
+          // Show follow-up notification for accept (success/taken/gone)
+          if (actionId === 'accept') {
+            await showActionResultNotif(orderData, result);
+          }
+          // Reject: silent dismiss
         }
       });
     }
   }).catch(() => {});
 }
 
+// ── Intercept incoming push notifications for order data ──
+if (!isExpoGo) {
+  Notifications.addNotificationReceivedListener(notification => {
+    const data = notification?.request?.content?.data;
+    if (data?.orderData) {
+      try {
+        const raw = data.orderData;
+        const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const profile = useTherapistStore.getState().profile;
+        if (!profile?.id) return;
+        const rejected = useTherapistStore.getState().rejectedOrderIds;
+        if (rejected.includes(orderData.id)) return;
+        useTherapistStore.getState().setIncomingOrder(orderData);
+        displayOrderNotification(orderData, profile.id);
+      } catch (e) {
+        console.warn('[Notif] Failed to process received notification:', e);
+      }
+    }
+  });
+}
+
+// ── Expo handler ──
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -99,24 +242,36 @@ export const initializeNotifee = async () => {
             vibrationPattern: [500, 500],
             bypassDnd: true,
           });
+
+          // Minta izin full screen intent (Android 12+)
+          try {
+            const granted = await PermissionsAndroid.request(
+              'android.permission.USE_FULL_SCREEN_INTENT' as any,
+              {
+                title: 'Izin Notifikasi Prioritas',
+                message: 'Izinkan Kang Massage menampilkan notifikasi prioritas tinggi untuk pesanan baru.',
+                buttonPositive: 'Izinkan',
+                buttonNegative: 'Tolak',
+              }
+            );
+            if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+              console.log('[Notif] USE_FULL_SCREEN_INTENT granted');
+            } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+              Alert.alert(
+                'Aktifkan Tampilan Penuh',
+                'Agar notifikasi pesanan baru muncul langsung di layar kunci:\n\n' +
+                'Buka: Pengaturan → Aplikasi → Kang Massage Therapist → Notifikasi → Tampilan Penuh → Izinkan',
+                [
+                  { text: 'Tutup', style: 'cancel' },
+                  { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
+                ]
+              );
+            }
+          } catch (e) {
+            console.warn('[Notif] USE_FULL_SCREEN_INTENT request error:', e);
+          }
         }
       }
-
-      // Minta izin full screen intent
-      try {
-        const granted = await PermissionsAndroid.request(
-          'android.permission.USE_FULL_SCREEN_INTENT' as any,
-          {
-            title: 'Izin Notifikasi Prioritas',
-            message: 'Izinkan Kang Massage menampilkan notifikasi prioritas tinggi untuk pesanan baru.',
-            buttonPositive: 'Izinkan',
-            buttonNegative: 'Tolak',
-          }
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('[Notif] USE_FULL_SCREEN_INTENT granted');
-        }
-      } catch {}
 
       // Panduan untuk Chinese ROM (MIUI/Oppo/Realme/Vivo)
       try {
@@ -152,6 +307,14 @@ export const initializeNotifee = async () => {
 };
 
 export const displayOrderNotification = async (order: any, therapistId?: string) => {
+  // ── Dedup: skip if already processed within 60s ──
+  if (recentOrderIds.has(order.id)) {
+    console.log('[Notif] Skipping duplicate notification for order:', order.id);
+    return;
+  }
+  recentOrderIds.add(order.id);
+  setTimeout(() => recentOrderIds.delete(order.id), 60000);
+
   const userName = order.users?.full_name || 'Pelanggan';
   const serviceName = order.services?.name || 'Layanan Pijat';
   const dur = order.duration || order.services?.duration_min || 60;
@@ -185,27 +348,26 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
       if (notifee) {
         await notifee.default.displayNotification({
           title: 'Pesanan Baru Masuk!',
-          body: `${userName} — ${serviceName}`,
+          body: `${userName} · ${serviceName}`,
           android: {
             channelId: NOTIFICATION_CHANNELS.ORDERS,
             pressAction: { id: 'default' },
             sound: 'sound_notifee',
             loopSound: true,
-            ongoing: true,
-            autoCancel: true,
             lights: ['#F97316', 500, 500],
             vibrationPattern: [500, 500],
-            smallIcon: 'ic_notification',
             color: '#F97316',
-            asForegroundService: false,
             fullScreenAction: { id: 'default', launchActivity: 'default' },
             category: 'call',
             visibility: notifee.AndroidVisibility.PUBLIC,
-            localOnly: false,
             style: {
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
             },
+            actions: [
+              { id: 'accept', title: 'Terima' },
+              { id: 'reject', title: 'Tolak' },
+            ],
           },
           ios: {
             categoryIdentifier: 'call',
