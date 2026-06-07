@@ -12,6 +12,7 @@ import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
 import { getTierDetails, calculateTier } from '@/lib/tierLogic';
 import { getAppSettings } from '@/lib/appSettings';
+import { titleCase } from '@/lib/utils';
 import { useAlert } from '@/components/CustomAlert';
 import { useTherapistStore } from '@/store/therapistStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -773,7 +774,7 @@ export default function OrderDetailScreen() {
     // Send push notification to user
     try {
       const NOTIF_MAP: Record<string, { title: string; body: string }> = {
-        on_the_way: { title: 'Terapis Menuju Lokasi', body: `Terapis ${profile?.full_name} sedang dalam perjalanan menuju lokasi Anda.` },
+        on_the_way: { title: 'Terapis Menuju Lokasi', body: `Terapis ${titleCase(profile?.full_name)} sedang dalam perjalanan menuju lokasi Anda.` },
         arrived: { title: 'Terapis Tiba di Lokasi', body: 'Terapis telah tiba di lokasi Anda.' },
         in_progress: { title: 'Layanan Dimulai', body: 'Layanan pijat sedang berlangsung.' },
         completed: { title: 'Pesanan Selesai', body: 'Pesanan Anda telah selesai. Terima kasih telah menggunakan Kang Massage!' },
@@ -853,7 +854,7 @@ export default function OrderDetailScreen() {
 
   const currentStepIndex = STATUS_STEPS.findIndex(s => s.key === order.status);
   const nextAction = NEXT[order.status];
-  const custName = order.users?.full_name || 'Pelanggan';
+  const custName = titleCase(order.users?.full_name) || 'Pelanggan';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

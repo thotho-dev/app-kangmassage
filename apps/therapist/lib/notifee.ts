@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { useTherapistStore } from '@/store/therapistStore';
 import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/config';
+import { titleCase } from '@/lib/utils';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
@@ -52,7 +53,7 @@ export async function processOrderAction(actionId: string, orderData: any): Prom
       return check?.status === 'accepted' && check?.therapist_id !== profile.id ? 'taken' : 'gone';
     }
 
-    const name = profile.full_name || 'Kang Massage';
+    const name = titleCase(profile?.full_name) || 'Kang Massage';
     fetch(`${API_URL}/api/notifications/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -315,7 +316,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
   recentOrderIds.add(order.id);
   setTimeout(() => recentOrderIds.delete(order.id), 60000);
 
-  const userName = order.users?.full_name || 'Pelanggan';
+  const userName = titleCase(order.users?.full_name) || 'Pelanggan';
   const serviceName = order.services?.name || 'Layanan Pijat';
   const dur = order.duration || order.services?.duration_min || 60;
   const isTreatment = order.services?.price_type === 'treatment';

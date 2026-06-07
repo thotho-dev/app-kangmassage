@@ -13,7 +13,10 @@ import { useTherapistStore } from '@/store/therapistStore';
 import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/config';
 import { Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
+import { titleCase } from '@/lib/utils';
+import { useAlert } from '@/components/CustomAlert';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
@@ -27,6 +30,7 @@ export default function ChatDetailScreen() {
 
   const [messages, setMessages] = useState<any[]>([]);
   const [conversation, setConversation] = useState<any>(null);
+  const { showAlert } = useAlert();
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -227,6 +231,7 @@ export default function ChatDetailScreen() {
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
+        .neq('deleted_for_therapist', true)
         .order('created_at', { ascending: true });
       if (error) throw error;
       setMessages(data || []);
@@ -275,13 +280,20 @@ export default function ChatDetailScreen() {
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
+          if (payload.new.deleted_for_therapist) return;
           setMessages(prev => {
             if (prev.find(m => m.id === payload.new.id)) return prev;
             return [...prev, payload.new];
           });
           markAsRead();
         } else if (payload.eventType === 'UPDATE') {
-          setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+          if (payload.new.deleted_for_therapist) {
+            setMessages(prev => prev.filter(m => m.id !== payload.new.id));
+          } else {
+            setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          setMessages(prev => prev.filter(m => m.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -315,6 +327,16 @@ export default function ChatDetailScreen() {
     }
   };
 
+  const deleteMessageForMe = async (item: any) => {
+    await supabase.from('messages').update({ deleted_for_therapist: true }).eq('id', item.id);
+    setMessages(prev => prev.filter(m => m.id !== item.id));
+  };
+
+  const deleteMessageForEveryone = async (item: any) => {
+    await supabase.from('messages').delete().eq('id', item.id);
+    setMessages(prev => prev.filter(m => m.id !== item.id));
+  };
+
   const renderMessage = ({ item }: { item: any }) => {
     const isMe = item.sender_type === 'therapist';
     const isPhoto = item.content?.startsWith('📷 [Foto] ');
@@ -330,6 +352,48 @@ export default function ChatDetailScreen() {
     const isRead = item.is_read;
 
     return (
+      <Swipeable
+        renderLeftActions={(progress) => {
+          if (isMe) return null;
+          const opacity = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0, 0.3, 1],
+          });
+          const scale = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0.1, 0.5, 1],
+          });
+          return (
+            <Animated.View style={[styles.swipeActionLeft, { backgroundColor: t.secondary, opacity, transform: [{ scale }] }]}>
+              <Ionicons name="arrow-undo" size={22} color="#fff" />
+            </Animated.View>
+          );
+        }}
+        renderRightActions={(progress) => {
+          if (!isMe) return null;
+          const opacity = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0, 0.3, 1],
+          });
+          const scale = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0.1, 0.5, 1],
+          });
+          return (
+            <Animated.View style={[styles.swipeActionRight, { backgroundColor: t.secondary, opacity, transform: [{ scale }] }]}>
+              <Ionicons name="arrow-undo" size={22} color="#fff" />
+            </Animated.View>
+          );
+        }}
+        onSwipeableOpen={(_direction, swipable) => {
+          setReplyingTo(item);
+          swipable.close();
+        }}
+        overshootLeft={false}
+        overshootRight={false}
+        leftThreshold={10}
+        rightThreshold={10}
+      >
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
         {!isMe && (
             conversation?.users?.avatar_url ? (
@@ -345,7 +409,15 @@ export default function ChatDetailScreen() {
           
           <TouchableOpacity
             activeOpacity={0.8}
-            onLongPress={() => { if (hasActiveOrder) setReplyingTo(item); }}
+            onLongPress={() => {
+              const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
+              buttons.push({ text: 'Hapus untuk saya', style: 'destructive', onPress: () => deleteMessageForMe(item) });
+              if (isMe) {
+                buttons.push({ text: 'Hapus untuk semua orang', style: 'destructive', onPress: () => deleteMessageForEveryone(item) });
+              }
+              buttons.push({ text: 'Batal', style: 'cancel' });
+              showAlert('warning', 'Hapus Pesan', '', buttons);
+            }}
             delayLongPress={400}
             style={[styles.bubble, isMe ? styles.myBubble : styles.otherBubble, isMe ? { marginRight: 8 } : { marginLeft: 8 }]}
           >
@@ -401,6 +473,7 @@ export default function ChatDetailScreen() {
             )
           )}
         </View>
+      </Swipeable>
     );
   };
 
@@ -430,7 +503,7 @@ export default function ChatDetailScreen() {
                 </View>
               )}
               <View>
-                <Text style={[styles.headerName, { color: t.text }]}>{conversation?.users?.full_name || 'Pelanggan'}</Text>
+                <Text style={[styles.headerName, { color: t.text }]}>{titleCase(conversation?.users?.full_name) || 'Pelanggan'}</Text>
                 <Text style={[styles.headerStatus, { color: t.success }]}>Online</Text>
               </View>
             </View>
@@ -996,5 +1069,21 @@ const getStyles = (t: any) => StyleSheet.create({
   progressBarFill: {
     height: '100%',
     borderRadius: 3,
+  },
+  swipeActionLeft: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 20,
+    marginVertical: 2,
+    borderRadius: 16,
+  },
+  swipeActionRight: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 20,
+    marginVertical: 2,
+    borderRadius: 16,
   },
 });

@@ -14,7 +14,9 @@ import { useAlert } from '../../context/AlertContext';
 import { supabase } from '../../lib/supabase';
 import { API_URL } from '../../lib/config';
 import { Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 import { COLORS } from '../../constants/Theme';
+import { titleCase } from '../../lib/utils';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
@@ -121,6 +123,7 @@ export default function ChatDetailScreen() {
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
+        .neq('deleted_for_user', true)
         .order('created_at', { ascending: true });
       if (error) throw error;
       setMessages(data || []);
@@ -173,13 +176,20 @@ export default function ChatDetailScreen() {
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
+          if (payload.new.deleted_for_user) return;
           setMessages((prev: any[]) => {
             if (prev.find((m: any) => m.id === payload.new.id)) return prev;
             return [...prev, payload.new];
           });
           markAsRead();
         } else if (payload.eventType === 'UPDATE') {
-          setMessages((prev: any[]) => prev.map((m: any) => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+          if (payload.new.deleted_for_user) {
+            setMessages((prev: any[]) => prev.filter((m: any) => m.id !== payload.new.id));
+          } else {
+            setMessages((prev: any[]) => prev.map((m: any) => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          setMessages((prev: any[]) => prev.filter((m: any) => m.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -321,6 +331,16 @@ export default function ChatDetailScreen() {
     }
   };
 
+  const deleteMessageForMe = async (item: any) => {
+    await supabase.from('messages').update({ deleted_for_user: true }).eq('id', item.id);
+    setMessages((prev: any[]) => prev.filter((m: any) => m.id !== item.id));
+  };
+
+  const deleteMessageForEveryone = async (item: any) => {
+    await supabase.from('messages').delete().eq('id', item.id);
+    setMessages((prev: any[]) => prev.filter((m: any) => m.id !== item.id));
+  };
+
   const renderMessage = ({ item }: { item: any }) => {
     const isMe = item.sender_type === 'user';
     const isPhoto = item.content?.startsWith('📷 [Foto] ');
@@ -336,6 +356,48 @@ export default function ChatDetailScreen() {
     const isRead = item.is_read;
 
     return (
+      <Swipeable
+        renderLeftActions={(progress) => {
+          if (isMe) return null;
+          const opacity = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0, 0.3, 1],
+          });
+          const scale = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0.1, 0.5, 1],
+          });
+          return (
+            <Animated.View style={[styles.swipeActionLeft, { backgroundColor: COLORS.primary[500], opacity, transform: [{ scale }] }]}>
+              <Ionicons name="arrow-undo" size={22} color="#fff" />
+            </Animated.View>
+          );
+        }}
+        renderRightActions={(progress) => {
+          if (!isMe) return null;
+          const opacity = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0, 0.3, 1],
+          });
+          const scale = progress.interpolate({
+            inputRange: [0, 0.5, 1],
+            outputRange: [0.1, 0.5, 1],
+          });
+          return (
+            <Animated.View style={[styles.swipeActionRight, { backgroundColor: COLORS.primary[500], opacity, transform: [{ scale }] }]}>
+              <Ionicons name="arrow-undo" size={22} color="#fff" />
+            </Animated.View>
+          );
+        }}
+        onSwipeableOpen={(_direction, swipable) => {
+          setReplyingTo(item);
+          swipable.close();
+        }}
+        overshootLeft={false}
+        overshootRight={false}
+        leftThreshold={10}
+        rightThreshold={10}
+      >
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.otherMessageRow]}>
         {!isMe && (
           conversation?.therapist?.avatar_url ? (
@@ -351,7 +413,15 @@ export default function ChatDetailScreen() {
 
         <TouchableOpacity
           activeOpacity={0.8}
-          onLongPress={() => { if (hasActiveOrder) setReplyingTo(item); }}
+          onLongPress={() => {
+            const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
+            buttons.push({ text: 'Hapus untuk saya', style: 'destructive', onPress: () => deleteMessageForMe(item) });
+            if (isMe) {
+              buttons.push({ text: 'Hapus untuk semua orang', style: 'destructive', onPress: () => deleteMessageForEveryone(item) });
+            }
+            buttons.push({ text: 'Batal', style: 'cancel' });
+            showAlert('Hapus Pesan', '', buttons);
+          }}
           delayLongPress={400}
           style={[
             styles.bubble,
@@ -410,8 +480,9 @@ export default function ChatDetailScreen() {
               </Text>
             </View>
           )
-        )}
-      </View>
+          )}
+        </View>
+      </Swipeable>
     );
   };
 
@@ -443,7 +514,7 @@ export default function ChatDetailScreen() {
                 </View>
               )}
               <View>
-                <Text style={[styles.headerName, { color: theme.text }]}>{conversation?.therapist?.full_name || 'Terapis'}</Text>
+                <Text style={[styles.headerName, { color: theme.text }]}>{titleCase(conversation?.therapist?.full_name) || 'Terapis'}</Text>
                 <Text style={[styles.headerStatus, { color: COLORS.success }]}>Online</Text>
               </View>
             </View>
@@ -1004,5 +1075,21 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     borderRadius: 3,
+  },
+  swipeActionLeft: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 20,
+    marginVertical: 2,
+    borderRadius: 16,
+  },
+  swipeActionRight: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 20,
+    marginVertical: 2,
+    borderRadius: 16,
   },
 });

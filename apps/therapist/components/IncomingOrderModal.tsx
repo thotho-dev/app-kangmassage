@@ -8,7 +8,7 @@ import { SPACING, RADIUS, TYPOGRAPHY } from '../constants/Theme';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { calculateDistance } from '../lib/utils';
+import { calculateDistance, titleCase } from '../lib/utils';
 import { CustomAlertTrigger } from '../store/alertStore';
 import { API_URL } from '../lib/config';
 import Constants from 'expo-constants';
@@ -288,7 +288,7 @@ export default function IncomingOrderModal() {
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.customerName, { color: t.text }]}>{incomingOrder.users?.full_name || 'Pelanggan'}</Text>
+                <Text style={[styles.customerName, { color: t.text }]}>{titleCase(incomingOrder.users?.full_name) || 'Pelanggan'}</Text>
                 <View style={styles.serviceRow}>
                   <Text style={[styles.serviceText, { color: t.textSecondary }]}>{incomingOrder.services?.name || 'Layanan Pijat'}</Text>
                   <Text style={{ color: t.textMuted, fontSize: 10 }}>·</Text>

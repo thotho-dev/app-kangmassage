@@ -648,6 +648,8 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_type TEXT NOT NULL CHECK (sender_type IN ('user', 'therapist')),
     content TEXT NOT NULL,
     is_read BOOLEAN DEFAULT false,
+    deleted_for_therapist BOOLEAN DEFAULT false,
+    deleted_for_user BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

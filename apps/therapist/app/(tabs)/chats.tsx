@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { titleCase } from '@/lib/utils';
 import { useAlert } from '@/components/CustomAlert';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -94,7 +95,8 @@ export default function ChatsScreen() {
     ]);
   };
 
-  const confirmDelete = (item: any) => {
+  const confirmDelete = async (item: any) => {
+    await supabase.from('conversations').delete().eq('id', item.id);
     setConversations(prev => prev.filter(c => c.id !== item.id));
   };
 
@@ -135,7 +137,7 @@ export default function ChatsScreen() {
         
         <View style={styles.chatInfo}>
           <View style={styles.chatHeader}>
-            <Text style={[styles.name, { color: t.text }]}>{item.users?.full_name || 'Pelanggan'}</Text>
+            <Text style={[styles.name, { color: t.text }]}>{titleCase(item.users?.full_name) || 'Pelanggan'}</Text>
             <Text style={[styles.time, { color: t.textMuted }]}>
               {item.last_message_at ? format(new Date(item.last_message_at), 'HH:mm', { locale: localeId }) : ''}
             </Text>

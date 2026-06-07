@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
-import { calculateDistance } from '@/lib/utils';
+import { calculateDistance, titleCase } from '@/lib/utils';
 import { CustomAlertTrigger } from '@/store/alertStore';
 import { API_URL } from '@/lib/config';
 
@@ -242,7 +242,7 @@ export default function OrdersScreen() {
                   <Text style={[styles.avatarText, { color: t.primary }]}>{(order.users?.full_name || '?')[0]}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.customerName}>{order.users?.full_name || 'Pelanggan'}</Text>
+                  <Text style={styles.customerName}>{titleCase(order.users?.full_name) || 'Pelanggan'}</Text>
                   <Text style={styles.serviceText}>{order.services?.name || 'Pijat Relaksasi'} · {(order.services as any)?.price_type === 'treatment' ? 'Treatment' : `${order.services?.duration_min || 60} menit`}</Text>
                 </View>
                 <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[order.status] || t.textMuted) + '15' }]}>

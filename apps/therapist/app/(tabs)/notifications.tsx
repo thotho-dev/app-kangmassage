@@ -72,13 +72,21 @@ export default function NotificationsScreen() {
   };
 
   const deduplicateNotifications = (items: any[]) => {
-    const seen = new Set<string>();
+    const seenChat = new Set<string>();
+    const seenConv = new Set<string>();
     return items.filter(item => {
       if (item.type === 'support_chat') {
         const chatId = item.data?.chat_id;
         if (chatId) {
-          if (seen.has(chatId)) return false;
-          seen.add(chatId);
+          if (seenChat.has(chatId)) return false;
+          seenChat.add(chatId);
+        }
+      }
+      if (item.type === 'chat_message') {
+        const convId = item.data?.conversation_id;
+        if (convId) {
+          if (seenConv.has(convId)) return false;
+          seenConv.add(convId);
         }
       }
       return true;
@@ -103,9 +111,14 @@ export default function NotificationsScreen() {
           const newNotif = payload.new as any;
           setNotifications(prev => {
             let updated = [newNotif, ...prev];
-            if (newNotif.type === 'support_chat' && newNotif.data?.chat_id) {
-              const chatId = newNotif.data.chat_id;
-              updated = updated.filter((n, i) => i === 0 || !(n.type === 'support_chat' && n.data?.chat_id === chatId));
+            const key = newNotif.type === 'support_chat' ? newNotif.data?.chat_id
+              : newNotif.type === 'chat_message' ? newNotif.data?.conversation_id
+              : null;
+            if (key) {
+              const type = newNotif.type;
+              updated = updated.filter((n, i) => i === 0 || !(n.type === type && (
+                type === 'support_chat' ? n.data?.chat_id === key : n.data?.conversation_id === key
+              )));
             }
             return updated;
           });

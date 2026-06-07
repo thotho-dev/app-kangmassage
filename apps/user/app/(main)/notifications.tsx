@@ -26,6 +26,28 @@ const formatTime = (dateStr: string) => {
   }
 };
 
+const deduplicateNotifications = (items: any[]) => {
+  const seenChat = new Set<string>();
+  const seenConv = new Set<string>();
+  return items.filter(item => {
+    if (item.type === 'support_chat') {
+      const chatId = item.data?.chat_id;
+      if (chatId) {
+        if (seenChat.has(chatId)) return false;
+        seenChat.add(chatId);
+      }
+    }
+    if (item.type === 'chat_message') {
+      const convId = item.data?.conversation_id;
+      if (convId) {
+        if (seenConv.has(convId)) return false;
+        seenConv.add(convId);
+      }
+    }
+    return true;
+  });
+};
+
 export default function NotificationsScreen() {
   const router = useRouter();
   const { user, profile } = useAuth();
@@ -43,7 +65,7 @@ export default function NotificationsScreen() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setNotifications(data || []);
+      setNotifications(deduplicateNotifications(data || []));
     } catch (error) {
       console.error('Error fetching user notifications:', error);
     } finally {

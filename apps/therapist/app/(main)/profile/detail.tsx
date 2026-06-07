@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
+import { titleCase } from '@/lib/utils';
 
 export default function ProfileDetailScreen() {
   const router = useRouter();
@@ -13,10 +14,10 @@ export default function ProfileDetailScreen() {
   const styles = getStyles(t);
 
   const detailItems = [
-    { label: 'Nama Lengkap', value: profile?.full_name, icon: 'person-outline' },
+    { label: 'Nama', value: profile?.full_name?.replace(/\b\w/g, c => c.toUpperCase()), icon: 'person-outline' },
     { label: 'Nomor Telepon', value: profile?.phone, icon: 'call-outline' },
     { label: 'Email', value: profile?.email || 'Belum diatur', icon: 'mail-outline' },
-    { label: 'Gender', value: (profile?.gender === 'male' ? 'LAKI-LAKI' : profile?.gender === 'female' ? 'PEREMPUAN' : 'TIDAK DITENTUKAN'), icon: 'transgender-outline' },
+    { label: 'Gender', value: (profile?.gender === 'male' ? 'Laki-Laki' : profile?.gender === 'female' ? 'Perempuan' : 'Tidak Ditentukan'), icon: 'transgender-outline' },
     { label: 'Tanggal Bergabung', value: new Date(profile?.created_at || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }), icon: 'calendar-outline' },
   ];
 
@@ -48,7 +49,7 @@ export default function ProfileDetailScreen() {
               </View>
             )}
           </View>
-          <Text style={styles.profileName}>{profile?.full_name}</Text>
+          <Text style={styles.profileName}>{titleCase(profile?.full_name) || 'Mitra'}</Text>
           <Text style={styles.profileStatus}>Mitra Terapis Aktif</Text>
         </View>
 

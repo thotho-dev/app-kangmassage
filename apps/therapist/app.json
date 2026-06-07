@@ -1,11 +1,15 @@
 {
   "expo": {
-    "name": "Kang Massage Therapist",
-    "slug": "pijat-therapist",
+    "name": "Kang Massage Mitra",
+    "slug": "kang-massage-mitra",
     "version": "1.5.0",
-    "scheme": "kang-massage-therapist",
+    "scheme": "kang-massage-mitra",
     "orientation": "portrait",
     "icon": "./assets/icon-km.png",
+    "splash": {
+      "backgroundColor": "#0F172A",
+      "resizeMode": "contain"
+    },
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
@@ -16,7 +20,7 @@
       "versionCode": 2,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon-km.png",
         "backgroundColor": "#0F172A"
       },
       "permissions": [
@@ -46,7 +50,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysPermission": "Allow Kang Massage Therapist to use your location even when the app is in background to receive nearby orders."
+          "locationAlwaysPermission": "Allow Kang Massage Mitra to use your location even when the app is in background to receive nearby orders."
         }
       ],
       "expo-secure-store",

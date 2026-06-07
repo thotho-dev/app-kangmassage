@@ -6,6 +6,7 @@ import { Order, OrderLog } from '@/types';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { useLanguage } from '@/context/LanguageContext';
+import { titleCase } from '@/lib/utils';
 import { Portal } from '@/components/ui/Portal';
 import CreateTestOrderModal from './CreateTestOrderModal';
 
@@ -102,7 +103,7 @@ function ViewOrderDetailModal({ order, onClose, onRefresh }: {
               <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1">
                 <User className="w-3 h-3" /> Pelanggan
               </p>
-              <p className="text-sm font-semibold text-text-primary">{(order.user as any)?.full_name || '-'}</p>
+              <p className="text-sm font-semibold text-text-primary">{titleCase((order.user as any)?.full_name) || '-'}</p>
               <p className="text-xs text-text-muted flex items-center gap-1 mt-1">
                 <Phone className="w-3 h-3" /> {(order.user as any)?.phone || '-'}
               </p>
@@ -113,7 +114,7 @@ function ViewOrderDetailModal({ order, onClose, onRefresh }: {
               </p>
               {order.therapist ? (
                 <>
-                  <p className="text-sm font-semibold text-text-primary">{(order.therapist as any)?.full_name}</p>
+                  <p className="text-sm font-semibold text-text-primary">{titleCase((order.therapist as any)?.full_name)}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-xs text-text-muted flex items-center gap-1">
                       <Phone className="w-3 h-3" /> {(order.therapist as any)?.phone}
@@ -445,12 +446,12 @@ export default function OrdersPage() {
                       </span>
                     </td>
                     <td>
-                      <p className="font-medium text-sm">{(order.user as any)?.full_name || '—'}</p>
+                      <p className="font-medium text-sm">{titleCase((order.user as any)?.full_name) || '—'}</p>
                       <p className="text-text-muted opacity-50 text-xs">{(order.user as any)?.phone}</p>
                     </td>
                     <td>
                       {order.therapist ? (
-                        <p className="text-sm">{(order.therapist as any)?.full_name}</p>
+                        <p className="text-sm">{titleCase((order.therapist as any)?.full_name)}</p>
                       ) : (
                         <span className="text-text-muted opacity-50 text-xs">Searching...</span>
                       )}

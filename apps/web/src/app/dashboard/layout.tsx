@@ -28,6 +28,7 @@ import { clsx } from 'clsx';
 import { useTheme } from '@/context/ThemeContext';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { createClient } from '@/lib/supabase/client';
+import { titleCase } from '@/lib/utils';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -46,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const userId = data?.user?.id;
       if (userId) {
         supabase.from('users').select('full_name').eq('supabase_uid', userId).single().then(({ data: user }) => {
-          setAdminName(user?.full_name || data?.user?.email || 'Admin');
+          setAdminName(titleCase(user?.full_name) || data?.user?.email || 'Admin');
         });
       }
     });

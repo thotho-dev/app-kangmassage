@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { COLORS } from '@/constants/Theme';
+import { titleCase } from '@/lib/utils';
 
 const PURPLE = '#240080';
 
@@ -101,13 +102,16 @@ export default function ChatScreen() {
     fetchData();
   };
 
-  const deleteChatLocally = (chatId: string) => {
-    Alert.alert('Hapus Percakapan', 'Percakapan akan dihapus secara lokal dari daftar Anda.', [
+  const deleteChat = async (chatId: string) => {
+    Alert.alert('Hapus Percakapan', 'Hapus percakapan ini?', [
       { text: 'Batal', style: 'cancel' },
       {
         text: 'Hapus',
         style: 'destructive',
-        onPress: () => setChats(prev => prev.filter(c => c.id !== chatId)),
+        onPress: async () => {
+          await supabase.from('conversations').delete().eq('id', chatId);
+          setChats(prev => prev.filter(c => c.id !== chatId));
+        },
       },
     ]);
   };
@@ -198,7 +202,7 @@ export default function ChatScreen() {
             const renderRightActions = () => (
               <TouchableOpacity
                 style={styles.deleteAction}
-                onPress={() => deleteChatLocally(chat.id)}
+                onPress={() => deleteChat(chat.id)}
               >
                 <Trash2 size={22} color="#FFFFFF" />
                 <Text style={styles.deleteActionText}>Hapus</Text>
@@ -227,7 +231,7 @@ export default function ChatScreen() {
                     <View style={styles.chatHeader}>
                       <View style={styles.nameRow}>
                         <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
-                          {chat.therapist?.full_name || 'Terapis'}
+                          {titleCase(chat.therapist?.full_name) || 'Terapis'}
                         </Text>
                         {isActive && (
                           <View style={styles.activeBadge}>

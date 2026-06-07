@@ -12,6 +12,7 @@ import * as Network from 'expo-network';
 import * as Location from 'expo-location';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
+import { titleCase } from '@/lib/utils';
 import { useThemeStore, useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -309,7 +310,7 @@ export default function DashboardScreen() {
           <View style={styles.greetingRow}>
             <View style={styles.greetingContainer}>
               <Text style={styles.greetingText}>{getGreeting()},</Text>
-              <Text style={styles.nameText}>{profile?.full_name?.split(' ')[0] || 'Mitra'} 👋</Text>
+              <Text style={styles.nameText}>{titleCase(profile?.full_name?.split(' ')[0]) || 'Mitra'} 👋</Text>
             </View>
 
             <View style={styles.networkBadge}>
@@ -419,7 +420,7 @@ export default function DashboardScreen() {
                   <Text style={[styles.orderAvatarText, { color: t.primary }]}>{(order.users?.full_name || '?')[0]}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.orderName}>{order.users?.full_name || 'Pelanggan'}</Text>
+                  <Text style={styles.orderName}>{titleCase(order.users?.full_name) || 'Pelanggan'}</Text>
                   <Text style={styles.orderService}>{order.services?.name || 'Pijat Relaksasi'} · {(order as any).services?.price_type === 'treatment' ? 'Treatment' : `${order.duration || 60} menit`}</Text>
                 </View>
                 <View style={[styles.orderBadge, { backgroundColor: (STATUS_COLOR[order.status] || t.textMuted) + '15' }]}>

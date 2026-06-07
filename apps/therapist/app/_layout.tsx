@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, Text, StyleSheet, Animated, Easing, Image } from 'react-native';
 import LottieView from 'lottie-react-native';
@@ -13,6 +14,8 @@ import { useMaintenanceStore } from '@/store/maintenanceStore';
 import { TYPOGRAPHY } from '@/constants/Theme';
 
 import CustomAlert from '@/components/CustomAlert';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const t = useThemeColors();
@@ -77,6 +80,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded || error) {
+      SplashScreen.hideAsync();
     }
   }, [loaded, error]);
 

@@ -12,6 +12,7 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { compressImage } from '@/lib/imageUtils';
+import { titleCase } from '@/lib/utils';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 const STATUS_OPTIONS = ['', 'online', 'offline', 'busy'];
@@ -330,7 +331,7 @@ export default function TherapistsPage() {
                           </div>
                         )}
                         <div>
-                          <p className="text-sm font-medium text-text-primary">{therapist.full_name}</p>
+                          <p className="text-sm font-medium text-text-primary">{titleCase(therapist.full_name)}</p>
                           <div className="text-xs text-text-muted">
                             {therapist.gender === 'male' ? t('male') : t('female')}
                           </div>
@@ -440,8 +441,8 @@ export default function TherapistsPage() {
                       )}
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-text-primary">{therapist.full_name}</p>
-                          {therapist.revision_note ? (
+<p className="text-sm font-semibold text-text-primary">{titleCase(therapist.full_name)}</p>
+                        {therapist.revision_note ? (
                             <span className="px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 text-[10px] font-medium">Menunggu perbaikan</span>
                           ) : (
                             therapist.registration_step === 'submitted' && (
@@ -463,7 +464,7 @@ export default function TherapistsPage() {
                         <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Data Diri</h4>
                         <div className="grid grid-cols-2 gap-y-2 text-sm">
                           <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">NIK</span><span className="text-text-primary font-medium">: {therapist.nik || '-'}</span></div>
-                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Nama Lengkap</span><span className="text-text-primary font-medium">: {therapist.full_name || '-'}</span></div>
+                          <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Nama Lengkap</span><span className="text-text-primary font-medium">: {titleCase(therapist.full_name) || '-'}</span></div>
                           <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Tempat/Tgl Lahir</span><span className="text-text-primary font-medium">: {[therapist.birth_place, therapist.birth_date].filter(Boolean).join(', ') || '-'}</span></div>
                           <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Gender</span><span className="text-text-primary font-medium">: {therapist.gender === 'male' ? 'Laki-laki' : therapist.gender === 'female' ? 'Perempuan' : '-'}</span></div>
                           <div className="flex"><span className="text-text-muted w-24 flex-shrink-0">Status Perkawinan</span><span className="text-text-primary font-medium">: {therapist.marital_status || '-'}</span></div>
@@ -575,7 +576,7 @@ export default function TherapistsPage() {
               <div className="flex items-center justify-between p-5 border-b border-ui-border">
                 <div>
                   <h3 className="text-lg font-bold text-text-primary">Minta Revisi</h3>
-                  <p className="text-sm text-text-muted mt-0.5">Pilih kolom yang perlu diperbaiki oleh {revisionModal.therapist.full_name}</p>
+                  <p className="text-sm text-text-muted mt-0.5">Pilih kolom yang perlu diperbaiki oleh {titleCase(revisionModal.therapist.full_name)}</p>
                 </div>
                 <button onClick={() => setRevisionModal({ open: false, therapist: null, selectedFields: [], note: '' })} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
                   <X className="w-5 h-5 text-text-muted" />
