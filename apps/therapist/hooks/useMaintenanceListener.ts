@@ -22,7 +22,7 @@ async function getMaintenanceFromDB() {
 
 export const useMaintenanceListener = () => {
   const setMaintenance = useMaintenanceStore(state => state.setMaintenance);
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // 1. Initial fetch — catch current state
