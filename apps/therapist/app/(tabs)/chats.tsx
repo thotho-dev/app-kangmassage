@@ -1,12 +1,14 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ActivityIndicator, RefreshControl, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/components/CustomAlert';
 import { format } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
@@ -14,12 +16,16 @@ export default function ChatsScreen() {
   const t = useThemeColors();
   const isDarkMode = useThemeStore(state => state.isDarkMode);
   const { profile } = useTherapistStore();
+  const { showAlert } = useAlert();
   const router = useRouter();
 
   const [search, setSearch] = useState('');
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [sortBy, setSortBy] = useState<'latest' | 'unread'>('latest');
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const fetchConversations = async (isRefreshing = false) => {
     if (!profile) return;
@@ -56,53 +62,114 @@ export default function ChatsScreen() {
     fetchConversations(true);
   };
 
-  const filteredChats = conversations.filter(chat => 
+  const markAllAsRead = async () => {
+    try {
+      const ids = conversations.filter(c => c.therapist_unread_count > 0).map(c => c.id);
+      if (ids.length === 0) return;
+      await supabase.from('conversations').update({ therapist_unread_count: 0 }).in('id', ids);
+      setConversations(prev => prev.map(c => ({ ...c, therapist_unread_count: 0 })));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const sortedChats = [...conversations].sort((a, b) => {
+    if (sortBy === 'unread') {
+      const aUnread = (a.therapist_unread_count || 0) > 0 ? 1 : 0;
+      const bUnread = (b.therapist_unread_count || 0) > 0 ? 1 : 0;
+      if (aUnread !== bUnread) return bUnread - aUnread;
+    }
+    return new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime();
+  });
+
+  const filteredChats = sortedChats.filter(chat => 
     chat.users?.full_name?.toLowerCase().includes(search.toLowerCase())
   );
 
 
-  const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity 
-      style={[styles.chatCard, { backgroundColor: t.surface, borderColor: t.border }]}
-      activeOpacity={0.7}
-      onPress={() => router.push(`/(main)/chats/${item.id}`)}
+  const handleDelete = (item: any) => {
+    showAlert('warning', 'Hapus Percakapan', `Hapus percakapan dengan ${item.users?.full_name || 'Pelanggan'}?`, [
+      { text: 'Batal', style: 'cancel', onPress: () => swipeableRefs.current.get(item.id)?.close() },
+      { text: 'Hapus', style: 'destructive', onPress: () => confirmDelete(item) },
+    ]);
+  };
+
+  const confirmDelete = (item: any) => {
+    setConversations(prev => prev.filter(c => c.id !== item.id));
+  };
+
+  const renderRightActions = (item: any) => (
+    <TouchableOpacity
+      style={[styles.deleteAction, { backgroundColor: t.danger }]}
+      activeOpacity={0.8}
+      onPress={() => handleDelete(item)}
     >
-      <View style={styles.avatarContainer}>
-        {item.users?.avatar_url ? (
-          <Image source={{ uri: item.users.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, { backgroundColor: t.primary + '20', alignItems: 'center', justifyContent: 'center' }]}>
-            <Text style={{ color: t.primary, fontWeight: 'bold' }}>{item.users?.full_name?.[0]}</Text>
-          </View>
-        )}
-      </View>
-      
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <Text style={[styles.name, { color: t.text }]}>{item.users?.full_name || 'Pelanggan'}</Text>
-          <Text style={[styles.time, { color: t.textMuted }]}>
-            {item.last_message_at ? format(new Date(item.last_message_at), 'HH:mm', { locale: localeId }) : ''}
-          </Text>
-        </View>
-        
-        <View style={styles.messageRow}>
-          <Text 
-            numberOfLines={1} 
-            style={[styles.lastMessage, { 
-              color: item.therapist_unread_count > 0 ? t.text : t.textMuted, 
-              fontFamily: item.therapist_unread_count > 0 ? 'Inter_600SemiBold' : 'Inter_400Regular' 
-            }]}
-          >
-            {item.last_message || 'Belum ada pesan'}
-          </Text>
-          {item.therapist_unread_count > 0 && (
-            <View style={[styles.unreadBadge, { backgroundColor: t.secondary }]}>
-              <Text style={styles.unreadText}>{item.therapist_unread_count}</Text>
+      <Ionicons name="trash-outline" size={22} color="#fff" />
+      <Text style={styles.deleteActionText}>Hapus</Text>
+    </TouchableOpacity>
+  );
+
+  const renderItem = ({ item }: { item: any }) => (
+    <Swipeable
+      ref={(ref) => {
+        if (ref) swipeableRefs.current.set(item.id, ref);
+        else swipeableRefs.current.delete(item.id);
+      }}
+      renderRightActions={() => renderRightActions(item)}
+      overshootRight={false}
+    >
+      <TouchableOpacity 
+        style={[styles.chatCard, { backgroundColor: t.surface, borderColor: t.border }]}
+        activeOpacity={0.7}
+        onPress={() => router.push(`/(main)/chats/${item.id}`)}
+      >
+        <View style={styles.avatarContainer}>
+          {item.users?.avatar_url ? (
+            <Image source={{ uri: item.users.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: t.primary + '20', alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ color: t.primary, fontWeight: 'bold' }}>{item.users?.full_name?.[0]}</Text>
             </View>
           )}
         </View>
-      </View>
-    </TouchableOpacity>
+        
+        <View style={styles.chatInfo}>
+          <View style={styles.chatHeader}>
+            <Text style={[styles.name, { color: t.text }]}>{item.users?.full_name || 'Pelanggan'}</Text>
+            <Text style={[styles.time, { color: t.textMuted }]}>
+              {item.last_message_at ? format(new Date(item.last_message_at), 'HH:mm', { locale: localeId }) : ''}
+            </Text>
+          </View>
+          
+          <View style={styles.messageRow}>
+            <View style={styles.messageRowLeft}>
+              {item.last_message_sender === 'therapist' && (
+                <Ionicons
+                  name={item.last_message_is_read ? "checkmark-done" : "checkmark"}
+                  size={14}
+                  color={item.last_message_is_read ? t.success : t.textMuted}
+                  style={{ marginRight: 4 }}
+                />
+              )}
+              <Text 
+                numberOfLines={1} 
+                style={[styles.lastMessage, { 
+                  color: item.therapist_unread_count > 0 ? t.text : t.textMuted, 
+                  fontFamily: item.therapist_unread_count > 0 ? 'Inter_600SemiBold' : 'Inter_400Regular' 
+                }]}
+              >
+                {item.last_message || 'Belum ada pesan'}
+              </Text>
+            </View>
+            {item.therapist_unread_count > 0 && (
+              <View style={[styles.unreadBadge, { backgroundColor: t.secondary }]}>
+                <Text style={styles.unreadText}>{item.therapist_unread_count}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Swipeable>
   );
 
   return (
@@ -111,7 +178,10 @@ export default function ChatsScreen() {
       <View style={[styles.header, { backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border }]}>
         <View style={styles.headerTop}>
           <Text style={[styles.headerTitle, { color: t.text }]}>Pesan</Text>
-          <TouchableOpacity style={[styles.headerIcon, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }]}>
+          <TouchableOpacity
+            style={[styles.headerIcon, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }]}
+            onPress={() => setShowSettings(true)}
+          >
             <Ionicons name="settings-outline" size={22} color={t.text} />
           </TouchableOpacity>
         </View>
@@ -146,6 +216,38 @@ export default function ChatsScreen() {
           )
         }
       />
+      {/* Settings Modal */}
+      <Modal transparent visible={showSettings} animationType="none" onRequestClose={() => setShowSettings(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSettings(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.settingsSheet, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.sheetTitle, { color: t.text }]}>Pengaturan Pesan</Text>
+
+            <TouchableOpacity style={styles.sheetRow} onPress={() => { markAllAsRead(); setShowSettings(false); }}>
+              <Ionicons name="checkmark-done" size={22} color={t.primary} />
+              <Text style={[styles.sheetRowText, { color: t.text }]}>Tandai Semua Dibaca</Text>
+            </TouchableOpacity>
+
+            <View style={[styles.sheetDivider, { backgroundColor: t.border }]} />
+
+            <Text style={[styles.sheetLabel, { color: t.textMuted }]}>Urutkan</Text>
+            <TouchableOpacity
+              style={styles.sheetRow}
+              onPress={() => { setSortBy('latest'); setShowSettings(false); }}
+            >
+              <Ionicons name={sortBy === 'latest' ? 'radio-button-on' : 'radio-button-off'} size={22} color={t.primary} />
+              <Text style={[styles.sheetRowText, { color: t.text }]}>Terbaru</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sheetRow}
+              onPress={() => { setSortBy('unread'); setShowSettings(false); }}
+            >
+              <Ionicons name={sortBy === 'unread' ? 'radio-button-on' : 'radio-button-off'} size={22} color={t.primary} />
+              <Text style={[styles.sheetRowText, { color: t.text }]}>Belum Dibaca</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -243,10 +345,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  messageRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
   lastMessage: {
     flex: 1,
     fontSize: 13,
-    marginRight: 10,
   },
   unreadBadge: {
     width: 20,
@@ -259,6 +366,67 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontFamily: 'Inter_700Bold',
+  },
+  deleteAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    marginBottom: 12,
+    marginLeft: 8,
+    borderRadius: 16,
+  },
+  deleteActionText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  settingsSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(150,150,150,0.3)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetTitle: {
+    ...TYPOGRAPHY.h3,
+    marginBottom: 20,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 12,
+  },
+  sheetRowText: {
+    ...TYPOGRAPHY.body,
+    fontFamily: 'Inter_500Medium',
+  },
+  sheetDivider: {
+    height: 1,
+    marginVertical: 8,
+  },
+  sheetLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   emptyContainer: {
     alignItems: 'center',

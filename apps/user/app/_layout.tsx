@@ -9,6 +9,7 @@ const PlusJakartaSans_700Bold = require('@expo-google-fonts/plus-jakarta-sans/70
 const PlusJakartaSans_800ExtraBold = require('@expo-google-fonts/plus-jakarta-sans/800ExtraBold/PlusJakartaSans_800ExtraBold.ttf');
 
 import { Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -51,22 +52,24 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AlertProvider>
-          <AuthProvider>
-            <Stack screenOptions={{ 
-              headerShown: false,
-              animation: 'slide_from_right'
-            }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(main)" />
-            </Stack>
-            <StatusBar style="auto" />
-          </AuthProvider>
-        </AlertProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AlertProvider>
+            <AuthProvider>
+              <Stack screenOptions={{ 
+                headerShown: false,
+                animation: 'slide_from_right'
+              }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(main)" />
+              </Stack>
+              <StatusBar style="auto" />
+            </AuthProvider>
+          </AlertProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

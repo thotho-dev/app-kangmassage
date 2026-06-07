@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     debugStep = 'CHECK_XENDIT_BALANCE';
     const secretKey = settings.xendit_disbursement_secret_key || settings.xendit_secret_key || process.env.XENDIT_DISBURSEMENT_SECRET_KEY || process.env.XENDIT_SECRET_KEY;
     if (!secretKey) {
-      return NextResponse.json({ error: 'Xendit secret key not configured' }, { status: 500 });
+      return NextResponse.json({ error: 'Konfigurasi pembayaran belum lengkap' }, { status: 500 });
     }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     if (!balanceRes.ok || (balanceData.balance !== undefined && balanceData.balance < payoutAmount)) {
       console.error('[Withdraw Debug] Insufficient Xendit balance:', balanceData);
       return NextResponse.json({
-        error: 'Saldo Xendit tidak mencukupi. Silakan hubungi admin untuk top up saldo Xendit.',
+        error: 'Saldo tidak mencukupi. Silakan hubungi admin.',
         debug_step: debugStep,
       }, { status: 400 });
     }
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
         .eq('id', withdrawal.id);
 
       return NextResponse.json({
-        error: `Xendit Error (${response.status}): ${xenditData.message || 'Gagal memproses penarikan'}`,
+        error: `Gagal memproses penarikan (${response.status}): ${xenditData.message || 'Coba lagi nanti'}`,
         debug_step: debugStep,
         details: xenditData,
       }, { status: 400 });

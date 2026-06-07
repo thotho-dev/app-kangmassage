@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, RefreshControl, TextInput, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, RefreshControl, TextInput, Animated, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, MessageSquare, ShieldCheck, Clock, X } from 'lucide-react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
+import { Search, MessageSquare, ShieldCheck, Clock, X, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
@@ -99,6 +101,17 @@ export default function ChatScreen() {
     fetchData();
   };
 
+  const deleteChatLocally = (chatId: string) => {
+    Alert.alert('Hapus Percakapan', 'Percakapan akan dihapus secara lokal dari daftar Anda.', [
+      { text: 'Batal', style: 'cancel' },
+      {
+        text: 'Hapus',
+        style: 'destructive',
+        onPress: () => setChats(prev => prev.filter(c => c.id !== chatId)),
+      },
+    ]);
+  };
+
   const formatTime = (isoString: string) => {
     if (!isoString) return '';
     const date = new Date(isoString);
@@ -182,57 +195,81 @@ export default function ChatScreen() {
         ) : (
           filteredChats.map((chat) => {
             const isActive = activeOrderTherapists.includes(chat.therapist_id);
-            return (
-              <TouchableOpacity 
-                key={chat.id} 
-                style={[styles.chatCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                activeOpacity={0.7}
-                onPress={() => router.push(`/chats/${chat.id}`)}
+            const renderRightActions = () => (
+              <TouchableOpacity
+                style={styles.deleteAction}
+                onPress={() => deleteChatLocally(chat.id)}
               >
-                <View style={styles.avatarContainer}>
-                  <Image 
-                    source={{ uri: chat.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
-                    style={styles.avatar} 
-                  />
-                  {isActive && <View style={styles.onlineDot} />}
-                </View>
-                
-                <View style={styles.chatInfo}>
-                  <View style={styles.chatHeader}>
-                    <View style={styles.nameRow}>
-                      <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
-                        {chat.therapist?.full_name || 'Terapis'}
+                <Trash2 size={22} color="#FFFFFF" />
+                <Text style={styles.deleteActionText}>Hapus</Text>
+              </TouchableOpacity>
+            );
+            return (
+              <Swipeable
+                key={chat.id}
+                renderRightActions={renderRightActions}
+                overshootRight={false}
+              >
+                <TouchableOpacity 
+                  style={[styles.chatCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                  activeOpacity={0.7}
+                  onPress={() => router.push(`/chats/${chat.id}`)}
+                >
+                  <View style={styles.avatarContainer}>
+                    <Image 
+                      source={{ uri: chat.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
+                      style={styles.avatar} 
+                    />
+                    {isActive && <View style={styles.onlineDot} />}
+                  </View>
+                  
+                  <View style={styles.chatInfo}>
+                    <View style={styles.chatHeader}>
+                      <View style={styles.nameRow}>
+                        <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+                          {chat.therapist?.full_name || 'Terapis'}
+                        </Text>
+                        {isActive && (
+                          <View style={styles.activeBadge}>
+                            <Text style={styles.activeBadgeText}>AKTIF</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.time, { color: theme.textSecondary }]}>
+                        {formatTime(chat.last_message_at)}
                       </Text>
-                      {isActive && (
-                        <View style={styles.activeBadge}>
-                          <Text style={styles.activeBadgeText}>AKTIF</Text>
+                    </View>
+                    
+                    <View style={styles.messageRow}>
+                      <View style={styles.messageRowLeft}>
+                        {chat.last_message_sender === 'user' && (
+                          <Ionicons
+                            name={chat.last_message_is_read ? "checkmark-done" : "checkmark"}
+                            size={14}
+                            color={chat.last_message_is_read ? COLORS.success : theme.textSecondary}
+                            style={{ marginRight: 4 }}
+                          />
+                        )}
+                        <Text 
+                          numberOfLines={1} 
+                          style={[
+                            styles.lastMessage, 
+                            { color: chat.user_unread_count > 0 ? theme.text : theme.textSecondary },
+                            chat.user_unread_count > 0 && styles.unreadMessage
+                          ]} 
+                        >
+                          {chat.last_message || 'Mulai percakapan...'}
+                        </Text>
+                      </View>
+                      {chat.user_unread_count > 0 && (
+                        <View style={styles.unreadBadge}>
+                          <Text style={styles.unreadText}>{chat.user_unread_count}</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.time, { color: theme.textSecondary }]}>
-                      {formatTime(chat.last_message_at)}
-                    </Text>
                   </View>
-                  
-                  <View style={styles.messageRow}>
-                    <Text 
-                      numberOfLines={1} 
-                      style={[
-                        styles.lastMessage, 
-                        { color: chat.user_unread_count > 0 ? theme.text : theme.textSecondary },
-                        chat.user_unread_count > 0 && styles.unreadMessage
-                      ]} 
-                    >
-                      {chat.last_message || 'Mulai percakapan...'}
-                    </Text>
-                    {chat.user_unread_count > 0 && (
-                      <View style={styles.unreadBadge}>
-                        <Text style={styles.unreadText}>{chat.user_unread_count}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </Swipeable>
             );
           })
         )}
@@ -376,11 +413,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  messageRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
   lastMessage: {
     fontSize: 13,
     fontFamily: 'PlusJakartaSans-Regular',
     flex: 1,
-    marginRight: 10,
   },
   unreadMessage: {
     fontFamily: 'PlusJakartaSans-SemiBold',
@@ -398,6 +440,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontFamily: 'PlusJakartaSans-Bold',
+  },
+  deleteAction: {
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 18,
+    marginBottom: 10,
+    marginLeft: 8,
+  },
+  deleteActionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    marginTop: 4,
   },
   emptyState: {
     marginTop: 120,

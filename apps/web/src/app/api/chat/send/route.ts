@@ -46,7 +46,12 @@ export async function POST(req: NextRequest) {
 
     await supabase
       .from('conversations')
-      .update({ last_message: content, last_message_at: new Date().toISOString() })
+      .update({
+        last_message: content,
+        last_message_at: new Date().toISOString(),
+        last_message_sender: sender_type,
+        last_message_is_read: false
+      })
       .eq('id', conversation_id);
 
     // 4. Send push notification to recipient

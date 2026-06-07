@@ -632,6 +632,8 @@ CREATE TABLE IF NOT EXISTS conversations (
     therapist_id UUID NOT NULL REFERENCES therapists(id) ON DELETE CASCADE,
     last_message TEXT,
     last_message_at TIMESTAMPTZ DEFAULT NOW(),
+    last_message_sender TEXT,
+    last_message_is_read BOOLEAN DEFAULT false,
     user_unread_count INTEGER DEFAULT 0,
     therapist_unread_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -735,6 +737,7 @@ CREATE INDEX idx_support_messages_chat ON support_messages(chat_id);
 CREATE TRIGGER update_support_chats_updated_at BEFORE UPDATE ON support_chats
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+ALTER PUBLICATION supabase_realtime ADD TABLE app_settings;
 ALTER PUBLICATION supabase_realtime ADD TABLE support_messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE support_chats;
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;

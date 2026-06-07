@@ -89,6 +89,8 @@ export async function GET() {
       midtrans_server_key: data.midtrans_server_key ?? '',
       midtrans_client_key: data.midtrans_client_key ?? '',
       midtrans_is_production: data.midtrans_is_production ?? false,
+      maintenance_mode: data.maintenance_mode ?? false,
+      maintenance_message: data.maintenance_message ?? 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
     }, { headers: noCacheHeaders });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
