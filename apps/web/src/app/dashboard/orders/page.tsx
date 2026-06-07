@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, ShoppingBag, Eye, X, Clock, MapPin, User, Phone, Star, Tag } from 'lucide-react';
+import { RefreshCw, ShoppingBag, Eye, X, Clock, MapPin, User, Phone, Star, Tag, FlaskConical } from 'lucide-react';
 import { Order, OrderLog } from '@/types';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { useLanguage } from '@/context/LanguageContext';
 import { Portal } from '@/components/ui/Portal';
+import CreateTestOrderModal from './CreateTestOrderModal';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'badge-pending',
@@ -327,6 +328,7 @@ export default function OrdersPage() {
   const [total, setTotal] = useState(0);
   const [viewModal, setViewModal] = useState<{ open: boolean; order: Order | null }>({ open: false, order: null });
   const [detailData, setDetailData] = useState<Order | null>(null);
+  const [testModalOpen, setTestModalOpen] = useState(false);
   const limit = 20;
 
   const fetchOrders = useCallback(async () => {
@@ -368,10 +370,16 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-bold text-text-primary">{t('orders_monitor')}</h1>
           <p className="text-text-muted text-sm mt-1">{total.toLocaleString()} {t('total_orders_count')}</p>
         </div>
-        <button onClick={fetchOrders} className="btn-secondary flex items-center gap-2 text-sm">
-          <RefreshCw className="w-4 h-4" />
-          {t('refresh')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setTestModalOpen(true)} className="btn-secondary flex items-center gap-2 text-sm">
+            <FlaskConical className="w-4 h-4" />
+            Test Order
+          </button>
+          <button onClick={fetchOrders} className="btn-secondary flex items-center gap-2 text-sm">
+            <RefreshCw className="w-4 h-4" />
+            {t('refresh')}
+          </button>
+        </div>
       </div>
 
       {/* Status Filter Tabs */}
@@ -510,6 +518,14 @@ export default function OrdersPage() {
             onRefresh={fetchOrders}
           />
         </Portal>
+      )}
+
+      {/* Test Order Modal */}
+      {testModalOpen && (
+        <CreateTestOrderModal
+          onClose={() => setTestModalOpen(false)}
+          onSuccess={() => fetchOrders()}
+        />
       )}
     </div>
   );
