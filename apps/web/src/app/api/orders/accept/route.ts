@@ -49,13 +49,15 @@ export async function POST(req: NextRequest) {
     }
 
     // In-app notification
-    await supabase.from('notifications').insert({
-      user_id: data.user_id,
-      title: 'Pesanan Diterima',
-      body: `Terapis ${data.therapist?.full_name || 'Kang Massage'} telah menerima pesanan Anda.`,
-      type: 'order_accepted',
-      data: { order_id: orderId },
-    }).catch(() => {});
+    try {
+      await supabase.from('notifications').insert({
+        user_id: data.user_id,
+        title: 'Pesanan Diterima',
+        body: `Terapis ${data.therapist?.full_name || 'Kang Massage'} telah menerima pesanan Anda.`,
+        type: 'order_accepted',
+        data: { order_id: orderId },
+      });
+    } catch {}
 
     return NextResponse.json({ data });
   } catch {
