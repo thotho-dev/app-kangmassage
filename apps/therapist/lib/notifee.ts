@@ -25,7 +25,7 @@ const cancelOrderNotifications = async () => {
   } catch {}
 };
 
-// ── Accept/reject logic shared by background + foreground handlers ──
+// ── Accept/reject logic shared by foreground handler ──
 export async function processOrderAction(actionId: string, orderData: any): Promise<string> {
   const profile = useTherapistStore.getState().profile;
   if (!profile?.id) return 'error';
@@ -123,41 +123,13 @@ export async function showActionResultNotif(orderData: any, result: string) {
   }
 }
 
-// ── Notifee background event handler (module-level, build only) ──
-if (!isExpoGo) {
-  import('@notifee/react-native').then(notifee => {
-    if (notifee?.default?.onBackgroundEvent) {
-      notifee.default.onBackgroundEvent(async ({ type, detail }: any) => {
-        if (type === 1 && detail?.notification?.data?.orderData) {
-          // DELIVERED — set incoming order so modal is ready when app opens
-          const raw = detail.notification.data.orderData;
-          const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          useTherapistStore.getState().setIncomingOrder(orderData);
-        } else if (type === 2 && detail?.pressAction?.id && detail?.notification?.data?.orderData) {
-          // ACTION_PRESS — user tapped Terima / Tolak from notification tray
-          const raw = detail.notification.data.orderData;
-          const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          const actionId = detail.pressAction.id;
-
-          const result = await processOrderAction(actionId, orderData);
-
-          // Cancel this notification
-          if (detail.notification?.id) {
-            await notifee.default.cancelNotification(detail.notification.id);
-          }
-
-          // Show follow-up notification for accept (success/taken/gone)
-          if (actionId === 'accept') {
-            await showActionResultNotif(orderData, result);
-          }
-          // Reject: silent dismiss
-        }
-      });
-    }
-  }).catch(() => {});
-}
+// ── CATATAN: onBackgroundEvent sudah DIPINDAH ke index.js (entry point) ──
+// Notifee mengharuskan background handler didaftarkan di file entry SEBELUM
+// app boot, bukan di dalam module/komponen manapun.
 
 // ── Intercept incoming push notifications for order data ──
+// Ini menangani FCM push saat app foreground — menampilkan Notifee local notif
+// dengan tombol Terima/Tolak di atas push yang datang.
 if (!isExpoGo) {
   Notifications.addNotificationReceivedListener(notification => {
     const data = notification?.request?.content?.data;
@@ -191,6 +163,7 @@ Notifications.setNotificationHandler({
 
 export const NOTIFICATION_CHANNELS = {
   ORDERS: 'orders_high_priority',
+  FOREGROUND: 'foreground_service',
 };
 
 const getNotifee = async () => {
@@ -233,6 +206,7 @@ export const initializeNotifee = async () => {
       if (!isExpoGo) {
         const notifee = await getNotifee();
         if (notifee) {
+          // Channel untuk pesanan (HIGH priority = heads-up + fullscreen)
           await notifee.default.createChannel({
             id: NOTIFICATION_CHANNELS.ORDERS,
             name: 'Pesanan Baru',
@@ -242,6 +216,15 @@ export const initializeNotifee = async () => {
             vibration: true,
             vibrationPattern: [500, 500],
             bypassDnd: true,
+          });
+
+          // Channel untuk foreground service (LOW priority = persistent, tidak mengganggu)
+          await notifee.default.createChannel({
+            id: NOTIFICATION_CHANNELS.FOREGROUND,
+            name: 'Status Terapis',
+            importance: notifee.AndroidImportance.LOW,
+            lights: false,
+            vibration: false,
           });
 
           // Minta izin full screen intent (Android 12+)
@@ -307,6 +290,50 @@ export const initializeNotifee = async () => {
   }
 };
 
+// ── Start Foreground Service (saat terapis online) ───────────────────────────
+// Menampilkan notifikasi persistent "Menunggu pesanan..." di status bar,
+// sekaligus menjaga proses Android tetap hidup seperti Gojek/Grab driver.
+export const startOrderForegroundService = async () => {
+  if (isExpoGo) return;
+  const notifee = await getNotifee();
+  if (!notifee) return;
+
+  try {
+    await notifee.default.displayNotification({
+      id: 'therapist-online-service',
+      title: 'Kang Massage Mitra',
+      body: '🟢 Siap menerima pesanan baru',
+      android: {
+        channelId: NOTIFICATION_CHANNELS.FOREGROUND,
+        asForegroundService: true,
+        ongoing: true,               // Tidak bisa di-swipe
+        onlyAlertOnce: true,         // Tidak bunyi ulang-ulang
+        color: '#1E1B4B',
+        smallIcon: 'ic_launcher',
+        pressAction: { id: 'default' },
+        importance: notifee.AndroidImportance.LOW,
+      },
+    });
+    console.log('[FGService] Started successfully');
+  } catch (e: any) {
+    console.warn('[FGService] Failed to start:', e?.message);
+  }
+};
+
+// ── Stop Foreground Service (saat terapis offline) ───────────────────────────
+export const stopOrderForegroundService = async () => {
+  if (isExpoGo) return;
+  const notifee = await getNotifee();
+  if (!notifee) return;
+
+  try {
+    await notifee.default.stopForegroundService();
+    console.log('[FGService] Stopped successfully');
+  } catch (e: any) {
+    console.warn('[FGService] Failed to stop:', e?.message);
+  }
+};
+
 export const displayOrderNotification = async (order: any, therapistId?: string) => {
   // ── Dedup: skip if already processed within 60s ──
   if (recentOrderIds.has(order.id)) {
@@ -347,31 +374,32 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
     if (!isExpoGo) {
       const notifee = await getNotifee();
       if (notifee) {
+        const notifId = `order-${order.id}`;
         await notifee.default.displayNotification({
-          title: 'Pesanan Baru Masuk!',
+          id: notifId,
+          title: isScheduled ? '📅 Booking Terjadwal!' : '🔔 Pesanan Baru Masuk!',
           body: `${userName} · ${serviceName}`,
           android: {
             channelId: NOTIFICATION_CHANNELS.ORDERS,
-            pressAction: { id: 'default' },
             sound: 'sound_notifee',
             loopSound: true,
             lights: ['#F97316', 500, 500],
-            vibrationPattern: [500, 500],
+            vibrationPattern: [300, 500, 300, 500],
             color: '#F97316',
-            fullScreenAction: { id: 'default', launchActivity: 'default' },
+            fullScreenAction: {
+              id: 'default',
+              launchActivity: 'default',
+            },
             category: notifee.AndroidCategory.CALL,
             visibility: notifee.AndroidVisibility.PUBLIC,
+            importance: notifee.AndroidImportance.HIGH,
             style: {
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
             },
-            actions: [
-              { title: 'Terima', pressAction: { id: 'accept' } },
-              { title: 'Tolak', pressAction: { id: 'reject' } },
-            ],
           },
           ios: {
-            categoryId: 'call',
+            categoryId: 'order_action',
             sound: 'sound_notifee',
             foregroundPresentationOptions: {
               alert: true,
@@ -388,14 +416,25 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
             orderData: JSON.stringify(order),
           },
         });
+
         console.log('[Notif] Notifee notification sent with fullScreenAction');
+
+        // Langsung cancel dalam 3 detik — hanya fullscreen popup saja,
+        // tidak ada tray notification yang menetap.
+        setTimeout(async () => {
+          try {
+            await notifee.default.cancelNotification(notifId);
+            console.log('[Notif] Tray notification cancelled after 3s (fullscreen only)');
+          } catch {}
+        }, 3000);
         return;
       }
     }
 
+    // ── Fallback: Expo Notifications (Expo Go / jika Notifee tidak tersedia) ──
     const notifId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Pesanan Baru Masuk!',
+        title: isScheduled ? '📅 Booking Terjadwal!' : '🔔 Pesanan Baru Masuk!',
         body: bodyText,
         data: {
           orderId: order.id,
@@ -403,7 +442,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
         },
         sound: 'sound_expo',
         ...(Platform.OS === 'ios' && {
-          categoryIdentifier: 'call',
+          categoryIdentifier: 'order_action',
           interruptionLevel: 'critical',
           shouldPlaySound: true,
         }),

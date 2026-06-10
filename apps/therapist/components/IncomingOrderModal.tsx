@@ -41,6 +41,8 @@ export default function IncomingOrderModal() {
 
   useEffect(() => {
     if (incomingOrder) {
+      cancelOrderNotification();
+
       setCountdown(40);
       setProgress(0);
       Animated.spring(fadeAnim, {

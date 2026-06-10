@@ -1,7 +1,13 @@
 import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { useTherapistStore } from '../store/therapistStore';
 import { supabase } from '../lib/supabase';
-import { initializeNotifee, displayOrderNotification } from '../lib/notifee';
+import {
+  initializeNotifee,
+  displayOrderNotification,
+  startOrderForegroundService,
+  stopOrderForegroundService,
+} from '../lib/notifee';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../lib/utils';
 import { getAppSettings, DEFAULT_SETTINGS } from '../lib/appSettings';
@@ -10,10 +16,30 @@ export const useOrderListener = () => {
   const { profile, isOnline, setIncomingOrder } = useTherapistStore();
   const settingsRef = useRef(DEFAULT_SETTINGS);
 
+  // ── Inisialisasi Notifee (sekali saat mount) ──────────────────────────────
   useEffect(() => {
     initializeNotifee();
   }, []);
 
+  // ── Foreground Service: nyala saat online, mati saat offline ─────────────
+  // Ini menjaga proses Android tetap hidup sehingga Supabase Realtime
+  // tetap terhubung meski app diminimize — mirip Gojek/Grab driver app.
+  useEffect(() => {
+    if (profile?.id && isOnline) {
+      console.log('[FGService] Therapist online → starting foreground service');
+      startOrderForegroundService();
+    } else {
+      console.log('[FGService] Therapist offline → stopping foreground service');
+      stopOrderForegroundService();
+    }
+
+    return () => {
+      // Stop service saat komponen unmount (logout, dll)
+      stopOrderForegroundService();
+    };
+  }, [profile?.id, isOnline]);
+
+  // ── Supabase Realtime: dengarkan order baru ───────────────────────────────
   useEffect(() => {
     if (!profile || !isOnline) return;
 
@@ -142,12 +168,20 @@ export const useOrderListener = () => {
             return;
           }
 
-          console.log('[DEBUG OrderListener] Memanggil displayOrderNotification...');
-          // Trigger Notifee Local Notification for Background visibility
-          await displayOrderNotification(orderData, profile.id);
-          console.log('[DEBUG OrderListener] displayOrderNotification selesai dipanggil.');
-
+          // ── PENTING: setIncomingOrder DULU sebelum displayOrderNotification ──
+          // Ini memastikan IncomingOrderModal sudah siap render ketika
+          // fullScreenAction membawa app naik ke foreground.
           setIncomingOrder(orderData);
+
+          // Trigger Notifee notification (fullScreenAction = popup di lock screen)
+          // Hanya kirim notifikasi tray saat app di background — kalau foreground
+          // modal sudah tampil, tidak perlu notifikasi tray.
+          if (AppState.currentState !== 'active') {
+            console.log('[DEBUG OrderListener] App background → mengirim notifikasi tray...');
+            await displayOrderNotification(orderData, profile.id);
+          } else {
+            console.log('[DEBUG OrderListener] App foreground → skip notifikasi tray (modal sudah tampil).');
+          }
         }
       )
       .subscribe();
