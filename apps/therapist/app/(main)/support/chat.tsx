@@ -97,6 +97,7 @@ FITUR APLIKASI YANG BISA DIGUNAKAN TERAPIS:
 22. **Pembayaran Tunai vs Non-Tunai** — jika pelanggan bayar tunai, komisi aplikasi dipotong dari dompet terapis. Jika pelanggan bayar non-tunai (QRIS/saldo/VA/e-wallet), pendapatan layanan dikreditkan ke dompet terapis lalu komisi dipotong. Hasil akhir: terapis dapat servicePrice dikurangi komisi dan admin fee
 23. **Order Favorite** — pelanggan bisa menandai terapis sebagai favorite. Jika pelanggan favorite memesan, terapis tetap mendapat notifikasi order meskipun rating sedang di bawah minimum. Order dari pelanggan favorite tidak difilter oleh rating
 24. **Voucher Pelanggan** — pelanggan bisa menggunakan voucher diskon atau cashback saat checkout. Jika ada diskon, selisih harga layanan dikompensasi ke dompet terapis saat pesanan selesai. Jika voucher cashback, pelanggan dapat cashback dan tidak mempengaruhi pendapatan terapis
+25. **Notifikasi Order & Pengaturan Perangkat** — notifikasi pesanan baru otomatis tampil saat aplikasi di background. Wajib aktifkan izin: POST_NOTIFICATIONS (Android 13+), USE_FULL_SCREEN_INTENT (tampilan penuh di layar kunci), REQUEST_IGNORE_BATTERY_OPTIMIZATIONS (agar tidak diblokir). Untuk HP Xiaomi/HyperOS/Realme/Oppo/Vivo, tambahan: Auto-start aktifkan, Optimasi Baterai → Tidak Dioptimasi, dan izin Pop-up
 
 KETENTUAN PENTING:
 - Minimal saldo untuk mendapat order: ${rupiah(s.min_wallet_balance)}
@@ -107,6 +108,14 @@ KETENTUAN PENTING:
 - Order yang dibatalkan oleh sistem tidak mengurangi rating
 - jika bertanya yang ke dua kali dan seterusnya tidak perlu menyapa lagi dan langsung jawab pertanyaan dari terapis
 - Jika terapis bertanya cara menaikkan tier, arahkan untuk melihat informasi lengkap di halaman Info Tier pada aplikasi (buka menu Profil -> klik badge tier atau kunjungi halaman tier-info)
+
+PANDUAN NOTIFIKASI ORDER (jika terapis bertanya kenapa notifikasi tidak muncul atau popup tidak tampil):
+- Pastikan izin POST_NOTIFICATIONS sudah diaktifkan (Muncul otomatis saat pertama buka app, atau atur manual: Settings → Apps → Kang Massage Mitra → Notifications → On)
+- Untuk popup notifikasi di layar kunci (full screen), pastikan izin "Tampilan Penuh" / "Full Screen Intent" sudah diaktifkan: Settings → Apps → Kang Massage Mitra → Notifications → Advanced → Full-screen notifications → Allow
+- Agar notifikasi tidak terblokir saat HP tidur, nonaktifkan optimasi baterai: Settings → Apps → Kang Massage Mitra → Battery → "No restrictions" atau "Tidak Dioptimasi"
+- Untuk HP Xiaomi/Redmi/HyperOS: Settings → Apps → Manage Apps → Kang Massage Mitra → Auto-start → ON. Juga Settings → Notification & Control Center → Notification Shade → Manage notifications → Kang Massage Mitra → Allow full-screen intent
+- Jika popup order hanya muncul sekali lalu tidak muncul lagi meski ada di tray: cek kembali izin USE_FULL_SCREEN_INTENT di Settings (seringkali dicabut otomatis oleh sistem Android setelah beberapa kali)
+- Pastikan aplikasi tidak dalam mode "Sleep" atau "Deep Clear" di pengaturan baterai HP. Tambahkan ke "Protected Apps" jika ada opsi tersebut
 
 JANGAN pernah memberikan informasi palsu. Jika tidak tahu jawabannya, akui saja dan sarankan untuk menghubungi admin melalui WhatsApp ${s.support_whatsapp ? `(${s.support_whatsapp}) ` : ''}atau email ${s.support_email}.`;
 };
@@ -181,7 +190,7 @@ export default function SupportChatScreen() {
     addMessage(sessionId, {
       id: 'ai-welcome',
       sender_type: 'ai',
-      message: 'Halo! Ada yang bisa saya bantu?\n\nTanyakan seputar:\n• Withdraw & Top Up saldo\n• Komisi & Tier\n• Status pesanan\n• Cara menggunakan aplikasi',
+      message: 'Halo! Ada yang bisa saya bantu?\n\nTanyakan seputar:\n• Withdraw & Top Up saldo\n• Komisi & Tier\n• Status pesanan\n• Notifikasi order tidak muncul\n• Cara menggunakan aplikasi',
     });
   }, [loaded]);
 
@@ -261,7 +270,7 @@ export default function SupportChatScreen() {
     addMessage(sessionId, {
       id: 'ai-welcome',
       sender_type: 'ai',
-      message: 'Halo! Ada yang bisa saya bantu?\n\nTanyakan seputar:\n• Withdraw & Top Up saldo\n• Komisi & Tier\n• Status pesanan\n• Cara menggunakan aplikasi',
+      message: 'Halo! Ada yang bisa saya bantu?\n\nTanyakan seputar:\n• Withdraw & Top Up saldo\n• Komisi & Tier\n• Status pesanan\n• Notifikasi order tidak muncul\n• Cara menggunakan aplikasi',
     });
     setSidebarVisible(false);
   };

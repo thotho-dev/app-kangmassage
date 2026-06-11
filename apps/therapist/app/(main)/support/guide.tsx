@@ -88,6 +88,19 @@ const SECTIONS = [
     ],
   },
   {
+    title: 'Notifikasi Order Tidak Muncul?',
+    icon: 'notifications-off-outline',
+    content: [
+      'Pastikan izin POST_NOTIFICATIONS sudah aktif (Settings → Apps → Kang Massage Mitra → Notifications → On).',
+      'Aktifkan "Tampilan Penuh" agar popup order muncul di layar kunci: Settings → Apps → Kang Massage Mitra → Notifications → Advanced → Full-screen notifications → Allow.',
+      'Nonaktifkan optimasi baterai: Settings → Apps → Kang Massage Mitra → Battery → "No restrictions" / "Tidak Dioptimasi".',
+      'HP Xiaomi/HyperOS: Settings → Apps → Manage Apps → Kang Massage Mitra → Auto-start → ON.',
+      'HP Xiaomi/HyperOS: Settings → Notification & Control Center → Notification Shade → Manage notifications → Kang Massage Mitra → Allow full-screen intent.',
+      'Jika popup hanya muncul sekali lalu hilang, periksa kembali izin "Tampilan Penuh" — sistem Android sering mencabutnya otomatis.',
+      'Tambahkan aplikasi ke daftar "Protected Apps" atau "Lock Apps" di pengaturan baterai untuk mencegah sleep.',
+    ],
+  },
+  {
     title: 'Pusat Bantuan',
     icon: 'help-circle-outline',
     content: [
