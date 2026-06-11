@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon-km.png",
     "splash": {
-      "image": "./assets/logo-kang-massage.png",
       "backgroundColor": "#0F172A",
       "resizeMode": "contain"
     },
