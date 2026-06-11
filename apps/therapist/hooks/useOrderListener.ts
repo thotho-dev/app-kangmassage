@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
 import { useTherapistStore } from '../store/therapistStore';
 import { supabase } from '../lib/supabase';
 import {
@@ -182,14 +181,9 @@ export const useOrderListener = () => {
               return;
             }
 
+            // Play notification sound — jangan await biar modal tetap muncul cepat
+            displayOrderNotification(orderData, profile.id);
             setIncomingOrder(orderData);
-
-            if (AppState.currentState !== 'active') {
-              console.log('[DEBUG OrderListener] App background → mengirim notifikasi tray...');
-              await displayOrderNotification(orderData, profile.id);
-            } else {
-              console.log('[DEBUG OrderListener] App foreground → skip notifikasi tray (modal sudah tampil).');
-            }
           }
         )
         .subscribe();

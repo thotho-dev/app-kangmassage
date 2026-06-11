@@ -172,8 +172,9 @@ export const initializeNotifee = async () => {
             if (!profile?.id) return;
             const rejected = useTherapistStore.getState().rejectedOrderIds;
             if (rejected.includes(orderData.id)) return;
-            useTherapistStore.getState().setIncomingOrder(orderData);
+            // Play sound dulu sebelum set incoming order biar tidak dicancel modal
             displayOrderNotification(orderData, profile.id);
+            useTherapistStore.getState().setIncomingOrder(orderData);
           } catch (e) {
             console.warn('[Notif] Failed to process received notification:', e);
           }

@@ -41,7 +41,8 @@ export default function IncomingOrderModal() {
 
   useEffect(() => {
     if (incomingOrder) {
-      cancelOrderNotification();
+      // Jangan cancel notifikasi di sini — biarkan sound looping
+      // sampai therapist accept/reject atau countdown habis.
 
       setCountdown(40);
       setProgress(0);

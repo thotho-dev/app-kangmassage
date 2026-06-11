@@ -241,3 +241,30 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE /api/orders/[id] - Hapus order permanently
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = createAdminClient();
+
+    // Hapus related records first to avoid FK constraints
+    await supabase.from('voucher_usages').delete().eq('order_id', params.id);
+    await supabase.from('transactions').delete().eq('order_id', params.id);
+    await supabase.from('notifications').delete().filter('data->>order_id', 'eq', params.id);
+    // order_logs has ON DELETE CASCADE, hapus manual untuk jaga-jaga
+    await supabase.from('order_logs').delete().eq('order_id', params.id);
+
+    const { error } = await supabase.from('orders').delete().eq('id', params.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Order berhasil dihapus' });
+  } catch (err: any) {
+    return NextResponse.json({ error: `Internal error: ${err.message}` }, { status: 500 });
+  }
+}

@@ -2,15 +2,7 @@
   "expo": {
     "name": "Kang Massage",
     "slug": "kang-massage",
-    "scheme": "kangmassage",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon-km.png",
-    "userInterfaceStyle": "dark",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
-    },
     "android": {
       "package": "com.thotho.kangmassage.user",
       "googleServicesFile": "./google-services.json",

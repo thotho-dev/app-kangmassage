@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, ShoppingBag, Eye, X, Clock, MapPin, User, Phone, Star, Tag, FlaskConical } from 'lucide-react';
+import { RefreshCw, ShoppingBag, Eye, X, Clock, MapPin, User, Phone, Star, Tag, FlaskConical, Trash2, RotateCcw } from 'lucide-react';
 import { Order, OrderLog } from '@/types';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { useLanguage } from '@/context/LanguageContext';
 import { titleCase } from '@/lib/utils';
 import { Portal } from '@/components/ui/Portal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import CreateTestOrderModal from './CreateTestOrderModal';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -330,6 +331,12 @@ export default function OrdersPage() {
   const [viewModal, setViewModal] = useState<{ open: boolean; order: Order | null }>({ open: false, order: null });
   const [detailData, setDetailData] = useState<Order | null>(null);
   const [testModalOpen, setTestModalOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
   const limit = 20;
 
   const fetchOrders = useCallback(async () => {
@@ -363,6 +370,56 @@ export default function OrdersPage() {
       import('react-hot-toast').then(m => m.default.error('Gagal memuat detail pesanan'));
     }
   }, []);
+
+  const handleDeleteOrder = (id: string) => {
+    setConfirmModal({
+      open: true,
+      title: 'Hapus Pesanan?',
+      message: 'Pesanan yang dihapus tidak bisa dikembalikan. Semua data terkait (log, transaksi) juga akan dihapus. Yakin ingin menghapus?',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            import('react-hot-toast').then(m => m.default.success('Pesanan berhasil dihapus'));
+            fetchOrders();
+          } else {
+            const err = await res.json();
+            import('react-hot-toast').then(m => m.default.error(err.error || 'Gagal menghapus pesanan'));
+          }
+        } catch (err) {
+          import('react-hot-toast').then(m => m.default.error('Gagal menghapus pesanan'));
+        }
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const handleReorderOrder = useCallback(async (order: Order) => {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: order.user_id,
+          service_id: order.service_id,
+          address: order.address,
+          latitude: order.latitude,
+          longitude: order.longitude,
+          payment_method: order.payment_method || 'wallet',
+          user_notes: `Order ulang dari ${order.order_number}`,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        import('react-hot-toast').then(m => m.default.success(`Order ulang berhasil: ${data.data.order_number}`));
+        fetchOrders();
+      } else {
+        import('react-hot-toast').then(m => m.default.error(data.error || 'Gagal membuat order ulang'));
+      }
+    } catch (err) {
+      import('react-hot-toast').then(m => m.default.error('Gagal membuat order ulang'));
+    }
+  }, [fetchOrders]);
 
   return (
     <div className="page-container">
@@ -422,7 +479,7 @@ export default function OrdersPage() {
                 <th>{t('status')}</th>
                 <th>{t('payment')}</th>
                 <th>{t('date')}</th>
-                <th className="text-center">{t('detail')}</th>
+                <th className="text-center">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -480,13 +537,29 @@ export default function OrdersPage() {
                       {format(new Date(order.created_at), 'dd MMM HH:mm')}
                     </td>
                     <td>
-                      <button
-                        onClick={() => handleViewDetail(order.id)}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-center"
-                        title="Lihat Detail"
-                      >
-                        <Eye className="w-4 h-4 text-text-muted " />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleViewDetail(order.id)}
+                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          title="Lihat Detail"
+                        >
+                          <Eye className="w-4 h-4 text-text-muted" />
+                        </button>
+                        <button
+                          onClick={() => handleReorderOrder(order)}
+                          className="p-2 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                          title="Order Ulang"
+                        >
+                          <RotateCcw className="w-4 h-4 text-emerald-400" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteOrder(order.id)}
+                          className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                          title="Hapus Pesanan"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -526,6 +599,20 @@ export default function OrdersPage() {
         <CreateTestOrderModal
           onClose={() => setTestModalOpen(false)}
           onSuccess={() => fetchOrders()}
+        />
+      )}
+
+      {/* Confirm Delete Modal */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.open}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          type="danger"
         />
       )}
     </div>
