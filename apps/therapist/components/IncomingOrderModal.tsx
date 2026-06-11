@@ -11,6 +11,7 @@ import * as Location from 'expo-location';
 import { calculateDistance, titleCase } from '../lib/utils';
 import { CustomAlertTrigger } from '../store/alertStore';
 import { API_URL } from '../lib/config';
+import { stopOrderSound } from '../lib/orderSound';
 import Constants from 'expo-constants';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -38,6 +39,14 @@ export default function IncomingOrderModal() {
   const [progress, setProgress] = useState(0);
   const fadeAnim = useState(new Animated.Value(0))[0];
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Stop sound ketika modal benar-benar ditutup (incomingOrder jadi null),
+  // bukan ketika incomingOrder berganti ke order baru.
+  useEffect(() => {
+    if (!incomingOrder) {
+      stopOrderSound();
+    }
+  }, [incomingOrder]);
 
   useEffect(() => {
     if (incomingOrder) {

@@ -138,7 +138,6 @@ export const NOTIFICATION_CHANNELS = {
 // ── Expo handler ──
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
@@ -172,9 +171,10 @@ export const initializeNotifee = async () => {
             if (!profile?.id) return;
             const rejected = useTherapistStore.getState().rejectedOrderIds;
             if (rejected.includes(orderData.id)) return;
-            // Play sound dulu sebelum set incoming order biar tidak dicancel modal
-            displayOrderNotification(orderData, profile.id);
+            // Set incoming order dulu biar modal effect cleanup tidak cancel
+            // notifikasi yang baru ditampilkan.
             useTherapistStore.getState().setIncomingOrder(orderData);
+            displayOrderNotification(orderData, profile.id);
           } catch (e) {
             console.warn('[Notif] Failed to process received notification:', e);
           }

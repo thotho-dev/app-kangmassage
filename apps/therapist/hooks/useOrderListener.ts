@@ -7,6 +7,7 @@ import {
   startOrderForegroundService,
   stopOrderForegroundService,
 } from '../lib/notifee';
+import { playOrderSound } from '../lib/orderSound';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../lib/utils';
 import { getAppSettings, DEFAULT_SETTINGS } from '../lib/appSettings';
@@ -181,9 +182,11 @@ export const useOrderListener = () => {
               return;
             }
 
-            // Play notification sound — jangan await biar modal tetap muncul cepat
-            displayOrderNotification(orderData, profile.id);
+            // Set incoming order DULU, baru notifikasi — biar modal effect cleanup
+            // (cancelOrderNotification) tidak cancel notifikasi yang baru ditampilkan.
             setIncomingOrder(orderData);
+            playOrderSound();
+            displayOrderNotification(orderData, profile.id);
           }
         )
         .subscribe();
