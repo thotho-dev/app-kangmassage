@@ -140,23 +140,26 @@ export const useOrderListener = () => {
                   }
                }
 
-               // Distance check — cepat reject dulu sebelum ambil lokasi
+               // Distance check — opsional, tidak blocking
+               let withinRange = true;
                try {
                   const { status } = await Location.getForegroundPermissionsAsync();
-                  if (status !== 'granted') return;
-
-                  const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                  const dist = parseFloat(calculateDistance(loc.coords.latitude, loc.coords.longitude, newOrder.latitude, newOrder.longitude));
-
-                  if (dist > settings.matching_radius_km) {
-                    console.log(`[DEBUG OrderListener] GAGAL: Jarak terlalu jauh (${dist} km, max ${settings.matching_radius_km} km)`);
-                    return;
+                  if (status === 'granted') {
+                    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                    const dist = parseFloat(calculateDistance(loc.coords.latitude, loc.coords.longitude, newOrder.latitude, newOrder.longitude));
+                    withinRange = dist <= settings.matching_radius_km;
+                    if (!withinRange) {
+                      console.log(`[DEBUG OrderListener] GAGAL: Jarak terlalu jauh (${dist} km, max ${settings.matching_radius_km} km)`);
+                    } else {
+                      console.log(`[DEBUG OrderListener] Jarak OK: ${dist} km (max ${settings.matching_radius_km} km)`);
+                    }
+                  } else {
+                    console.warn('[DEBUG OrderListener] Izin lokasi tidak granted — jarak tidak dicek, tetap lanjut.');
                   }
-                  console.log(`[DEBUG OrderListener] Jarak OK: ${dist} km (max ${settings.matching_radius_km} km)`);
                } catch (e) {
-                  console.error('[DEBUG OrderListener] Error checking location:', e);
-                  return;
+                  console.warn('[DEBUG OrderListener] Gagal ambil lokasi:', e);
                }
+               if (!withinRange) return;
             }
 
             // Hindari memproses order yang sama jika event UPDATE beruntun

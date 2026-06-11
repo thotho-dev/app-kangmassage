@@ -91,7 +91,65 @@ Sent messages via `POST /api/chat/send` (Next.js API, not direct Supabase insert
 
 ---
 
-## Current session (ANDROID_HOME fix — Android SDK CLI tools installed)
+## Session 2 (Notifee crash fix — order notification system overhaul)
+
+### Problems found
+1. **CRASH on login**: `foregroundServiceTypes: ['dataSync']` in notifee.ts mismatched Notifee AAR's manifest (`android:foregroundServiceType="shortService"`). Android 14+ kills the process → app closes immediately after login.
+2. **Broadcast orders silently dropped**: Location check (`if (status !== 'granted') return;`) was blocking all broadcast orders when GPS/permission unavailable.
+3. **No guards on FG service**: `startOrderForegroundService` / `stopOrderForegroundService` could be called multiple times during hot reload or rapid online/offline toggle, causing race conditions.
+4. **No dedup on order notifications**: Repeated order events could trigger multiple notification displays.
+5. **Cold start race**: No delay on subscription start; UI could be unresponsive while subscription setup runs.
+6. **AppState handler unthrottled**: Every foreground transition triggered immediate checkPendingOrders, potentially overloading Supabase.
+
+### Fixes applied
+| File | Fix |
+|---|---|
+| `lib/notifee.ts:325` | **REMOVED** `foregroundServiceTypes` — manifest declares `shortService`, code was sending `dataSync`, causing crash on Android 14+ |
+| `lib/notifee.ts:294-295` | Added `_fgStarting`/`_fgActive` guards to prevent duplicate FG start/stop |
+| `lib/notifee.ts:12,359-364` | Added `recentOrderIds` dedup Set (60s TTL) — skip duplicate order notifications |
+| `lib/notifee.ts:15-26` | Extracted `cancelOrderNotifications()` to shared helper (was inline in IncomingOrderModal) |
+| `hooks/useOrderListener.ts:143-162` | Made location check **non-blocking** — if GPS fails or permission denied, order proceeds with warning instead of being dropped |
+| `hooks/useOrderListener.ts:48` | Added 500ms startup delay for subscription setup |
+| `hooks/useOrderListener.ts:99` | `Promise.allSettled` for parallel active orders + skills check |
+| `hooks/useOrderListener.ts:18` | `cleanupRef` for proper subscription teardown |
+| `index.js:37-43` | `_fgRegistered` guard prevents duplicate `registerForegroundService` handlers |
+| `app/(tabs)/_layout.tsx:255-264` | AppState handler debounced (800ms) |
+| `app/(tabs)/_layout.tsx:45-86` | `checkPendingOrders` skip-duplicate logic — don't query if incoming order already exists |
+| `app.json` | compileSdkVersion 34→35, targetSdkVersion 35, added `FOREGROUND_SERVICE_DATA_SYNC` permission |
+
+### Notifee AAR manifest (found in AAR, not source)
+```
+node_modules/@notifee/react-native/android/libs/.../core/.../*.aar
+  → AndroidManifest.xml:
+    <service android:name="app.notifee.core.ForegroundService"
+             android:foregroundServiceType="shortService" />
+```
+- **`shortService`** = Android 14+ type with ~3-minute timeout
+- No `<service android:foregroundServiceType="dataSync">` — hence `dataSync` in notification caused crash
+- This also means FG service auto-stops after ~3 min on Android 14+ (separate issue)
+
+### Fixes applied (cont.)
+| File | Fix |
+|---|---|
+| `plugins/withNotifeeExtendedFgType.js` | **NEW** Expo config plugin — adds `dataSync` to Notifee's `ForegroundService` manifest declaration (changes `shortService` to `dataSync,shortService`), so FG service runs indefinitely on Android 14+ |
+| `app.json` | Registered `withNotifeeExtendedFgType` plugin |
+| `lib/notifee.ts:325` | Restored `foregroundServiceTypes: ['dataSync']` after manifest fix |
+
+### Remaining issues
+- ~~**3-minute FG service timeout**~~ ✅ FIXED via `withNotifeeExtendedFgType` plugin
+- **Redmi Note 13 install failure**: "Aplikasi tidak terinstal" — suspected MIUI Security / Play Protect / APK corruption. Not code-related.
+- **ANR on physical Xiaomi**: Could not reproduce on emulator. May be related to FG service timeout → disconnection → reconnection storm.
+
+### Next test plan
+1. `npx expo run:android` (dev build) — verify no crash on login
+2. Test Terima/Tolak from notification tray (background + killed)
+3. Test broadcast orders with GPS off
+4. Test online/offline toggle rapid switching
+5. EAS build (`eas build --platform android --profile preview`) for standalone test
+
+---
+
+## Previous session (ANDROID_HOME fix — Android SDK CLI tools installed)
 
 ### Problem
 `ANDROID_HOME`指向 `C:\Users\DIGITAL MARKETING\AppData\Local\Android\Sdk` yang tidak ada. Hanya `platform-tools` di `C:\Android\platform-tools`. Akibatnya Expo tidak bisa resolve SDK path dan selalu fallback ke Expo Go.
