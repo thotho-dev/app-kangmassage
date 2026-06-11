@@ -44,8 +44,11 @@ export default function TabLayout() {
 
   const checkPendingOrders = useCallback(async (therapistId: string) => {
     const rejected = useTherapistStore.getState().rejectedOrderIds;
+    const currentIncoming = useTherapistStore.getState().incomingOrder;
+
     const isRejected = (id: string) => rejected.includes(id);
 
+    // Cek notifikasi yang masih tampil
     if (!isExpoGo) {
       try {
         const notifee = await import('@notifee/react-native');
@@ -54,16 +57,16 @@ export default function TabLayout() {
           if (n?.notification?.data?.orderData) {
             const raw = n.notification.data.orderData;
             const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            if (isRejected(orderData.id)) continue;
-            const current = useTherapistStore.getState().incomingOrder;
-            if (orderData.id !== current?.id) {
-              setIncomingOrder(orderData);
-              return;
-            }
+            if (isRejected(orderData.id) || orderData.id === currentIncoming?.id) continue;
+            setIncomingOrder(orderData);
+            return;
           }
         }
       } catch {}
     }
+
+    // Lewati query jika sudah ada incoming order (cegah reset timer)
+    if (currentIncoming) return;
 
     const { data } = await supabase
       .from('orders')
@@ -157,12 +160,14 @@ export default function TabLayout() {
         )
         .subscribe();
 
-      // Cold start: check for pending orders missed while app was killed
-      await checkPendingOrders(p.id);
+      // Cold start: cek pesanan pending — beri jeda biar UI settle dulu
+      setTimeout(() => {
+        checkPendingOrders(p.id);
+      }, 600);
     });
     
     // Handle notification tap that opened the app (cold start)
-    (async () => {
+    setTimeout(async () => {
       try {
         let notifData: any = null;
         if (!isExpoGo) {
@@ -183,7 +188,8 @@ export default function TabLayout() {
             const raw = notifData.orderData;
             const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
             const rejected = useTherapistStore.getState().rejectedOrderIds;
-            if (!rejected.includes(orderData.id)) {
+            const current = useTherapistStore.getState().incomingOrder;
+            if (!rejected.includes(orderData.id) && orderData.id !== current?.id) {
               setIncomingOrder(orderData);
             }
           } else if (notifData.type) {
@@ -193,7 +199,7 @@ export default function TabLayout() {
       } catch (e) {
         console.warn('Failed to process cold-start notification', e);
       }
-    })();
+    }, 400);
 
     // Listen for notification interactions (Foreground)
     let notifeeUnsub: (() => void) | null = null;
@@ -245,12 +251,16 @@ export default function TabLayout() {
       }
     });
 
-    // Detect app returning to foreground → check missed orders
+    // Detect app returning to foreground → check missed orders (debounced)
+    let appStateTimer: ReturnType<typeof setTimeout> | null = null;
     const appStateSub = AppState.addEventListener('change', async (nextState) => {
       if (nextState === 'active') {
-        const p = useTherapistStore.getState().profile;
-        if (!p?.id) return;
-        await checkPendingOrders(p.id);
+        if (appStateTimer) clearTimeout(appStateTimer);
+        appStateTimer = setTimeout(async () => {
+          const p = useTherapistStore.getState().profile;
+          if (!p?.id) return;
+          await checkPendingOrders(p.id);
+        }, 800);
       }
     });
 
@@ -258,6 +268,7 @@ export default function TabLayout() {
       subscription.remove();
       if (notifeeUnsub) notifeeUnsub();
       appStateSub.remove();
+      if (appStateTimer) clearTimeout(appStateTimer);
       unsubscribeDeactivation();
       if (verifyChannel) supabase.removeChannel(verifyChannel);
     };

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useThemeColors } from '@/store/themeStore';
 import { getAppSettings } from '@/lib/appSettings';
-
+import Constants from 'expo-constants';
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,7 +40,7 @@ export default function AboutScreen() {
         </View>
 
         <Text style={styles.appName}>Kang Massage Therapist</Text>
-        <Text style={styles.appVersion}>Versi 1.0.0</Text>
+        <Text style={styles.appVersion}>Versi {Constants.expoConfig?.version || '1.7.1'}</Text>
 
         <View style={styles.descCard}>
           <Text style={styles.descText}>

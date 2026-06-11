@@ -34,11 +34,17 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 // Menjaga proses Android tetap hidup saat terapis sedang online (agar
 // Supabase Realtime tetap terhubung). Mirip seperti Gojek/Grab driver app
 // yang menampilkan notif "Menunggu pesanan..." di status bar.
-notifee.registerForegroundService((_notification) => {
-  // Kembalikan Promise yang tidak pernah resolve = service tetap berjalan.
-  // Service akan dihentikan via notifee.stopForegroundService() saat offline.
+let _fgRegistered = false;
+notifee.registerForegroundService((notification) => {
+  if (_fgRegistered) {
+    console.log('[FGService] Already registered — skip duplicate');
+    return new Promise(() => {});
+  }
+  _fgRegistered = true;
+  console.log('[FGService] Handler registered');
+
   return new Promise(() => {
-    console.log('[FGService] Foreground service started');
+    // Tidak pernah resolve — service berjalan sampai stopForegroundService()
   });
 });
 

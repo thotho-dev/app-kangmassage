@@ -290,44 +290,64 @@ export const initializeNotifee = async () => {
   }
 };
 
+// ── Guard untuk cegah FG service start/stop ganda ──
+let _fgStarting = false;
+let _fgActive = false;
+
 // ── Start Foreground Service (saat terapis online) ───────────────────────────
 // Menampilkan notifikasi persistent "Menunggu pesanan..." di status bar,
 // sekaligus menjaga proses Android tetap hidup seperti Gojek/Grab driver.
 export const startOrderForegroundService = async () => {
   if (isExpoGo) return;
+  if (_fgActive || _fgStarting) {
+    console.log('[FGService] Already active or starting, skipping');
+    return;
+  }
+  _fgStarting = true;
+
   const notifee = await getNotifee();
-  if (!notifee) return;
+  if (!notifee) { _fgStarting = false; return; }
 
   try {
     await notifee.default.displayNotification({
       id: 'therapist-online-service',
-      title: 'Kang Massage Mitra',
-      body: '🟢 Siap menerima pesanan baru',
+      title: 'Ready to Order',
+      body: '🟢 Standby, Menunggu Pesanan Baru!',
       android: {
         channelId: NOTIFICATION_CHANNELS.FOREGROUND,
         asForegroundService: true,
-        ongoing: true,               // Tidak bisa di-swipe
-        onlyAlertOnce: true,         // Tidak bunyi ulang-ulang
+        ongoing: true,
+        onlyAlertOnce: true,
         color: '#1E1B4B',
         smallIcon: 'ic_launcher',
         pressAction: { id: 'default' },
         importance: notifee.AndroidImportance.LOW,
+        foregroundServiceTypes: [notifee.AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC],
       },
     });
+    _fgActive = true;
     console.log('[FGService] Started successfully');
   } catch (e: any) {
     console.warn('[FGService] Failed to start:', e?.message);
+  } finally {
+    _fgStarting = false;
   }
 };
 
 // ── Stop Foreground Service (saat terapis offline) ───────────────────────────
 export const stopOrderForegroundService = async () => {
   if (isExpoGo) return;
+  if (!_fgActive) {
+    console.log('[FGService] Not active, skipping stop');
+    return;
+  }
+
   const notifee = await getNotifee();
   if (!notifee) return;
 
   try {
     await notifee.default.stopForegroundService();
+    _fgActive = false;
     console.log('[FGService] Stopped successfully');
   } catch (e: any) {
     console.warn('[FGService] Failed to stop:', e?.message);
@@ -375,6 +395,20 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
       const notifee = await getNotifee();
       if (notifee) {
         const notifId = `order-${order.id}`;
+
+        // Cek status USE_FULL_SCREEN_INTENT permission sebelum kirim notif
+        let canFullScreen = false;
+        try {
+          canFullScreen = await PermissionsAndroid.check(
+            'android.permission.USE_FULL_SCREEN_INTENT' as any
+          );
+        } catch {}
+
+        const fullScreenAction = canFullScreen ? {
+          id: 'default',
+          launchActivity: 'default',
+        } : undefined;
+
         await notifee.default.displayNotification({
           id: notifId,
           title: isScheduled ? '📅 Booking Terjadwal!' : '🔔 Pesanan Baru Masuk!',
@@ -386,17 +420,29 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
             lights: ['#F97316', 500, 500],
             vibrationPattern: [300, 500, 300, 500],
             color: '#F97316',
-            fullScreenAction: {
-              id: 'default',
-              launchActivity: 'default',
-            },
+            fullScreenAction,
             category: notifee.AndroidCategory.CALL,
             visibility: notifee.AndroidVisibility.PUBLIC,
             importance: notifee.AndroidImportance.HIGH,
+            ongoing: false,
+            pressAction: {
+              id: 'default',
+              launchActivity: 'default',
+            },
             style: {
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
             },
+            actions: [
+              {
+                title: '✅ Terima',
+                pressAction: { id: 'accept', launchActivity: 'default' },
+              },
+              {
+                title: '❌ Tolak',
+                pressAction: { id: 'reject', launchActivity: 'default' },
+              },
+            ],
           },
           ios: {
             categoryId: 'order_action',
@@ -417,16 +463,34 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
           },
         });
 
-        console.log('[Notif] Notifee notification sent with fullScreenAction');
+        console.log(`[Notif] Notifee notification sent (fullScreen: ${canFullScreen})`);
 
-        // Langsung cancel dalam 3 detik — hanya fullscreen popup saja,
-        // tidak ada tray notification yang menetap.
-        setTimeout(async () => {
+        if (!canFullScreen) {
           try {
-            await notifee.default.cancelNotification(notifId);
-            console.log('[Notif] Tray notification cancelled after 3s (fullscreen only)');
+            const granted = await PermissionsAndroid.request(
+              'android.permission.USE_FULL_SCREEN_INTENT' as any,
+              {
+                title: 'Izin Notifikasi Prioritas',
+                message: 'Izinkan Kang Massage menampilkan notifikasi prioritas tinggi untuk pesanan baru.',
+                buttonPositive: 'Izinkan',
+                buttonNegative: 'Tolak',
+              }
+            );
+            if (granted === PermissionsAndroid.RESULTS.DENIED) {
+              setTimeout(() => {
+                Alert.alert(
+                  '🔔 Aktifkan Tampilan Penuh',
+                  'Agar notifikasi pesanan baru muncul langsung di layar kunci:\n\n' +
+                  'Buka: Pengaturan → Aplikasi → Kang Massage Therapist → Notifikasi → Tampilan Penuh → Izinkan',
+                  [
+                    { text: 'Tutup', style: 'cancel' },
+                    { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
+                  ]
+                );
+              }, 500);
+            }
           } catch {}
-        }, 3000);
+        }
         return;
       }
     }
