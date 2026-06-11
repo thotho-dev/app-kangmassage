@@ -215,7 +215,16 @@ export default function TabLayout() {
                 handleNotifNav(notifData.type, notifData);
               }
             } else if (type === 2 && detail?.pressAction?.id && notifData?.orderData) {
-              // ACTION_PRESS — Terima / Tolak from heads-up notification buttons
+              // ACTION_PRESS — user tap notification (tidak ada tombol lagi)
+              if (detail.pressAction.id === 'default') {
+                // Tap default → cancel notif (modal sudah tampil via setIncomingOrder)
+                if (detail.notification?.id) {
+                  notifee.default.cancelNotification(detail.notification.id);
+                }
+                return;
+              }
+
+              // Legacy: masih ada action accept/reject dari notif lama
               const raw = notifData.orderData;
               const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
               const actionId = detail.pressAction.id;

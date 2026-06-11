@@ -147,7 +147,7 @@ export default function LoginScreen() {
           throw new Error('Akun Anda telah dinonaktifkan. Silakan hubungi admin.');
         }
 
-        await supabase.from('therapists').update({ status: 'online' }).eq('id', therapist.id);
+        await supabase.from('therapists').update({ status: 'offline' }).eq('id', therapist.id);
 
         // Cek status registrasi
         const regStep = therapist.registration_step;

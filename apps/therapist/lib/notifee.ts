@@ -130,25 +130,10 @@ export async function showActionResultNotif(orderData: any, result: string) {
 // ── Intercept incoming push notifications for order data ──
 // Ini menangani FCM push saat app foreground — menampilkan Notifee local notif
 // dengan tombol Terima/Tolak di atas push yang datang.
-if (!isExpoGo) {
-  Notifications.addNotificationReceivedListener(notification => {
-    const data = notification?.request?.content?.data;
-    if (data?.orderData) {
-      try {
-        const raw = data.orderData;
-        const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        const profile = useTherapistStore.getState().profile;
-        if (!profile?.id) return;
-        const rejected = useTherapistStore.getState().rejectedOrderIds;
-        if (rejected.includes(orderData.id)) return;
-        useTherapistStore.getState().setIncomingOrder(orderData);
-        displayOrderNotification(orderData, profile.id);
-      } catch (e) {
-        console.warn('[Notif] Failed to process received notification:', e);
-      }
-    }
-  });
-}
+export const NOTIFICATION_CHANNELS = {
+  ORDERS: 'orders_high_priority',
+  FOREGROUND: 'foreground_service',
+};
 
 // ── Expo handler ──
 Notifications.setNotificationHandler({
@@ -161,11 +146,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export const NOTIFICATION_CHANNELS = {
-  ORDERS: 'orders_high_priority',
-  FOREGROUND: 'foreground_service',
-};
-
 const getNotifee = async () => {
   try {
     return await import('@notifee/react-native');
@@ -176,6 +156,31 @@ const getNotifee = async () => {
 
 export const initializeNotifee = async () => {
   try {
+    // ── Intercept incoming push notifications for order data ──
+    if (!isExpoGo) {
+      if ((global as any)._notificationSub) {
+        (global as any)._notificationSub.remove();
+      }
+      
+      (global as any)._notificationSub = Notifications.addNotificationReceivedListener(notification => {
+        const data = notification?.request?.content?.data;
+        if (data?.orderData) {
+          try {
+            const raw = data.orderData;
+            const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const profile = useTherapistStore.getState().profile;
+            if (!profile?.id) return;
+            const rejected = useTherapistStore.getState().rejectedOrderIds;
+            if (rejected.includes(orderData.id)) return;
+            useTherapistStore.getState().setIncomingOrder(orderData);
+            displayOrderNotification(orderData, profile.id);
+          } catch (e) {
+            console.warn('[Notif] Failed to process received notification:', e);
+          }
+        }
+      });
+    }
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -322,7 +327,6 @@ export const startOrderForegroundService = async () => {
         smallIcon: 'ic_launcher',
         pressAction: { id: 'default' },
         importance: notifee.AndroidImportance.LOW,
-        foregroundServiceTypes: [notifee.AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC],
       },
     });
     _fgActive = true;
@@ -396,19 +400,6 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
       if (notifee) {
         const notifId = `order-${order.id}`;
 
-        // Cek status USE_FULL_SCREEN_INTENT permission sebelum kirim notif
-        let canFullScreen = false;
-        try {
-          canFullScreen = await PermissionsAndroid.check(
-            'android.permission.USE_FULL_SCREEN_INTENT' as any
-          );
-        } catch {}
-
-        const fullScreenAction = canFullScreen ? {
-          id: 'default',
-          launchActivity: 'default',
-        } : undefined;
-
         await notifee.default.displayNotification({
           id: notifId,
           title: isScheduled ? '📅 Booking Terjadwal!' : '🔔 Pesanan Baru Masuk!',
@@ -420,7 +411,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
             lights: ['#F97316', 500, 500],
             vibrationPattern: [300, 500, 300, 500],
             color: '#F97316',
-            fullScreenAction,
+            fullScreenAction: { id: 'default', launchActivity: 'default' },
             category: notifee.AndroidCategory.CALL,
             visibility: notifee.AndroidVisibility.PUBLIC,
             importance: notifee.AndroidImportance.HIGH,
@@ -433,16 +424,6 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
             },
-            actions: [
-              {
-                title: '✅ Terima',
-                pressAction: { id: 'accept', launchActivity: 'default' },
-              },
-              {
-                title: '❌ Tolak',
-                pressAction: { id: 'reject', launchActivity: 'default' },
-              },
-            ],
           },
           ios: {
             categoryId: 'order_action',
@@ -463,34 +444,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
           },
         });
 
-        console.log(`[Notif] Notifee notification sent (fullScreen: ${canFullScreen})`);
-
-        if (!canFullScreen) {
-          try {
-            const granted = await PermissionsAndroid.request(
-              'android.permission.USE_FULL_SCREEN_INTENT' as any,
-              {
-                title: 'Izin Notifikasi Prioritas',
-                message: 'Izinkan Kang Massage menampilkan notifikasi prioritas tinggi untuk pesanan baru.',
-                buttonPositive: 'Izinkan',
-                buttonNegative: 'Tolak',
-              }
-            );
-            if (granted === PermissionsAndroid.RESULTS.DENIED) {
-              setTimeout(() => {
-                Alert.alert(
-                  '🔔 Aktifkan Tampilan Penuh',
-                  'Agar notifikasi pesanan baru muncul langsung di layar kunci:\n\n' +
-                  'Buka: Pengaturan → Aplikasi → Kang Massage Therapist → Notifikasi → Tampilan Penuh → Izinkan',
-                  [
-                    { text: 'Tutup', style: 'cancel' },
-                    { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
-                  ]
-                );
-              }, 500);
-            }
-          } catch {}
-        }
+        console.log(`[Notif] Notifee notification sent with fullScreenAction`);
         return;
       }
     }
