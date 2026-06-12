@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "448632334958",
+    "project_id": "kang-massage-9d445",
+    "storage_bucket": "kang-massage-9d445.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:448632334958:android:281c23e7886e0fa7c3947f",
+        "android_client_info": {
+          "package_name": "com.kang-massage.kangmassagetherapist"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC3Qtmnw29hkoBtYXiEMhQHUX5RsQa0bU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:448632334958:android:27199b6803c83892c3947f",
+        "android_client_info": {
+          "package_name": "com.thotho.kangmassage.user"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC3Qtmnw29hkoBtYXiEMhQHUX5RsQa0bU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

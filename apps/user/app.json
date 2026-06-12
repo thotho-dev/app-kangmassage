@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Kang Massage",
-    "slug": "kang-massage",
+    "slug": "kang-massage-customer",
     "version": "1.0.0",
     "android": {
       "package": "com.thotho.kangmassage.user",
@@ -36,7 +36,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c8845bdc-1012-476f-b835-26b65bed6fa9"
+        "projectId": "18ef24ef-7af9-4c07-aad0-8f7e5251a618"
       }
     },
     "owner": "kang-massage"
