@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "833efa71-49b5-419c-af6a-070a19e380b5"
+      }
+    },
+    "android": {
+      "package": "com.rmhbgr.pijatondemand"
+    }
+  }
+}

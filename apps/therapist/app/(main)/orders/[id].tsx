@@ -54,7 +54,7 @@ const MOCK_ORDER = {
 
 // ─── Accordion ─────────────────────────────────────────────────────────────────
 function Accordion({ title, icon, color, children, t }: any) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const anim = useRef(new Animated.Value(0)).current;
 
   const toggle = () => {
@@ -822,27 +822,30 @@ export default function OrderDetailScreen() {
   const handleCancel = async () => {
     if (!order) return;
     
-    showAlert('warning', 'Batalkan Pesanan?', 'Apakah Anda yakin ingin membatalkan pesanan ini? Tindakan ini tidak dapat dibatalkan.', [
+    showAlert('warning', 'Kembalikan ke Antrian?', 'Pesanan akan dikembalikan ke antrian dan terapis lain bisa mengambilnya.', [
       { text: 'Tidak', style: 'cancel' },
       { 
-        text: 'Ya, Batalkan', 
+        text: 'Ya, Kembalikan', 
         style: 'destructive',
         onPress: async () => {
           try {
-            const { error } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id);
+            const { error } = await supabase
+              .from('orders')
+              .update({ status: 'pending', therapist_id: null, updated_at: new Date().toISOString() })
+              .eq('id', order.id);
             if (error) throw error;
 
             // Add log entry
             await supabase.from('order_logs').insert({
               order_id: order.id,
-              status: 'cancelled',
-              note: 'Dibatalkan oleh terapis'
+              status: 'pending',
+              note: 'Dikembalikan ke antrian oleh terapis'
             });
 
-            fetchOrder(); // Update local state instead of immediate back
+            router.back();
           } catch (error) {
-            console.error('Error cancelling order:', error);
-            showAlert('error', 'Gagal', 'Terjadi kesalahan saat membatalkan pesanan.');
+            console.error('Error returning order to queue:', error);
+            showAlert('error', 'Gagal', 'Terjadi kesalahan saat mengembalikan pesanan.');
           }
         }
       }
