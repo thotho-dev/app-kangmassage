@@ -13,22 +13,28 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   const { notification, pressAction } = detail;
 
   // ACTION_PRESS: user menekan tombol di notification tray
-  // Tombol Terima/Tolak sudah dihapus — hanya ada pressAction 'default' (tap notif untuk buka app)
   if (type === EventType.ACTION_PRESS && pressAction?.id && notification?.data?.orderData) {
+    const raw = notification.data.orderData;
+    const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
     if (pressAction.id === 'default') {
-      // Default tap — buka app (cold start code di _layout.tsx akan handle)
+      // Default tap — store for navigation on resume, then cancel notif
+      if (orderData?.id) {
+        global._pendingOrderNavId = orderData.id;
+      }
       await notifee.cancelNotification(notification.id).catch(() => {});
       return;
     }
 
     const { processOrderActionBackground } = require('./lib/notifeeBackground');
-    const raw = notification.data.orderData;
-    const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
     console.log(`[BGHandler] Action pressed: ${pressAction.id} for order: ${orderData?.id}`);
 
     // Proses accept/reject via Supabase langsung (tanpa Zustand)
-    await processOrderActionBackground(pressAction.id, orderData, notification?.id);
+    const result = await processOrderActionBackground(pressAction.id, orderData, notification?.id);
+    if (pressAction.id === 'accept' && result === 'success' && orderData?.id) {
+      global._pendingOrderNavId = orderData.id;
+    }
   }
 
   // DISMISSED: user swipe dismiss notifikasi

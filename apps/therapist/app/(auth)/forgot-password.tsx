@@ -25,7 +25,15 @@ export default function ForgotPasswordScreen() {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
   const otpInputs = useRef<Array<TextInput | null>>([]);
+
+  const startTimer = () => {
+    setTimer(60);
+    const interval = setInterval(() => {
+      setTimer(t => { if (t <= 1) { clearInterval(interval); return 0; } return t - 1; });
+    }, 1000);
+  };
 
   const stepInfo = {
     phone: { icon: 'phone-portrait-outline', title: 'Lupa Kata Sandi', subtitle: 'Masukkan nomor telepon Anda untuk reset kata sandi' },
@@ -52,7 +60,13 @@ export default function ForgotPasswordScreen() {
         CustomAlertTrigger.show({ type: 'error', title: 'Error', message: data.error || 'Gagal mengirim OTP' });
         return;
       }
-      CustomAlertTrigger.show({ type: 'success', title: 'Berhasil', message: 'OTP terkirim ke WhatsApp/Email' });
+      if (!data.fonnte_configured) {
+        CustomAlertTrigger.show({ type: 'warning', title: 'Mode Development', message: `Gunakan kode OTP: ${data.otp || '(lihat log server)'}` });
+      } else if (!data.fonnte_sent && data.otp) {
+        CustomAlertTrigger.show({ type: 'warning', title: 'WhatsApp Gagal', message: `Gagal kirim via WhatsApp. Gunakan kode: ${data.otp}`, buttons: [{ text: 'OK' }] });
+      }
+      CustomAlertTrigger.show({ type: 'success', title: 'Berhasil', message: 'OTP terkirim ke WhatsApp' });
+      startTimer();
       setStep('otp');
     } catch (e: any) {
       CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Gagal terhubung ke server. Periksa koneksi Anda.' });
@@ -63,29 +77,60 @@ export default function ForgotPasswordScreen() {
 
   useEffect(() => {
     if (step !== 'otp') return;
-    const t = setTimeout(async () => {
+    const interval = setInterval(async () => {
       try {
         const text = await Clipboard.getStringAsync();
         const match = text?.match(/\b(\d{6})\b/);
-        if (match) {
+        if (match && otp.join('') !== match[1]) {
           const code = match[1].split('');
           setOtp(code);
           otpInputs.current[5]?.focus();
+          handleVerifyOtp(match[1]);
         }
       } catch { }
-    }, 800);
-    return () => clearTimeout(t);
-  }, [step]);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [step, otp]);
+
+  const handleResendOtp = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/otp/forgot-send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, role: 'therapist' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        CustomAlertTrigger.show({ type: 'error', title: 'Error', message: data.error || 'Gagal mengirim ulang OTP' });
+        return;
+      }
+      if (!data.fonnte_configured) {
+        CustomAlertTrigger.show({ type: 'warning', title: 'Mode Development', message: `Gunakan kode OTP: ${data.otp || '(lihat log server)'}` });
+      } else if (!data.fonnte_sent && data.otp) {
+        CustomAlertTrigger.show({ type: 'warning', title: 'WhatsApp Gagal', message: `Gagal kirim via WhatsApp. Gunakan kode: ${data.otp}`, buttons: [{ text: 'OK' }] });
+      }
+      CustomAlertTrigger.show({ type: 'success', title: 'Berhasil', message: 'OTP telah dikirim ulang' });
+      startTimer();
+    } catch {
+      CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Gagal terhubung ke server.' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOTPChange = (val: string, idx: number) => {
     const newOtp = [...otp];
     newOtp[idx] = val;
     setOtp(newOtp);
     if (val && idx < 5) otpInputs.current[idx + 1]?.focus();
+    if (newOtp.every(d => d !== '') && newOtp.join('').length === 6) {
+      handleVerifyOtp(newOtp.join(''));
+    }
   };
 
-  const handleVerifyOtp = async () => {
-    const code = otp.join('');
+  const handleVerifyOtp = async (directCode?: string) => {
+    const code = directCode || otp.join('');
     if (code.length !== 6) {
       CustomAlertTrigger.show({ type: 'error', title: 'Error', message: 'Masukkan kode OTP 6 digit' });
       return;
@@ -161,7 +206,7 @@ export default function ForgotPasswordScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => step === 'phone' ? router.back() : setStep(step === 'otp' ? 'phone' : 'otp')}>
           <Ionicons name="arrow-back" size={24} color={t.text} />
         </TouchableOpacity>
-
+        
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Steps */}
           <View style={styles.stepRow}>
@@ -193,7 +238,7 @@ export default function ForgotPasswordScreen() {
                 </View>
               </>
             )}
-            {step === 'otp' && (
+              {step === 'otp' && (
               <>
                 <Text style={[styles.label, { textAlign: 'center' }]}>Kode OTP (6 digit)</Text>
                 <View style={styles.otpRow}>
@@ -217,6 +262,13 @@ export default function ForgotPasswordScreen() {
                     />
                   ))}
                 </View>
+                {timer > 0 ? (
+                  <Text style={[styles.timerText, { marginTop: SPACING.sm }]}>Kirim ulang dalam {timer} detik</Text>
+                ) : (
+                  <TouchableOpacity onPress={handleResendOtp} disabled={loading} style={{ marginTop: SPACING.sm }}>
+                    <Text style={styles.resendText}>Kirim ulang OTP</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
             {step === 'password' && (
@@ -275,6 +327,7 @@ export default function ForgotPasswordScreen() {
 const getStyles = (t: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.background },
   backBtn: { position: 'absolute', top: 52, left: SPACING.lg, padding: SPACING.sm, zIndex: 10 },
+
   scroll: { alignItems: 'center', padding: SPACING.lg, paddingTop: 100, paddingBottom: 40 },
   stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xl },
   stepWrap: { flexDirection: 'row', alignItems: 'center' },
@@ -297,6 +350,8 @@ const getStyles = (t: any) => StyleSheet.create({
   otpRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', marginBottom: SPACING.md },
   otpBox: { width: 44, height: 56, borderRadius: RADIUS.md, backgroundColor: t.background, borderWidth: 1.5, borderColor: t.border, ...TYPOGRAPHY.h3, color: t.text },
   otpBoxFilled: { borderColor: t.primary, backgroundColor: t.primary + '05' },
+  timerText: { ...TYPOGRAPHY.bodySmall, color: t.textMuted, textAlign: 'center' },
+  resendText: { ...TYPOGRAPHY.bodySmall, color: t.primary, textAlign: 'center', fontFamily: 'Inter_700Bold' },
   ruleChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full, borderWidth: 1 },
   ruleText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
   btn: {

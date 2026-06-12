@@ -134,9 +134,12 @@ export default function TabLayout() {
       });
 
       // Subscribe realtime untuk verifikasi / revisi
-      if (verifyChannel) supabase.removeChannel(verifyChannel);
+      if (verifyChannel) {
+        supabase.removeChannel(verifyChannel);
+        verifyChannel = null;
+      }
       verifyChannel = supabase
-        .channel('therapist-verify')
+        .channel(`therapist-verify-${p.id}-${Date.now()}`)
         .on('postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'therapists', filter: `id=eq.${p.id}` },
           (payload) => {
@@ -199,6 +202,13 @@ export default function TabLayout() {
       } catch (e) {
         console.warn('Failed to process cold-start notification', e);
       }
+
+      // Check for pending navigation from background notification tap
+      const pendingId = (global as any)._pendingOrderNavId;
+      if (pendingId) {
+        (global as any)._pendingOrderNavId = null;
+        router.push(`/orders/${pendingId}`);
+      }
     }, 400);
 
     // Listen for notification interactions (Foreground)
@@ -215,9 +225,15 @@ export default function TabLayout() {
                 handleNotifNav(notifData.type, notifData);
               }
             } else if (type === 2 && detail?.pressAction?.id && notifData?.orderData) {
-              // ACTION_PRESS — user tap notification (tidak ada tombol lagi)
+              // ACTION_PRESS — user tap notification
+              const raw = notifData.orderData;
+              const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+
               if (detail.pressAction.id === 'default') {
-                // Tap default → cancel notif (modal sudah tampil via setIncomingOrder)
+                // Tap default → navigate to order page
+                if (orderData?.id) {
+                  router.push(`/orders/${orderData.id}`);
+                }
                 if (detail.notification?.id) {
                   notifee.default.cancelNotification(detail.notification.id);
                 }
@@ -225,14 +241,15 @@ export default function TabLayout() {
               }
 
               // Legacy: masih ada action accept/reject dari notif lama
-              const raw = notifData.orderData;
-              const orderData = typeof raw === 'string' ? JSON.parse(raw) : raw;
               const actionId = detail.pressAction.id;
 
               import('@/lib/notifee').then(({ processOrderAction, showActionResultNotif }) => {
                 processOrderAction(actionId, orderData).then(result => {
                   if (actionId === 'accept' && (result === 'success' || result === 'taken' || result === 'gone')) {
                     showActionResultNotif(orderData, result);
+                    if (result === 'success' && orderData?.id) {
+                      router.push(`/orders/${orderData.id}`);
+                    }
                   }
                 });
               });
@@ -269,6 +286,13 @@ export default function TabLayout() {
           const p = useTherapistStore.getState().profile;
           if (!p?.id) return;
           await checkPendingOrders(p.id);
+
+          // Navigate to order page if triggered by background notification tap
+          const pendingId = (global as any)._pendingOrderNavId;
+          if (pendingId) {
+            (global as any)._pendingOrderNavId = null;
+            router.push(`/orders/${pendingId}`);
+          }
         }, 800);
       }
     });

@@ -20,6 +20,7 @@ export default function SplashScreen() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.');
+  const navigated = useRef(false);
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
@@ -115,8 +116,14 @@ export default function SplashScreen() {
         return;
       }
 
+      if (navigated.current) return;
+      const go = (route: string) => {
+        navigated.current = true;
+        setTimeout(() => router.replace(route as any), 0);
+      };
+
       const done = await SecureStore.getItemAsync('onboarding_completed');
-      if (!done) { router.replace('/onboarding'); return; }
+      if (!done) { go('/onboarding'); return; }
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -128,18 +135,18 @@ export default function SplashScreen() {
         if (therapist && therapist.is_active !== false) {
           const step = therapist.registration_step;
           if (step === 'pending' || step === 'otp_sent') {
-            router.replace('/(auth)/register-otp');
+            go('/(auth)/register-otp');
           } else if (step === 'otp_verified') {
-            router.replace('/(auth)/register?continue=1');
+            go('/(auth)/register?continue=1');
           } else {
             // Cek pending order duluan sebelum navigasi ke tabs
             checkPendingOrders(therapist.id);
-            router.replace('/(tabs)');
+            go('/(tabs)');
           }
           return;
         }
       }
-      router.replace('/(auth)/login');
+      go('/(auth)/login');
     };
 
     performSetup();

@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Kang Massage Mitra",
-    "slug": "pijat-therapist",
+    "slug": "kang-massage",
+    "scheme": "kang-massage-mitra",
     "version": "2.0.1",
     "ios": {
       "supportsTablet": true,
@@ -51,22 +52,29 @@
       ],
       "expo-secure-store",
       "expo-font",
-      ["expo-build-properties", {
-        "android": {
-          "useLegacyPackaging": true,
-          "buildArchs": ["armeabi-v7a", "arm64-v8a", "x86_64"],
-          "minSdkVersion": 24,
-          "compileSdkVersion": 35,
-          "targetSdkVersion": 35
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "useLegacyPackaging": true,
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a",
+              "x86_64"
+            ],
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35
+          }
         }
-      }]
+      ]
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ebf580f7-7482-41e0-b221-aa2495fc4f3e"
+        "projectId": "c8edf540-4d5a-4072-8623-77c5e8f443e2"
       }
     },
-    "owner": "rmhbgr"
+    "owner": "kang-massage"
   }
 }

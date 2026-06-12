@@ -375,6 +375,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
   const price = order.service_price || order.total_price || 0;
   const address = order.address || 'Alamat tidak tersedia';
   const isScheduled = !!order.scheduled_at;
+  const avatarUrl = order.users?.avatar_url;
 
   const lines: string[] = [];
   lines.push(`👤 Pelanggan: ${userName}`);
@@ -404,7 +405,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
         await notifee.default.displayNotification({
           id: notifId,
           title: isScheduled ? '📅 Booking Terjadwal!' : '🔔 Pesanan Baru Masuk!',
-          body: `${userName} · ${serviceName}`,
+          body: `${userName} · ${serviceName} · Rp ${price.toLocaleString('id-ID')}`,
           android: {
             channelId: NOTIFICATION_CHANNELS.ORDERS,
             sound: 'sound_notifee',
@@ -416,7 +417,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
             category: notifee.AndroidCategory.CALL,
             visibility: notifee.AndroidVisibility.PUBLIC,
             importance: notifee.AndroidImportance.HIGH,
-            ongoing: false,
+            ongoing: true,
             pressAction: {
               id: 'default',
               launchActivity: 'default',
@@ -425,6 +426,21 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
               type: notifee.AndroidStyle.BIGTEXT,
               text: bodyText,
             },
+            ...(avatarUrl && { largeIcon: avatarUrl }),
+            actions: [
+              {
+                title: '❌ TOLAK',
+                pressAction: {
+                  id: 'reject',
+                },
+              },
+              {
+                title: '✅ TERIMA',
+                pressAction: {
+                  id: 'accept',
+                },
+              },
+            ],
           },
           ios: {
             categoryId: 'order_action',

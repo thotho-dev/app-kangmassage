@@ -9,8 +9,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Phone, OTP, dan password baru diperlukan' }, { status: 400 });
     }
 
-    if (new_password.length < 6) {
-      return NextResponse.json({ error: 'Kata sandi minimal 6 karakter' }, { status: 400 });
+    if (new_password.length < 8) {
+      return NextResponse.json({ error: 'Kata sandi minimal 8 karakter' }, { status: 400 });
+    }
+    if (!/[A-Z]/.test(new_password)) {
+      return NextResponse.json({ error: 'Kata sandi harus mengandung huruf besar' }, { status: 400 });
+    }
+    if (!/[0-9]/.test(new_password)) {
+      return NextResponse.json({ error: 'Kata sandi harus mengandung angka' }, { status: 400 });
     }
 
     let normalizedPhone = phone.replace(/\D/g, '');

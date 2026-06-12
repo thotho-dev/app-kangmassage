@@ -19,13 +19,13 @@ export async function processOrderActionBackground(
   actionId: 'accept' | 'reject' | string,
   orderData: any,
   notificationId?: string
-): Promise<void> {
+): Promise<string> {
   try {
     // ── Ambil sesi user dari Supabase (tersimpan di AsyncStorage) ──
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       console.warn('[BGHandler] No authenticated user in background');
-      return;
+      return 'error';
     }
 
     // ── Ambil profil terapis ──
@@ -37,7 +37,7 @@ export async function processOrderActionBackground(
 
     if (therapistError || !therapist) {
       console.warn('[BGHandler] Therapist profile not found in background');
-      return;
+      return 'error';
     }
 
     // ── Cancel notifikasi order ──
@@ -62,7 +62,7 @@ export async function processOrderActionBackground(
       if (error) {
         console.error('[BGHandler] Accept error:', error.message);
         await showResultNotif('error', 'Gagal memproses pesanan');
-        return;
+        return 'error';
       }
 
       if (!data || data.length === 0) {
@@ -75,10 +75,11 @@ export async function processOrderActionBackground(
 
         if (check?.status === 'accepted' && check?.therapist_id !== therapist.id) {
           await showResultNotif('taken');
+          return 'taken';
         } else {
           await showResultNotif('gone');
+          return 'gone';
         }
-        return;
       }
 
       // ── Sukses: notif ke pelanggan ──
@@ -97,6 +98,7 @@ export async function processOrderActionBackground(
 
       await showResultNotif('success', orderData.services?.name || 'Layanan Pijat');
       console.log('[BGHandler] Order accepted:', orderData.id);
+      return 'success';
     }
 
     // ── Proses TOLAK ───────────────────────────────────────────────
@@ -117,10 +119,12 @@ export async function processOrderActionBackground(
       }
       // Untuk pesanan broadcast → cukup dismiss (terapis lain masih bisa ambil)
       console.log('[BGHandler] Order rejected:', orderData.id);
+      return 'rejected';
     }
 
   } catch (err: any) {
     console.error('[BGHandler] processOrderActionBackground error:', err?.message);
+    return 'error';
   }
 }
 

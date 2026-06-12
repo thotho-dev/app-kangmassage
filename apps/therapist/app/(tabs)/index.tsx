@@ -47,6 +47,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
   const [networkType, setNetworkType] = useState<string>('Unknown');
+  const [latency, setLatency] = useState<number | null>(null);
   const [currentAddress, setCurrentAddress] = useState('Mencari lokasi...');
   const [therapistLoc, setTherapistLoc] = useState<{latitude: number, longitude: number} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -136,17 +137,56 @@ export default function DashboardScreen() {
       
       if (!state.isConnected) {
         setNetworkType('Offline');
+        setLatency(null);
         return;
       }
 
-      let type = 'Stabil'; // Default jika terhubung tapi tipe tidak spesifik
+      let type = 'Seluler';
       if (state.type === 'WIFI') type = 'WiFi';
-      else if (state.type === 'CELLULAR') type = 'Cellular';
-      
-      setNetworkType(type);
+
+      const start = Date.now();
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+        
+        await fetch('https://jfnuusbujagpbzunaomc.supabase.co/rest/v1/', {
+          method: 'GET',
+          headers: {
+            apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmbnV1c2J1amFncGJ6dW5hb21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MDUxNzUsImV4cCI6MjA5MzI4MTE3NX0.HA3q4S6oTtd2RAQuuHR5fYY9a0qAKz5yV05Ho-SDyMU',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        const pingTime = Date.now() - start;
+        setLatency(pingTime);
+        setNetworkType(type);
+      } catch (err) {
+        setNetworkType('RTO');
+        setLatency(null);
+      }
     } catch (e) {
       setNetworkType('Stabil');
+      setLatency(null);
     }
+  };
+
+  const getSignalColor = () => {
+    if (networkType === 'Offline') return t.danger;
+    if (networkType === 'RTO') return t.danger;
+    if (latency === null) return '#10B981';
+    if (latency > 300) return t.warning; // Buruk / Lambat (Kuning/Orange)
+    return '#10B981'; // Bagus (Hijau)
+  };
+
+  const getNetworkText = () => {
+    if (networkType === '(Offline)') return '(Offline)';
+    if (networkType === 'RTO') return '(Buruk)';
+    if (latency !== null) {
+      const status = latency > 300 ? '(Buruk)' : '(Bagus)';
+      return `${networkType} ${status}`;
+    }
+    return networkType === 'Unknown' ? '(Bagus)' : networkType;
   };
 
   const fetchDashboardData = async () => {
@@ -314,14 +354,14 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.networkBadge}>
-              <View style={[styles.signalDot, { backgroundColor: networkType === 'Offline' ? t.danger : (networkType === 'No Signal' ? t.warning : '#10B981') }]} />
+              <View style={[styles.signalDot, { backgroundColor: getSignalColor() }]} />
               <Ionicons 
                 name={networkType === 'WiFi' ? 'wifi' : 'stats-chart'} 
                 size={14} 
                 color="#FFFFFF" 
                 style={{ opacity: 0.8 }}
               />
-              <Text style={styles.networkText}>{networkType}</Text>
+              <Text style={styles.networkText}>{getNetworkText()}</Text>
             </View>
           </View>
           

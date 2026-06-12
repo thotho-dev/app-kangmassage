@@ -40,6 +40,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Invalidate existing OTPs for this phone
+    await supabase.from('otp_codes').update({ is_used: true }).eq('phone', normalizedPhone).eq('is_used', false);
+
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[${requestId}] Generated OTP: ${otp}`);
@@ -70,28 +73,31 @@ export async function POST(req: NextRequest) {
       const message = `*${otp}* adalah kode verifikasi Kang Massage Anda. Jangan bagikan kode ini kepada siapa pun.`;
       console.log(`[${requestId}] Sending via Fonnte - local number: ${localNumber}`);
 
-      try {
-        const fonnteResponse = await fetch('https://api.fonnte.com/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': fonnteToken,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            target: localNumber,
-            message,
-            countryCode: '62',
-          }),
-        });
-
-        const fonnteResult = await fonnteResponse.json();
-        console.log(`[${requestId}] Fonnte response status: ${fonnteResponse.status}, body:`, JSON.stringify(fonnteResult));
-
-        if (!fonnteResponse.ok) {
-          console.error(`[${requestId}] Fonnte API error:`, JSON.stringify(fonnteResult));
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          const fonnteRes = await fetch('https://api.fonnte.com/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': fonnteToken,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ target: localNumber, message, countryCode: '62' }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          const fonnteData = await fonnteRes.json();
+          console.log(`[${requestId}] Fonnte attempt ${attempt + 1} status: ${fonnteRes.status}, body:`, JSON.stringify(fonnteData));
+          if (fonnteRes.ok && fonnteData?.status !== false) {
+            console.log(`[${requestId}] Fonnte sent successfully`);
+            break;
+          }
+          console.warn(`[${requestId}] Fonnte attempt ${attempt + 1} failed:`, JSON.stringify(fonnteData));
+        } catch (fetchError: any) {
+          console.warn(`[${requestId}] Fonnte attempt ${attempt + 1} error:`, fetchError.message);
         }
-      } catch (fetchError: any) {
-        console.error(`[${requestId}] Fonnte fetch error:`, fetchError.message);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
       }
     } else {
       console.log(`[${requestId}] FONNTE_API_KEY not set — dev fallback`);
