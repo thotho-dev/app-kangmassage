@@ -12,7 +12,8 @@ CREATE EXTENSION IF NOT EXISTS "postgis"; -- For geospatial queries (optional, f
 
 CREATE TYPE user_role AS ENUM ('user', 'therapist', 'admin');
 CREATE TYPE order_status AS ENUM (
-  'pending',       -- Order placed, searching for therapist
+  'pending',       -- Order placed, searching for therapist (or paid & ready for matching)
+  'awaiting_payment', -- Payment gateway: waiting for user to pay
   'accepted',      -- Therapist accepted
   'on_the_way',    -- Therapist heading to customer
   'in_progress',   -- Session started

@@ -75,8 +75,10 @@ export async function POST(req: NextRequest) {
         bsi_va: 'bsi', cimb_va: 'cimb',
       };
       midtransBody.bank_transfer = { bank: bankMap[payment_method] || 'bca' };
-    } else if (['dana', 'ovo', 'linkaja'].includes(payment_method)) {
+    } else if (['qris', 'dana', 'ovo', 'linkaja', 'shopeepay'].includes(payment_method)) {
       midtransBody.payment_type = 'qris';
+    } else if (payment_method === 'gopay') {
+      midtransBody.payment_type = 'gopay';
     } else {
       return NextResponse.json({ error: `Unsupported payment method: ${payment_method}` }, { status: 400 });
     }
@@ -105,10 +107,20 @@ export async function POST(req: NextRequest) {
       payment_method,
     };
 
-    if (['dana', 'ovo', 'linkaja'].includes(payment_method)) {
+    if (['qris', 'dana', 'ovo', 'linkaja', 'shopeepay'].includes(payment_method)) {
       const qrAction = (midtransData.actions || []).find((a: any) => a.name === 'generate-qr-code');
       formattedData.type = 'qris';
       formattedData.qr_string = midtransData.qr_string || qrAction?.url;
+    } else if (payment_method === 'gopay') {
+      const actions = midtransData.actions || [];
+      const deeplinkAction = actions.find((a: any) => a.name === 'deeplink-redirect');
+      const qrCodeAction = actions.find((a: any) => a.name === 'generate-qr-code');
+      formattedData.type = 'ewallet';
+      formattedData.qr_string = midtransData.qr_string || qrCodeAction?.url;
+      formattedData.actions = {
+        mobile_web_checkout_url: deeplinkAction?.url,
+        deeplink_checkout_url: deeplinkAction?.url,
+      };
     } else if (payment_method === 'mandiri_va') {
       formattedData.type = 'va';
       formattedData.bank_code = 'MANDIRI';

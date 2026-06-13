@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Image, ActivityIndicator, RefreshControl, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, StatusBar, Image, ActivityIndicator, RefreshControl, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { id as idID } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const PURPLE = '#240080';
 const BG = '#F5F5F7';
@@ -25,6 +26,7 @@ export default function VouchersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { address } = useLocation();
   const { profile } = useAuth();
+  const insets = useSafeAreaInsets();
   
   useFocusEffect(
     useCallback(() => {
@@ -197,58 +199,76 @@ export default function VouchersScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PURPLE} />
-        }
-      >
-        {loading && !refreshing ? (
-          <View>
-            {[1, 2, 3, 4].map(i => (
-              <View key={i} style={styles.voucherCard}>
-                <View style={[styles.voucherLeft, { opacity: 0.3 }]} />
-                <View style={styles.voucherRight}>
-                  <View style={styles.mainInfo}>
-                    <Skeleton width="60%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
-                    <Skeleton width="90%" height={10} borderRadius={4} style={{ marginBottom: 12 }} />
-                    <Skeleton width="40%" height={22} borderRadius={4} />
-                  </View>
-                  <View style={styles.footerInfo}>
-                    <Skeleton width="50%" height={12} borderRadius={4} />
-                    <Skeleton width={60} height={28} borderRadius={15} />
-                  </View>
+      {loading && !refreshing ? (
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          {[1, 2, 3, 4].map(i => (
+            <View key={i} style={styles.voucherCard}>
+              <View style={[styles.voucherLeft, { opacity: 0.3 }]} />
+              <View style={styles.voucherRight}>
+                <View style={styles.mainInfo}>
+                  <Skeleton width="60%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                  <Skeleton width="90%" height={10} borderRadius={4} style={{ marginBottom: 12 }} />
+                  <Skeleton width="40%" height={22} borderRadius={4} />
                 </View>
-                <View style={styles.cutoutTop} />
-                <View style={styles.cutoutBottom} />
-                <View style={styles.divider} />
+                <View style={styles.footerInfo}>
+                  <Skeleton width="50%" height={12} borderRadius={4} />
+                  <Skeleton width={60} height={28} borderRadius={15} />
+                </View>
               </View>
-            ))}
-          </View>
-        ) : vouchers.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ticket size={48} color={TEXT_MUTED} opacity={0.2} />
+              <View style={styles.cutoutTop} />
+              <View style={styles.cutoutBottom} />
+              <View style={styles.divider} />
             </View>
-            <Text style={styles.emptyTitle}>Belum Ada Voucher</Text>
-            <Text style={styles.emptySubtitle}>Pantau terus halaman ini untuk promo menarik lainnya.</Text>
+          ))}
+          <View style={styles.infoBox}>
+            <Info size={16} color={TEXT_MUTED} />
+            <Text style={styles.infoText}>Voucher dapat digunakan saat proses pemesanan layanan.</Text>
           </View>
-        ) : (
-          vouchers.map((item) => {
+        </ScrollView>
+      ) : (
+        <FlatList
+          data={[...vouchers].sort((a, b) => {
+            const va = checkVoucherValidity(a);
+            const vb = checkVoucherValidity(b);
+            if (va.valid && !vb.valid) return -1;
+            if (!va.valid && vb.valid) return 1;
+            return 0;
+          })}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PURPLE} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconCircle}>
+                <Ticket size={48} color={TEXT_MUTED} opacity={0.2} />
+              </View>
+              <Text style={styles.emptyTitle}>Belum Ada Voucher</Text>
+              <Text style={styles.emptySubtitle}>Pantau terus halaman ini untuk promo menarik lainnya.</Text>
+            </View>
+          }
+          ListFooterComponent={
+            <View style={styles.infoBox}>
+              <Info size={16} color={TEXT_MUTED} />
+              <Text style={styles.infoText}>Voucher dapat digunakan saat proses pemesanan layanan.</Text>
+            </View>
+          }
+          renderItem={({ item }) => {
             const { valid, reason } = checkVoucherValidity(item);
             return (
               <TouchableOpacity 
-                key={item.id} 
                 style={[styles.voucherCard, !valid && { opacity: 0.6 }]}
                 onPress={() => router.push({ pathname: '/voucher-detail/[id]', params: { id: item.id } })}
               >
+                <View style={[styles.statusDot, { backgroundColor: valid ? '#22C55E' : '#D1D5DB' }]} />
                 <View style={styles.voucherLeft}>
+                  <View style={styles.decoCircleS} />
+                  <View style={styles.decoCircleM} />
                   <View style={styles.leftContent}>
                     {item.image_url ? (
                       <Image source={{ uri: item.image_url }} style={styles.voucherImage} />
                     ) : (
                       <View style={styles.iconCircle}>
-                        <Ticket size={24} color="#FFFFFF" fill="#FFFFFF" />
+                        <Ticket size={24} color="#EA580C" />
                       </View>
                     )}
                   </View>
@@ -310,14 +330,9 @@ export default function VouchersScreen() {
                 <View style={styles.divider} />
               </TouchableOpacity>
             );
-          })
-        )}
-
-        <View style={styles.infoBox}>
-          <Info size={16} color={TEXT_MUTED} />
-          <Text style={styles.infoText}>Voucher dapat digunakan saat proses pemesanan layanan.</Text>
-        </View>
-      </ScrollView>
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -368,9 +383,36 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
+  statusDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    zIndex: 10,
+  },
+  decoCircleS: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(234,88,12,0.06)',
+  },
+  decoCircleM: {
+    position: 'absolute',
+    bottom: -15,
+    left: -15,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(234,88,12,0.05)',
+  },
   voucherLeft: {
     width: '28%',
-    backgroundColor: PURPLE,
+    backgroundColor: '#FFF7ED',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -383,7 +425,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#FFEDD5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -412,19 +454,19 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   voucherTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#1A1A1A',
   },
   voucherDescription: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'PlusJakartaSans-Medium',
     color: '#6B7280',
   },
   voucherDiscount: {
-    fontSize: 18,
+    fontSize: 15,
     fontFamily: 'PlusJakartaSans-Bold',
-    color: PURPLE,
+    color: '#EA580C',
   },
   discountRow: {
     flexDirection: 'row',
@@ -443,7 +485,7 @@ const styles = StyleSheet.create({
     borderColor: '#FEE2E2',
   },
   invalidText: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#EF4444',
   },
@@ -458,22 +500,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   voucherExpiry: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: '#9CA3AF',
   },
   useButton: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#FFF7ED',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(91, 42, 134, 0.1)',
+    borderColor: '#FED7AA',
   },
   useButtonText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Bold',
-    color: PURPLE,
+    color: '#EA580C',
   },
   cutoutTop: {
     position: 'absolute',
@@ -505,7 +547,7 @@ const styles = StyleSheet.create({
     width: 1,
     borderStyle: 'dashed',
     borderWidth: 1,
-    borderColor: '#F3E8FF',
+    borderColor: '#E5E7EB',
     borderRadius: 1,
   },
   infoBox: {
@@ -518,7 +560,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   infoText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
     flex: 1,

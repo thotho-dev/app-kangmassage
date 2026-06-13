@@ -192,14 +192,21 @@ export default function VoucherDetailScreen() {
             resizeMode="cover"
           />
           <View style={styles.cardOverlay}>
+            <View style={styles.decoCircle1} />
+            <View style={styles.decoCircle2} />
+            <View style={styles.decoCircle3} />
             <View style={styles.tag}>
               <Text style={styles.tagText}>{voucher.is_cashback ? 'CASHBACK' : voucher.category.replace('_', ' ').toUpperCase()}</Text>
             </View>
-            <Text style={styles.voucherValue}>
-              {voucher.is_cashback ? 'CASHBACK ' : ''}
-              {voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value.toLocaleString('id-ID')}`}
-            </Text>
-            <Text style={styles.voucherCode}>{voucher.code}</Text>
+            <View>
+              <Text style={styles.voucherValue}>
+                {voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value.toLocaleString('id-ID')}`}
+              </Text>
+              {voucher.is_cashback && (
+                <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'PlusJakartaSans-Bold', opacity: 0.8, marginTop: 2 }}>CASHBACK</Text>
+              )}
+              <Text style={styles.voucherCode}>{voucher.code}</Text>
+            </View>
           </View>
         </View>
 
@@ -219,7 +226,7 @@ export default function VoucherDetailScreen() {
           
           <View style={styles.requirementRow}>
             <View style={styles.reqIcon}>
-              <MaterialCommunityIcons name="calendar-clock" size={20} color="#5B2A86" />
+              <MaterialCommunityIcons name="calendar-clock" size={20} color="#EA580C" />
             </View>
             <View style={styles.reqInfo}>
               <Text style={styles.reqLabel}>Masa Berlaku</Text>
@@ -231,7 +238,7 @@ export default function VoucherDetailScreen() {
 
           <View style={styles.requirementRow}>
             <View style={styles.reqIcon}>
-              <MaterialCommunityIcons name="cash-multiple" size={20} color="#5B2A86" />
+              <MaterialCommunityIcons name="cash-multiple" size={20} color="#EA580C" />
             </View>
             <View style={styles.reqInfo}>
               <Text style={styles.reqLabel}>Minimal Transaksi</Text>
@@ -242,7 +249,7 @@ export default function VoucherDetailScreen() {
           {voucher.max_discount && (
             <View style={styles.requirementRow}>
               <View style={styles.reqIcon}>
-                <MaterialCommunityIcons name="arrow-collapse-down" size={20} color="#5B2A86" />
+                <MaterialCommunityIcons name="arrow-collapse-down" size={20} color="#EA580C" />
               </View>
               <View style={styles.reqInfo}>
                 <Text style={styles.reqLabel}>{voucher.is_cashback ? 'Maksimal Cashback' : 'Maksimal Potongan'}</Text>
@@ -284,7 +291,7 @@ export default function VoucherDetailScreen() {
           {voucher.service && (
             <View style={styles.requirementRow}>
               <View style={styles.reqIcon}>
-                <MaterialCommunityIcons name="spa-outline" size={20} color="#5B2A86" />
+                <MaterialCommunityIcons name="spa-outline" size={20} color="#EA580C" />
               </View>
               <View style={styles.reqInfo}>
                 <Text style={styles.reqLabel}>Khusus Layanan</Text>
@@ -350,18 +357,18 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#1A1A2E',
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     marginBottom: 20,
   },
   backButton: {
-    backgroundColor: '#5B2A86',
+    backgroundColor: '#EA580C',
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 12,
   },
   backButtonText: {
     color: '#fff',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   header: {
     flexDirection: 'row',
@@ -374,7 +381,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#1A1A2E',
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     flex: 1,
     textAlign: 'center',
   },
@@ -391,21 +398,20 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   card: {
-    height: 180,
     borderRadius: 24,
     overflow: 'hidden',
     marginBottom: 25,
-    backgroundColor: '#5B2A86',
+    backgroundColor: '#EA580C',
     elevation: 8,
-    shadowColor: '#5B2A86',
+    shadowColor: '#EA580C',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
   },
   voucherImage: {
     width: '100%',
-    height: '100%',
-    opacity: 0.4,
+    height: 200,
+    opacity: 0.35,
   } as any,
   cardOverlay: {
     position: 'absolute',
@@ -413,38 +419,64 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     bottom: 0,
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    padding: 24,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
+  decoCircle1: {
+    position: 'absolute',
+    top: -40,
+    right: -20,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  decoCircle2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  decoCircle3: {
+    position: 'absolute',
+    top: 30,
+    left: '40%',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   tag: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 10,
-    marginBottom: 10,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
   tagText: {
     color: '#fff',
-    fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-Bold',
+    letterSpacing: 0.5,
   },
   voucherValue: {
     color: '#fff',
-    fontSize: 32,
-    fontFamily: 'Inter-Bold',
-    textAlign: 'center',
+    fontSize: 26,
+    fontFamily: 'PlusJakartaSans-Bold',
+    textAlign: 'left',
   },
   voucherCode: {
     color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Inter-Bold',
-    letterSpacing: 2,
-    marginTop: 5,
-    opacity: 0.8,
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans-Bold',
+    letterSpacing: 3,
+    opacity: 0.9,
   },
   section: {
     backgroundColor: '#FFFFFF',
@@ -457,13 +489,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#1A1A2E',
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 15,
   },
   descriptionText: {
     color: '#6B7280',
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'PlusJakartaSans-Regular',
     lineHeight: 22,
   },
   requirementRow: {
@@ -475,7 +507,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#FFF7ED',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -486,13 +518,13 @@ const styles = StyleSheet.create({
   reqLabel: {
     color: '#6B7280',
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     marginBottom: 2,
   },
   reqValue: {
     color: '#1A1A2E',
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   areaContainer: {
     flexDirection: 'row',
@@ -511,7 +543,7 @@ const styles = StyleSheet.create({
   areaText: {
     color: '#22c55e',
     fontSize: 10,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   footerInfo: {
     flexDirection: 'row',
@@ -522,7 +554,7 @@ const styles = StyleSheet.create({
   footerInfoText: {
     color: '#64748b',
     fontSize: 11,
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'PlusJakartaSans-SemiBold',
     flex: 1,
   },
   bottomBar: {
@@ -536,12 +568,12 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   useButton: {
-    backgroundColor: '#5B2A86',
+    backgroundColor: '#EA580C',
     height: 55,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#5B2A86',
+    shadowColor: '#EA580C',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -550,6 +582,6 @@ const styles = StyleSheet.create({
   useButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'PlusJakartaSans-Bold',
   }
 });

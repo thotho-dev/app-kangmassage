@@ -15,15 +15,15 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  Plus,
   Info,
   Wallet,
   Banknote,
-  CreditCard,
-  QrCode,
   MessageSquare,
   Ticket,
   Tag,
-  X
+  X,
+  Check
 } from 'lucide-react-native';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -167,9 +167,24 @@ export default function OrderScreen() {
   const [useCashback, setUseCashback] = useState(false);
   const [serviceFee, setServiceFee] = useState(2000);
 
+  // Layanan Tambahan — state hooks HARUS sebelum subtotal (Hermes hoist)
+  const [showAdditional, setShowAdditional] = useState(false);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [additionalServices, setAdditionalServices] = useState<any[]>([]);
+
   useEffect(() => {
     getAppSettings().then(s => setServiceFee(s.order_service_fee));
   }, []);
+
+  // Must be declared before subtotal
+  const addonTotal = additionalServices
+    .filter(a => selectedAddons.includes(a.id))
+    .reduce((sum, a) => sum + a.price, 0);
+  const toggleAddon = (id: string) => {
+    setSelectedAddons(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
 
   const isCashback = appliedVoucher?.is_cashback === true;
   
@@ -177,7 +192,8 @@ export default function OrderScreen() {
   const userCashbackBalance = profile?.cashback_balance || 0;
   const maxCashbackCanUse = Math.floor(userCashbackBalance * 0.7);
   
-  let finalPrice = (isCashback ? totalPrice : Math.max(0, totalPrice - discountAmount)) + serviceFee;
+  const subtotal = (totalPrice || 0) + (addonTotal || 0);
+  let finalPrice = (isCashback ? subtotal : Math.max(0, subtotal - (discountAmount || 0))) + (serviceFee || 0);
   
   // Potong Cashback jika diaktifkan (Hanya untuk pembayaran Saldo)
   const cashbackToDeduct = (useCashback && paymentMethod === 'saldo') ? Math.min(finalPrice, maxCashbackCanUse) : 0;
@@ -199,6 +215,35 @@ export default function OrderScreen() {
   const [locationNotes, setLocationNotes] = useState('');
   const [serviceNotes, setServiceNotes] = useState('');
   const lastCheckedCode = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    const fetchAddons = async () => {
+      const { data } = await supabase
+        .from('services')
+        .select('id, name, base_price, description, image_url, category_slug')
+        .eq('is_active', true)
+        .eq('is_deleted', false)
+        .order('sort_order', { ascending: true });
+
+      if (data) {
+        const currentCats: string[] = initialService.category_slug || [];
+        const filtered = data.filter((s: any) =>
+          s.id !== serviceId &&
+          Array.isArray(s.category_slug) &&
+          s.category_slug.length === 1 &&
+          !(Array.isArray(currentCats) && currentCats.length > 0 && currentCats.includes(s.category_slug[0]))
+        );
+        setAdditionalServices(filtered.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          price: Number(s.base_price) || 0,
+          desc: s.description || '',
+          image: s.image_url,
+        })));
+      }
+    };
+    fetchAddons();
+  }, [serviceId]);
 
 
 
@@ -233,7 +278,7 @@ export default function OrderScreen() {
       }
 
       // Validasi Min Order
-      if (totalPrice < data.min_order_amount) {
+      if ((totalPrice + addonTotal) < data.min_order_amount) {
         if (!silent) showAlert('Minimal Order Belum Tercapai', `Voucher ini hanya berlaku untuk minimal pemesanan Rp ${data.min_order_amount.toLocaleString('id-ID')}`);
         return;
       }
@@ -326,7 +371,7 @@ export default function OrderScreen() {
       // Hitung Diskon
       let discount = 0;
       if (data.type === 'percentage') {
-        discount = (totalPrice * data.value) / 100;
+        discount = ((totalPrice + addonTotal) * data.value) / 100;
         if (data.max_discount && discount > data.max_discount) {
           discount = data.max_discount;
         }
@@ -365,7 +410,7 @@ export default function OrderScreen() {
 
       for (const v of vouchers) {
         // Basic Validations
-        if (totalPrice < v.min_order_amount) continue;
+        if ((totalPrice + addonTotal) < v.min_order_amount) continue;
         if (v.usage_limit && v.usage_count >= v.usage_limit) continue;
         if (v.category === 'service' && v.service_id && v.service_id !== serviceId) continue;
 
@@ -410,7 +455,7 @@ export default function OrderScreen() {
         // Calculate Discount
         let discount = 0;
         if (v.type === 'percentage') {
-          discount = (totalPrice * v.value) / 100;
+          discount = ((totalPrice + addonTotal) * v.value) / 100;
           if (v.max_discount && discount > v.max_discount) {
             discount = v.max_discount;
           }
@@ -461,7 +506,7 @@ export default function OrderScreen() {
   React.useEffect(() => {
     if (appliedVoucher) {
       // Re-validate min order first
-      if (totalPrice < appliedVoucher.min_order_amount) {
+      if ((totalPrice + addonTotal) < appliedVoucher.min_order_amount) {
         setAppliedVoucher(null);
         setDiscountAmount(0);
         setVoucherCode('');
@@ -471,7 +516,7 @@ export default function OrderScreen() {
 
       let discount = 0;
       if (appliedVoucher.type === 'percentage') {
-        discount = (totalPrice * appliedVoucher.value) / 100;
+        discount = ((totalPrice + addonTotal) * appliedVoucher.value) / 100;
         if (appliedVoucher.max_discount && discount > appliedVoucher.max_discount) {
           discount = appliedVoucher.max_discount;
         }
@@ -480,7 +525,7 @@ export default function OrderScreen() {
       }
       setDiscountAmount(discount);
     }
-  }, [totalPrice]);
+  }, [totalPrice, addonTotal]);
 
   const showDatePickerModal = (mode: 'date' | 'time') => {
     setPickerMode(mode);
@@ -506,28 +551,15 @@ export default function OrderScreen() {
       ]
     },
     {
-      id: 'va',
-      title: 'Transfer Bank (Virtual Account)',
-      items: [
-        { id: 'bca_va', label: 'BCA Virtual Account', image: require('@/assets/bca.png') },
-        { id: 'mandiri_va', label: 'Mandiri Virtual Account', image: require('@/assets/mandiri.png') },
-        { id: 'bri_va', label: 'BRI Virtual Account', image: require('@/assets/bri.png') },
-        { id: 'permata_va', label: 'Permata Virtual Account', image: require('@/assets/permata.png') },
-        { id: 'bsi_va', label: 'BSI Virtual Account', image: require('@/assets/bsi.png') },
-        { id: 'cimb_va', label: 'CIMB Virtual Account', image: require('@/assets/cimb.png') },
-        { id: 'bni_va', label: 'BNI Virtual Account', image: require('@/assets/bni.png') },
-      ]
-    },
-    {
       id: 'ewallet',
       title: 'E-Wallet & QRIS',
       items: [
-        { id: 'qris', label: 'QRIS Terapis', icon: QrCode },
-        { id: 'dana', label: 'DANA', image: require('@/assets/Dana.png') },
-        { id: 'ovo', label: 'OVO', image: require('@/assets/ovo.png') },
-        { id: 'linkaja', label: 'LINKAJA', image: require('@/assets/linkaja.png') },
+        { id: 'gopay', label: 'GoPay', image: require('@/assets/Gopay.png') },
+        { id: 'qris', label: 'QRIS', image: require('@/assets/Gopay.png') },
+        { id: 'dana', label: 'DANA', image: require('@/assets/Dana.png'), disabled: true, comingSoon: 'Akan tersedia' },
+        { id: 'shopeepay', label: 'ShopeePay', image: require('@/assets/ShopeePay.png'), disabled: true, comingSoon: 'Akan tersedia' },
       ]
-    }
+    },
   ];
 
   const allMethods = PAYMENT_GROUPS.flatMap(g => g.items);
@@ -576,7 +608,7 @@ export default function OrderScreen() {
         user_id: profile?.id,
         service_id: initialService.id,
         duration: selectedDuration.value,
-        status: 'pending',
+        status: (paymentMethod === 'saldo' || paymentMethod === 'tunai') ? 'pending' : 'awaiting_payment',
         service_price: selectedDuration.price,
         service_fee: serviceFee,
         total_price: finalPrice,
@@ -740,381 +772,438 @@ export default function OrderScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-        {/* 1. Selected Service Card */}
+        {/* 1. Layanan + Catatan + Layanan Tambahan */}
         <View style={styles.section}>
-          <Card style={styles.serviceCard}>
-            <Image
-              source={{ uri: initialService.image }}
-              style={styles.serviceImage}
-            />
-            <View style={styles.serviceInfo}>
-              <Text style={styles.serviceName}>{initialService.name}</Text>
-              <Text style={styles.servicePrice}>Rp {initialService.price.toLocaleString('id-ID')} / {initialService.price_type === 'treatment' ? 'Sesi' : 'Jam'}</Text>
-              <Text style={[styles.serviceDescription, { color: theme.textSecondary }]} numberOfLines={2}>
-                {initialService.description}
-              </Text>
+          <View style={styles.combinedCard}>
+            <View style={styles.combinedRow}>
+              <Image source={{ uri: initialService.image }} style={styles.serviceImage} />
+              <View style={styles.serviceInfo}>
+                <Text style={styles.serviceName}>{initialService.name}</Text>
+                <Text style={styles.servicePrice}>Rp {initialService.price.toLocaleString('id-ID')} / {initialService.price_type === 'treatment' ? 'Sesi' : 'Jam'}</Text>
+                <Text style={[styles.serviceDescription, { color: theme.textSecondary }]} numberOfLines={2}>
+                  {initialService.description}
+                </Text>
+              </View>
             </View>
-          </Card>
 
-          {/* Catatan Layanan */}
-          <View style={{ marginTop: 12 }}>
-            <View style={styles.noteInputBox}>
-              <MessageSquare size={18} color={TEXT_MUTED} style={{ marginTop: 15 }} />
+            {/* Accordion Layanan Tambahan */}
+            <View style={styles.combinedDivider} />
+            <TouchableOpacity
+              style={styles.accordionHeader}
+              onPress={() => setShowAdditional(!showAdditional)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.accordionHeaderLeft}>
+                <Plus size={16} color={PURPLE} />
+                <Text style={styles.accordionTitle}>Layanan Tambahan</Text>
+                {selectedAddons.length > 0 && (
+                  <View style={styles.addonBadge}>
+                    <Text style={styles.addonBadgeText}>{selectedAddons.length}</Text>
+                  </View>
+                )}
+              </View>
+              {showAdditional ? (
+                <ChevronUp size={18} color={TEXT_MUTED} />
+              ) : (
+                <ChevronDown size={18} color={TEXT_MUTED} />
+              )}
+            </TouchableOpacity>
+            {showAdditional && (
+              <View style={styles.accordionBody}>
+                {additionalServices.length === 0 ? (
+                  <Text style={{ fontSize: 11, color: TEXT_MUTED, textAlign: 'center', paddingVertical: 8 }}>
+                    Tidak ada layanan tambahan tersedia
+                  </Text>
+                ) : (
+                  additionalServices.map((addon) => {
+                    const isSelected = selectedAddons.includes(addon.id);
+                    return (
+                      <TouchableOpacity
+                        key={addon.id}
+                        style={[styles.addonItem, isSelected && styles.addonItemActive]}
+                        onPress={() => toggleAddon(addon.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.addonCheckbox, isSelected && styles.addonCheckboxActive]}>
+                          {isSelected && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                        </View>
+                        <View style={styles.addonInfo}>
+                          <Text style={styles.addonName}>{addon.name}</Text>
+                          <Text style={styles.addonDesc} numberOfLines={1}>{addon.desc}</Text>
+                        </View>
+                        <Text style={[styles.addonPrice, isSelected && { color: PURPLE }]}>
+                          +Rp {addon.price.toLocaleString('id-ID')}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            {/* Catatan Layanan */}
+            <View style={styles.combinedDivider} />
+            <View style={styles.combinedNoteRow}>
+              <MessageSquare size={16} color={TEXT_MUTED} />
               <TextInput
-                style={[styles.noteInput, { height: 100, textAlignVertical: 'top', paddingTop: 12 }]}
+                style={styles.combinedNoteInput}
                 value={serviceNotes}
                 onChangeText={setServiceNotes}
-                placeholder="Catatan (Bawa perlengkapan, dll)"
+                placeholder="Catatan layanan (Bawa perlengkapan, dll)"
                 multiline={true}
               />
             </View>
           </View>
         </View>
 
-        {/* 2. Atur Lokasi */}
+        {/* 2. Lokasi + Catatan Lokasi */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Lokasi Layanan</Text>
-          <View style={styles.locationContainer}>
-            <View style={styles.locationInputBox}>
-              <MapPin size={18} color={PURPLE} style={{ marginTop: 20 }} />
+          <View style={styles.combinedCard}>
+            <View style={styles.combinedLabelRow}>
+              <Text style={styles.sectionLabel}>Lokasi Layanan</Text>
+              <TouchableOpacity
+                onPress={() => router.push({
+                  pathname: '/maps',
+                  params: { serviceId: serviceId, from: 'order', sourceFrom: from as string }
+                })}
+                style={styles.mapsLinkBtn}
+              >
+                <Map size={14} color="#FFFFFF" />
+                <Text style={styles.mapsLinkText}>Maps</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.combinedNoteRow}>
+              <MapPin size={16} color={PURPLE} />
               <TextInput
-                style={[styles.locationInput, { height: 80, textAlignVertical: 'top' }]}
+                style={styles.combinedNoteInput}
                 value={address}
                 onChangeText={setAddress}
                 placeholder="Masukkan alamat lengkap..."
                 multiline={true}
               />
             </View>
-            <TouchableOpacity
-              style={styles.fullMapsButton}
-              onPress={() => router.push({
-                pathname: '/maps',
-                params: { serviceId: serviceId, from: 'order', sourceFrom: from as string }
-              })}
-            >
-              <Map size={18} color="#FFFFFF" />
-              <Text style={styles.fullMapsButtonText}>Cari di Maps</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.inputGroup, { marginTop: 16 }]}>
-            <Text style={styles.inputLabel}>Catatan Lokasi (Patokan/Blok/Gang)</Text>
-            <View style={styles.noteInputBox}>
-              <Info size={18} color={TEXT_MUTED} style={{ marginTop: 15 }} />
+            <View style={styles.combinedDivider} />
+            <View style={styles.combinedLabelRow}>
+              <Text style={styles.inputLabel}>Catatan Lokasi</Text>
+            </View>
+            <View style={styles.combinedNoteRow}>
+              <Info size={16} color={TEXT_MUTED} />
               <TextInput
-                style={[styles.noteInput, { height: 100, textAlignVertical: 'top', paddingTop: 12 }]}
+                style={styles.combinedNoteInput}
                 value={locationNotes}
                 onChangeText={setLocationNotes}
-                placeholder="Contoh: Rumah pagar hitam samping mushola"
+                placeholder="Patokan/Blok/Gang (Contoh: Rumah pagar hitam)"
                 multiline={true}
               />
             </View>
           </View>
         </View>
 
-        {/* 3. Durasi Layanan */}
+        {/* 3. Durasi + Waktu Booking */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>
-            {initialService.price_type === 'treatment' ? 'Pilih Paket Treatment' : 'Durasi Layanan'}
-          </Text>
-          <View style={styles.durationOptionsContainer}>
-            {durationOptions.map((option, index) => (
-              <TouchableOpacity
-                key={`${option.value}-${index}`}
-                style={[
-                  styles.durationOptionCard,
-                  selectedDuration?.label === option.label && styles.durationOptionActive
-                ]}
-                onPress={() => setSelectedDuration(option)}
-              >
-                <View style={styles.durationOptionInfo}>
-                  <Clock size={16} color={selectedDuration?.label === option.label ? PURPLE : TEXT_MUTED} />
-                  <Text style={[
-                    styles.durationOptionLabel,
-                    selectedDuration?.label === option.label && styles.durationOptionLabelActive
-                  ]}>{option.label}</Text>
-                </View>
-                <Text style={[
-                  styles.durationOptionPrice,
-                  selectedDuration?.label === option.label && styles.durationOptionPriceActive
-                ]}>Rp {option.price.toLocaleString('id-ID')}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* 4. Waktu Booking */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Waktu Booking</Text>
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, bookingType === 'now' && styles.activeTab]}
-              onPress={() => setBookingType('now')}
-            >
-              <Clock size={16} color={bookingType === 'now' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
-              <Text style={[styles.tabText, bookingType === 'now' && styles.activeTabText]}>Sekarang</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, bookingType === 'schedule' && styles.activeTab]}
-              onPress={() => setBookingType('schedule')}
-            >
-              <Calendar size={16} color={bookingType === 'schedule' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
-              <Text style={[styles.tabText, bookingType === 'schedule' && styles.activeTabText]}>Terjadwal</Text>
-            </TouchableOpacity>
-          </View>
-
-          {bookingType === 'schedule' && (
-            <View style={styles.scheduleOptions}>
-              <TouchableOpacity style={styles.scheduleBtn} onPress={() => showDatePickerModal('date')}>
-                <Calendar size={18} color={PURPLE} />
-                <Text style={styles.scheduleBtnText}>
-                  {selectedDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.scheduleBtn} onPress={() => showDatePickerModal('time')}>
-                <Clock size={18} color={PURPLE} />
-                <Text style={styles.scheduleBtnText}>
-                  Pukul {selectedDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <CustomDateTimePicker
-            isVisible={isDatePickerVisible}
-            mode={pickerMode}
-            value={selectedDate}
-            onConfirm={handleConfirm}
-            onCancel={hideDatePicker}
-            minimumDate={new Date()}
-          />
-        </View>
-
-        {/* 5. Jenis Kelamin User */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Jenis Kelamin Anda</Text>
-          <View style={styles.genderContainer}>
-            <TouchableOpacity
-              style={[styles.genderBtn, userGender === 'male' && styles.genderBtnActive]}
-              onPress={() => setUserGender('male')}
-            >
-              <User size={16} color={userGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
-              <Text style={[styles.genderBtnText, userGender === 'male' && styles.genderBtnTextActive]}>Laki-laki</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.genderBtn, userGender === 'female' && styles.genderBtnActive]}
-              onPress={() => setUserGender('female')}
-            >
-              <User size={16} color={userGender === 'female' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
-              <Text style={[styles.genderBtnText, userGender === 'female' && styles.genderBtnTextActive]}>Perempuan</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 6. Preferensi Terapis */}
-        <View style={styles.section}>
-          <View style={styles.sectionLabelRow}>
-            <Text style={styles.sectionLabel}>Preferensi Terapis</Text>
-            <TouchableOpacity><Info size={16} color={TEXT_MUTED} /></TouchableOpacity>
-          </View>
-          <View style={styles.genderContainer}>
-            <TouchableOpacity
-              style={[
-                styles.genderBtn,
-                therapistGender === 'any' && styles.genderBtnActive,
-                !!therapistId && therapistGender !== 'any' && { opacity: 0.3 }
-              ]}
-              onPress={() => setTherapistGender('any')}
-              disabled={!!therapistId}
-            >
-              <Text style={[styles.genderBtnText, therapistGender === 'any' && styles.genderBtnTextActive]}>Mana Saja</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.genderBtn,
-                therapistGender === 'male' && styles.genderBtnActive,
-                !!therapistId && therapistGender !== 'male' && { opacity: 0.3 }
-              ]}
-              onPress={() => setTherapistGender('male')}
-              disabled={!!therapistId}
-            >
-              <User size={16} color={therapistGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
-              <Text style={[styles.genderBtnText, therapistGender === 'male' && styles.genderBtnTextActive]}>Pria</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.genderBtn,
-                therapistGender === 'female' && styles.genderBtnActive,
-                !!therapistId && therapistGender !== 'female' && { opacity: 0.3 }
-              ]}
-              onPress={() => setTherapistGender('female')}
-              disabled={!!therapistId}
-            >
-              <User size={16} color={therapistGender === 'female' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
-              <Text style={[styles.genderBtnText, therapistGender === 'female' && styles.genderBtnTextActive]}>Wanita</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 7. Voucher Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Voucher Promo</Text>
-          <TouchableOpacity
-            style={[styles.voucherSelector, appliedVoucher && styles.voucherSelectorActive]}
-            onPress={() => router.push({
-              pathname: '/vouchers',
-              params: {
-                from: 'order',
-                sourceFrom: from as string,
-                serviceId: serviceId as string,
-                therapistId: therapistId as string,
-                totalPrice: totalPrice.toString()
-              }
-            })}
-          >
-            <View style={styles.voucherLeft}>
-              <Tag size={20} color={appliedVoucher ? '#FFFFFF' : PURPLE} />
-              <View style={styles.voucherInfo}>
-                {appliedVoucher ? (
-                  <>
-                    <Text style={styles.voucherAppliedTitle}>{appliedVoucher.code}</Text>
-                    <Text style={styles.voucherAppliedSub}>
-                      Berhasil digunakan ({isCashback ? 'Cashback' : 'Potongan'} Rp {discountAmount.toLocaleString('id-ID')})
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.voucherPlaceholderTitle}>Pilih atau Masukkan Voucher</Text>
-                    <Text style={styles.voucherPlaceholderSub}>Klik untuk melihat promo tersedia</Text>
-                  </>
-                )}
-              </View>
-            </View>
-            <View style={styles.voucherRight}>
-              {appliedVoucher ? (
+          <View style={styles.combinedCard}>
+            <Text style={styles.sectionLabel}>
+              {initialService.price_type === 'treatment' ? 'Paket Treatment' : 'Durasi Layanan'}
+            </Text>
+            <View style={styles.durationOptionsContainer}>
+              {durationOptions.map((option, index) => (
                 <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setAppliedVoucher(null);
-                    setDiscountAmount(0);
-                    setVoucherCode('');
-                  }}
-                  style={styles.removeVoucherBtn}
+                  key={`${option.value}-${index}`}
+                  style={[
+                    styles.durationOptionCard,
+                    selectedDuration?.label === option.label && styles.durationOptionActive
+                  ]}
+                  onPress={() => setSelectedDuration(option)}
                 >
-                  <X size={16} color="#FFFFFF" />
-                </TouchableOpacity>
-              ) : (
-                <ChevronRight size={20} color={TEXT_MUTED} />
-              )}
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* 8. Metode Pembayaran Dropdown */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Metode Pembayaran</Text>
-          <View style={styles.dropdownContainer}>
-            <TouchableOpacity
-              style={[styles.paymentSelector, { borderColor: BORDER }]}
-              onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
-            >
-              <View style={styles.paymentIcon}>
-                {currentMethod.image ? (
-                  <Image source={currentMethod.image} style={styles.paymentLogo} />
-                ) : (
-                  currentMethod.icon && <currentMethod.icon size={20} color={PURPLE} />
-                )}
-              </View>
-              <Text style={[styles.paymentLabel, { color: TEXT_DARK }]}>
-                {currentMethod.label}
-              </Text>
-              <ChevronDown size={20} color={TEXT_MUTED} />
-            </TouchableOpacity>
-
-            {showPaymentDropdown && (
-              <View style={[styles.paymentDropdown, { borderColor: BORDER }]}>
-                {PAYMENT_GROUPS.map((group) => (
-                  <View key={group.id} style={styles.paymentGroup}>
-                    <Text style={styles.groupTitle}>{group.title}</Text>
-                    {group.items.map((method) => {
-                      const isSaldo = method.id === 'saldo';
-                      const isInsufficient = isSaldo && (profile?.wallet_balance || 0) < finalPrice;
-
-                      return (
-                        <TouchableOpacity
-                          key={method.id}
-                          style={[styles.paymentItem, isInsufficient && { opacity: 0.5 }]}
-                          onPress={() => {
-                            if (isInsufficient) {
-                              showAlert('Saldo Kurang', 'Saldo Anda tidak mencukupi. Silakan top up atau pilih metode lain.');
-                              return;
-                            }
-                            setPaymentMethod(method.id as any);
-                            setShowPaymentDropdown(false);
-                          }}
-                        >
-                          <View style={styles.paymentMethodLeft}>
-                            <View style={styles.paymentItemIconContainer}>
-                              {method.image ? (
-                                <Image source={method.image} style={styles.paymentLogo} />
-                              ) : (
-                                method.icon && <method.icon size={20} color={paymentMethod === method.id ? PURPLE : TEXT_MUTED} />
-                              )}
-                            </View>
-                            <View style={{ marginLeft: 12 }}>
-                              <Text style={[
-                                styles.paymentItemLabel,
-                                { color: paymentMethod === method.id ? PURPLE : TEXT_DARK }
-                              ]}>
-                                {method.label}
-                              </Text>
-                              {isSaldo && (
-                                <Text style={[styles.balanceSub, { color: isInsufficient ? '#EF4444' : '#10B981' }]}>
-                                  Saldo: Rp {(profile?.wallet_balance || 0).toLocaleString('id-ID')}
-                                  {isInsufficient && ' (Kurang)'}
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                          {paymentMethod === method.id && <View style={styles.selectedDot} />}
-                        </TouchableOpacity>
-                      );
-                    })}
+                  <View style={styles.durationOptionInfo}>
+                    <Clock size={16} color={selectedDuration?.label === option.label ? PURPLE : TEXT_MUTED} />
+                    <Text style={[
+                      styles.durationOptionLabel,
+                      selectedDuration?.label === option.label && styles.durationOptionLabelActive
+                    ]}>{option.label}</Text>
                   </View>
-                ))}
+                  <Text style={[
+                    styles.durationOptionPrice,
+                    selectedDuration?.label === option.label && styles.durationOptionPriceActive
+                  ]}>Rp {option.price.toLocaleString('id-ID')}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.combinedDivider} />
+            <Text style={styles.sectionLabel}>Waktu Booking</Text>
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tab, bookingType === 'now' && styles.activeTab]}
+                onPress={() => setBookingType('now')}
+              >
+                <Clock size={16} color={bookingType === 'now' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
+                <Text style={[styles.tabText, bookingType === 'now' && styles.activeTabText]}>Sekarang</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, bookingType === 'schedule' && styles.activeTab]}
+                onPress={() => setBookingType('schedule')}
+              >
+                <Calendar size={16} color={bookingType === 'schedule' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
+                <Text style={[styles.tabText, bookingType === 'schedule' && styles.activeTabText]}>Terjadwal</Text>
+              </TouchableOpacity>
+            </View>
+            {bookingType === 'schedule' && (
+              <View style={styles.scheduleOptions}>
+                <TouchableOpacity style={styles.scheduleBtn} onPress={() => showDatePickerModal('date')}>
+                  <Calendar size={18} color={PURPLE} />
+                  <Text style={styles.scheduleBtnText}>
+                    {selectedDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.scheduleBtn} onPress={() => showDatePickerModal('time')}>
+                  <Clock size={18} color={PURPLE} />
+                  <Text style={styles.scheduleBtnText}>
+                    Pukul {selectedDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
+            <CustomDateTimePicker
+              isVisible={isDatePickerVisible}
+              mode={pickerMode}
+              value={selectedDate}
+              onConfirm={handleConfirm}
+              onCancel={hideDatePicker}
+              minimumDate={new Date()}
+            />
           </View>
         </View>
 
-        {/* 9. Cashback Option (Only for Saldo Payment) */}
-        {paymentMethod === 'saldo' && userCashbackBalance > 0 && (
-          <View style={styles.section}>
-            <View style={[styles.cashbackCard, useCashback && styles.cashbackCardActive]}>
-              <View style={styles.cashbackInfo}>
-                <Ionicons name="gift-outline" size={24} color={useCashback ? '#FFFFFF' : PURPLE} />
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={[styles.cashbackTitle, useCashback && { color: '#FFFFFF' }]}>Gunakan Cashback</Text>
-                  <Text style={[styles.cashbackSub, useCashback && { color: 'rgba(255,255,255,0.8)' }]}>
-                    Tersedia Rp {userCashbackBalance.toLocaleString('id-ID')} (Bisa pakai Rp {maxCashbackCanUse.toLocaleString('id-ID')})
-                  </Text>
+        {/* 4. Jenis Kelamin + Preferensi Terapis */}
+        <View style={styles.section}>
+          <View style={styles.combinedCard}>
+            <Text style={styles.sectionLabel}>Jenis Kelamin Anda</Text>
+            <View style={styles.genderContainer}>
+              <TouchableOpacity
+                style={[styles.genderBtn, userGender === 'male' && styles.genderBtnActive]}
+                onPress={() => setUserGender('male')}
+              >
+                <User size={16} color={userGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
+                <Text style={[styles.genderBtnText, userGender === 'male' && styles.genderBtnTextActive]}>Laki-laki</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.genderBtn, userGender === 'female' && styles.genderBtnActive]}
+                onPress={() => setUserGender('female')}
+              >
+                <User size={16} color={userGender === 'female' ? PURPLE : TEXT_MUTED} style={{ marginRight: 6 }} />
+                <Text style={[styles.genderBtnText, userGender === 'female' && styles.genderBtnTextActive]}>Perempuan</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.combinedDivider} />
+            <View style={styles.combinedLabelRow}>
+              <Text style={styles.sectionLabel}>Preferensi Terapis</Text>
+              <TouchableOpacity><Info size={16} color={TEXT_MUTED} /></TouchableOpacity>
+            </View>
+            <View style={styles.genderContainer}>
+              <TouchableOpacity
+                style={[styles.genderBtn, therapistGender === 'any' && styles.genderBtnActive, !!therapistId && therapistGender !== 'any' && { opacity: 0.3 }]}
+                onPress={() => setTherapistGender('any')}
+                disabled={!!therapistId}
+              >
+                <Text style={[styles.genderBtnText, therapistGender === 'any' && styles.genderBtnTextActive]}>Mana Saja</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.genderBtn, therapistGender === 'male' && styles.genderBtnActive, !!therapistId && therapistGender !== 'male' && { opacity: 0.3 }]}
+                onPress={() => setTherapistGender('male')}
+                disabled={!!therapistId}
+              >
+                <User size={16} color={therapistGender === 'male' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
+                <Text style={[styles.genderBtnText, therapistGender === 'male' && styles.genderBtnTextActive]}>Pria</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.genderBtn, therapistGender === 'female' && styles.genderBtnActive, !!therapistId && therapistGender !== 'female' && { opacity: 0.3 }]}
+                onPress={() => setTherapistGender('female')}
+                disabled={!!therapistId}
+              >
+                <User size={16} color={therapistGender === 'female' ? PURPLE : TEXT_MUTED} style={{ marginRight: 4 }} />
+                <Text style={[styles.genderBtnText, therapistGender === 'female' && styles.genderBtnTextActive]}>Wanita</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* 5. Voucher + Metode Pembayaran */}
+        <View style={styles.section}>
+          <View style={styles.combinedCard}>
+            <Text style={styles.sectionLabel}>Voucher Promo</Text>
+            <TouchableOpacity
+              style={[styles.voucherSelector, appliedVoucher && styles.voucherSelectorActive]}
+              onPress={() => router.push({
+                pathname: '/vouchers',
+                params: {
+                  from: 'order',
+                  sourceFrom: from as string,
+                  serviceId: serviceId as string,
+                  therapistId: therapistId as string,
+                  totalPrice: totalPrice.toString()
+                }
+              })}
+            >
+              <View style={styles.voucherLeft}>
+                <Tag size={20} color={appliedVoucher ? '#FFFFFF' : PURPLE} />
+                <View style={styles.voucherInfo}>
+                  {appliedVoucher ? (
+                    <>
+                      <Text style={styles.voucherAppliedTitle}>{appliedVoucher.code}</Text>
+                      <Text style={styles.voucherAppliedSub}>
+                        Berhasil digunakan ({isCashback ? 'Cashback' : 'Potongan'} Rp {discountAmount.toLocaleString('id-ID')})
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.voucherPlaceholderTitle}>Pilih atau Masukkan Voucher</Text>
+                      <Text style={styles.voucherPlaceholderSub}>Klik untuk melihat promo tersedia</Text>
+                    </>
+                  )}
                 </View>
-                <Switch
-                  value={useCashback}
-                  onValueChange={setUseCashback}
-                  trackColor={{ false: '#CBD5E1', true: 'rgba(255,255,255,0.3)' }}
-                  thumbColor={useCashback ? '#FFFFFF' : '#F4F4F5'}
-                />
               </View>
-              {useCashback && (
-                <View style={styles.appliedBadge}>
-                  <Text style={styles.appliedBadgeText}>Hemat Rp {cashbackToDeduct.toLocaleString('id-ID')} dari Cashback</Text>
+              <View style={styles.voucherRight}>
+                {appliedVoucher ? (
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setAppliedVoucher(null);
+                      setDiscountAmount(0);
+                      setVoucherCode('');
+                    }}
+                    style={styles.removeVoucherBtn}
+                  >
+                    <X size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                ) : (
+                  <ChevronRight size={20} color={TEXT_MUTED} />
+                )}
+              </View>
+            </TouchableOpacity>
+            <View style={styles.combinedDivider} />
+            <Text style={styles.sectionLabel}>Metode Pembayaran</Text>
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity
+                style={[styles.dropdownHeader, showPaymentDropdown && styles.dropdownHeaderActive]}
+                onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.paymentInfo}>
+                  <View style={[styles.paymentIcon, showPaymentDropdown && { backgroundColor: '#EADEFF' }]}>
+                    {currentMethod.image ? (
+                      <Image source={currentMethod.image} style={[styles.paymentLogo, { width: 24, height: 24 }]} />
+                    ) : (
+                      currentMethod.icon && <currentMethod.icon size={20} color={showPaymentDropdown ? PURPLE : TEXT_MUTED} />
+                    )}
+                  </View>
+                  <View>
+                    <Text style={styles.dropdownHeaderText}>{currentMethod.label}</Text>
+                    {currentMethod.id === 'saldo' && (
+                      <Text style={[styles.balanceSub, { fontSize: 10, marginTop: 1 }]}>
+                        Saldo: Rp {(profile?.wallet_balance || 0).toLocaleString('id-ID')}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <ChevronDown size={18} color={TEXT_MUTED} />
+              </TouchableOpacity>
+
+              {showPaymentDropdown && (
+                <View style={styles.dropdownList}>
+                  {PAYMENT_GROUPS.map((group) => (
+                    <View key={group.id}>
+                      <Text style={[styles.groupTitle, { paddingHorizontal: 16, marginTop: 8, marginBottom: 4 }]}>{group.title}</Text>
+                      {group.items.map((method) => {
+                        const isSaldo = method.id === 'saldo';
+                        const isInsufficient = isSaldo && (profile?.wallet_balance || 0) < finalPrice;
+                        const isSelected = paymentMethod === method.id;
+
+                        return (
+                          <TouchableOpacity
+                            key={method.id}
+                            style={[styles.dropdownItem, isSelected && !method.disabled && styles.dropdownItemActive, method.disabled && { opacity: 0.5 }]}
+                            onPress={() => {
+                              if (method.disabled) {
+                                showAlert('Belum Tersedia', method.comingSoon || 'Metode pembayaran ini belum tersedia.');
+                                return;
+                              }
+                              if (isInsufficient) {
+                                showAlert('Saldo Kurang', 'Saldo Anda tidak mencukupi. Silakan top up atau pilih metode lain.');
+                                return;
+                              }
+                              setPaymentMethod(method.id as any);
+                              setShowPaymentDropdown(false);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.paymentInfo}>
+                              <View style={[styles.paymentIcon, isSelected && !method.disabled && { backgroundColor: '#EADEFF' }]}>
+                                {method.image ? (
+                                  <Image source={method.image} style={{ width: 22, height: 22, resizeMode: 'contain' }} />
+                                ) : (
+                                  method.icon && <method.icon size={18} color={isSelected ? PURPLE : TEXT_MUTED} />
+                                )}
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <Text style={[styles.paymentText, isSelected && !method.disabled && styles.paymentTextActive]}>
+                                    {method.label}
+                                  </Text>
+                                  <View style={{ flex: 1 }} />
+                                  {method.comingSoon && (
+                                    <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                      <Text style={{ fontSize: 9, color: '#D97706', fontWeight: '500' }}>{method.comingSoon}</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                {isSaldo && (
+                                  <Text style={[styles.balanceSub, { fontSize: 10, color: isInsufficient ? '#EF4444' : '#10B981' }]}>
+                                    Saldo: Rp {(profile?.wallet_balance || 0).toLocaleString('id-ID')}
+                                    {isInsufficient && ' (Kurang)'}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                            {isSelected && !method.disabled && <View style={styles.selectedDot} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+
+                  {/* Cashback Option inside Saldo */}
+                  {paymentMethod === 'saldo' && userCashbackBalance > 0 && (
+                    <View style={[styles.dropdownItem, useCashback && styles.dropdownItemActive, { borderTopWidth: 1, borderTopColor: BORDER, marginTop: 4 }]}>
+                      <View style={styles.paymentInfo}>
+                        <Ionicons name="gift-outline" size={18} color={useCashback ? PURPLE : TEXT_MUTED} />
+                        <View>
+                          <Text style={[styles.paymentText, useCashback && styles.paymentTextActive]}>Gunakan Cashback</Text>
+                          <Text style={[styles.balanceSub, { fontSize: 10 }]}>
+                            Rp {userCashbackBalance.toLocaleString('id-ID')} tersedia (max Rp {maxCashbackCanUse.toLocaleString('id-ID')})
+                          </Text>
+                        </View>
+                      </View>
+                      <Switch
+                        value={useCashback}
+                        onValueChange={setUseCashback}
+                        trackColor={{ false: '#CBD5E1', true: '#C084FC' }}
+                        thumbColor={useCashback ? PURPLE : '#F4F4F5'}
+                        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                      />
+                    </View>
+                  )}
+                  {useCashback && (
+                    <View style={[styles.dropdownItem, { backgroundColor: '#F0FDF4', paddingVertical: 8 }]}>
+                      <Text style={{ fontSize: 11, color: '#16A34A', fontFamily: 'PlusJakartaSans-Bold' }}>
+                        Hemat Rp {cashbackToDeduct.toLocaleString('id-ID')} dari Cashback
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
           </View>
-        )}
+        </View>
 
         <View style={{ height: 140 }} />
       </ScrollView>
@@ -1132,6 +1221,13 @@ export default function OrderScreen() {
             <Text style={styles.breakdownLabel}>Biaya Layanan</Text>
             <Text style={styles.breakdownValue}>Rp {serviceFee.toLocaleString('id-ID')}</Text>
           </View>
+
+          {addonTotal > 0 && (
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Layanan Tambahan</Text>
+              <Text style={styles.breakdownValue}>Rp {addonTotal.toLocaleString('id-ID')}</Text>
+            </View>
+          )}
 
           {discountAmount > 0 && (
             <View style={styles.breakdownRow}>
@@ -1153,7 +1249,16 @@ export default function OrderScreen() {
           <View style={styles.totalRow}>
             <View>
               <Text style={styles.totalLabel}>Total Pembayaran</Text>
-              <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+              {(discountAmount > 0 && !isCashback) || cashbackToDeduct > 0 ? (
+                <View>
+                  <Text style={[styles.totalPrice, { color: '#94A3B8', textDecorationLine: 'line-through', fontSize: 13 }]}>
+                    Rp {(subtotal + (serviceFee || 0)).toLocaleString('id-ID')}
+                  </Text>
+                  <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+                </View>
+              ) : (
+                <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+              )}
             </View>
             <TouchableOpacity
               style={[styles.orderButton, loading && { opacity: 0.8 }]}
@@ -1215,7 +1320,7 @@ const styles = StyleSheet.create({
   },
   paymentLabel: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-SemiBold',
   },
   paymentDropdown: {
@@ -1234,12 +1339,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   groupTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: 6,
     marginLeft: 4,
   },
   paymentItem: {
@@ -1251,7 +1356,7 @@ const styles = StyleSheet.create({
   },
   paymentItemLabel: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Medium',
     marginLeft: 12,
   },
@@ -1262,7 +1367,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#240080',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
@@ -1273,11 +1378,138 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 20,
   },
+  combinedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    padding: 16,
+  },
+  combinedDivider: {
+    height: 1,
+    backgroundColor: BORDER,
+    marginVertical: 14,
+  },
+  combinedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  combinedNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  combinedNoteInput: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Medium',
+    color: TEXT_DARK,
+    minHeight: 36,
+  },
+  combinedLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  mapsLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PURPLE,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    gap: 4,
+  },
+  mapsLinkText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  accordionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  accordionTitle: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    color: PURPLE,
+  },
+  addonBadge: {
+    backgroundColor: PURPLE,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addonBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+  accordionBody: {
+    marginTop: 10,
+    gap: 8,
+  },
+  addonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+    gap: 10,
+  },
+  addonItemActive: {
+    backgroundColor: '#F3E8FF',
+    borderColor: PURPLE,
+  },
+  addonCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addonCheckboxActive: {
+    backgroundColor: PURPLE,
+    borderColor: PURPLE,
+  },
+  addonInfo: {
+    flex: 1,
+  },
+  addonName: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    color: TEXT_DARK,
+  },
+  addonDesc: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-Medium',
+    color: TEXT_MUTED,
+    marginTop: 2,
+  },
+  addonPrice: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: TEXT_MUTED,
+  },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionLabelRow: {
     flexDirection: 'row',
@@ -1305,21 +1537,21 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   serviceName: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   servicePrice: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: PURPLE,
   },
   serviceDescription: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Medium',
-    marginTop: 4,
-    lineHeight: 16,
+    marginTop: 3,
+    lineHeight: 15,
   },
   locationContainer: {
     gap: 12,
@@ -1336,7 +1568,7 @@ const styles = StyleSheet.create({
   locationInput: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
     paddingVertical: 17,
@@ -1345,10 +1577,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_MUTED,
-    marginBottom: 8,
+    marginBottom: 6,
     marginLeft: 4,
   },
   noteInputBox: {
@@ -1364,7 +1596,7 @@ const styles = StyleSheet.create({
   noteInput: {
     flex: 1,
     marginLeft: 12,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
@@ -1385,7 +1617,7 @@ const styles = StyleSheet.create({
   },
   fullMapsButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
   },
   durationOptionsContainer: {
@@ -1411,7 +1643,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   durationOptionLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
@@ -1420,7 +1652,7 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Bold',
   },
   durationOptionPrice: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
@@ -1451,7 +1683,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
@@ -1476,7 +1708,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scheduleBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
@@ -1500,7 +1732,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3E8FF',
   },
   genderBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
@@ -1528,7 +1760,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3E8FF',
   },
   dropdownHeaderText: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
@@ -1551,7 +1783,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   paymentText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
@@ -1567,7 +1799,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
     paddingTop: 15,
-    paddingBottom: 35,
+    paddingBottom: 50,
     borderTopWidth: 1,
     borderTopColor: BORDER,
     elevation: 20,
@@ -1586,12 +1818,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   breakdownLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: TEXT_MUTED,
     fontFamily: 'PlusJakartaSans-Medium',
   },
   breakdownValue: {
-    fontSize: 13,
+    fontSize: 12,
     color: TEXT_DARK,
     fontFamily: 'PlusJakartaSans-SemiBold',
   },
@@ -1602,12 +1834,12 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
   totalPrice: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
@@ -1632,12 +1864,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cashbackTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   cashbackSub: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
     marginTop: 2,
@@ -1651,7 +1883,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appliedBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
   },
@@ -1673,7 +1905,7 @@ const styles = StyleSheet.create({
   },
   orderButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
   },
   // Voucher Styles
@@ -1702,23 +1934,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   voucherPlaceholderTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   voucherPlaceholderSub: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
     marginTop: 2,
   },
   voucherAppliedTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
   },
   voucherAppliedSub: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Medium',
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
@@ -1753,7 +1985,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   balanceSub: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Medium',
     marginTop: 2,
   },

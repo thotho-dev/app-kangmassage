@@ -1,28 +1,130 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Platform, BackHandler, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, BackHandler, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, MapPin, Search, Navigation } from 'lucide-react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useLocation } from '@/context/LocationContext';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
-  withSequence,
-  withTiming
-} from 'react-native-reanimated';
+import { Asset } from 'expo-asset';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
 const TEXT_MUTED = '#6B7280';
 const BORDER = '#EFEFEF';
 
+const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html, #map { width: 100%; height: 100%; }
+    .leaflet-control-zoom { display: none; }
+    .leaflet-control-attribution { display: none !important; }
+    #centerPin {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -100%);
+      z-index: 9999;
+      pointer-events: none;
+      transition: transform 0.2s ease-out, filter 0.2s ease-out;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    }
+    #centerPin.lifted {
+      transform: translate(-50%, -130%);
+      filter: drop-shadow(0 8px 16px rgba(36,0,128,0.4));
+      transition: transform 0.15s ease-out, filter 0.15s ease-out;
+    }
+    #centerPin.dropping {
+      animation: drop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes drop {
+      0% { transform: translate(-50%, -130%); filter: drop-shadow(0 8px 16px rgba(36,0,128,0.4)); }
+      60% { transform: translate(-50%, -95%); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+      80% { transform: translate(-50%, -105%); }
+      100% { transform: translate(-50%, -100%); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+    }
+    #centerPin img {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+    }
+    #centerPin .pin-leg {
+      width: 3px;
+      height: 14px;
+      background: #FF6B2C;
+      margin: -2px auto 0;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="centerPin">
+    <img src="${pinUri}" alt="pin" />
+    <div class="pin-leg"></div>
+  </div>
+  <script>
+    var map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([${lat}, ${lng}], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    var pin = document.getElementById('centerPin');
+
+    map.on('movestart', function() {
+      pin.classList.remove('dropping');
+      pin.classList.add('lifted');
+    });
+
+    map.on('moveend', function() {
+      var center = map.getCenter();
+      pin.classList.remove('lifted');
+      pin.classList.add('dropping');
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'move',
+        lat: center.lat,
+        lng: center.lng
+      }));
+    });
+
+    window.updatePosition = function(lat, lng) {
+      map.setView([lat, lng], map.getZoom());
+      pin.classList.remove('lifted');
+      pin.classList.remove('dropping');
+      void pin.offsetHeight;
+      pin.classList.add('dropping');
+    };
+  </script>
+</body>
+</html>
+`;
+
 export default function MapsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { serviceId, from, sourceFrom } = useLocalSearchParams();
-  const mapRef = useRef<MapView>(null);
+  const webViewRef = useRef<WebView>(null);
+  const [pinUri, setPinUri] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const asset = Asset.fromModule(require('@/assets/icon-app-user.png'));
+      await asset.downloadAsync();
+      setPinUri(asset.uri);
+    })();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -43,23 +145,12 @@ export default function MapsScreen() {
       return () => backHandler.remove();
     }, [from, sourceFrom, serviceId])
   );
+
   const { address, setAddress, coords, setCoords } = useLocation();
   const [localAddress, setLocalAddress] = useState(address);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const pinTranslateY = useSharedValue(0);
-  const animatedMarkerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: pinTranslateY.value }],
-  }));
-
-  const bouncePin = () => {
-    pinTranslateY.value = withSequence(
-      withTiming(-20, { duration: 200 }),
-      withSpring(0, { damping: 12, stiffness: 120 })
-    );
-  };
 
   const [region, setRegion] = useState({
     latitude: coords?.latitude || -6.1754,
@@ -68,7 +159,9 @@ export default function MapsScreen() {
     longitudeDelta: 0.01,
   });
 
-  const fetchSuggestions = async (text: string) => {
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchSuggestions = (text: string) => {
     setLocalAddress(text);
     if (text.length < 3) {
       setSuggestions([]);
@@ -76,53 +169,59 @@ export default function MapsScreen() {
       return;
     }
 
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5&countrycodes=id`,
-        {
-          headers: {
-            'User-Agent': 'KangMassageUserApp/1.0',
-            'Accept-Language': 'id-ID'
-          }
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setSuggestions(data);
-        setShowSuggestions(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=5&countrycodes=id`,
+          {
+            headers: {
+              'User-Agent': 'KangMassageUserApp/1.0',
+              'Accept-Language': 'id-ID'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+          return;
+        }
+
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setSuggestions(data);
+          setShowSuggestions(true);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      } catch (error) {
+        setSuggestions([]);
+        setShowSuggestions(false);
       }
-    } catch (error) {
-      console.error('Autocomplete error:', error);
-      setShowSuggestions(false);
-    }
+    }, 600);
   };
 
   const selectSuggestion = (item: any) => {
     const lat = parseFloat(item.lat);
     const lon = parseFloat(item.lon);
-    const newRegion = {
-      ...region,
-      latitude: lat,
-      longitude: lon,
-    };
-    setRegion(newRegion);
-    mapRef.current?.animateToRegion(newRegion, 1000);
+    setRegion(prev => ({ ...prev, latitude: lat, longitude: lon }));
+    webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat, lng: lon }));
     setLocalAddress(item.display_name);
     setShowSuggestions(false);
   };
 
   useEffect(() => {
     if (coords) {
-      setRegion({
+      const newRegion = {
         ...region,
         latitude: coords.latitude,
         longitude: coords.longitude,
-      });
+      };
+      setRegion(newRegion);
+      webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat: coords.latitude, lng: coords.longitude }));
     }
   }, []);
 
@@ -136,9 +235,9 @@ export default function MapsScreen() {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
     };
-    mapRef.current?.animateToRegion(newRegion, 1000);
+    setRegion(newRegion);
+    webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat: location.coords.latitude, lng: location.coords.longitude }));
 
-    // Update address for current location
     const reverse = await Location.reverseGeocodeAsync({
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
@@ -163,13 +262,8 @@ export default function MapsScreen() {
       const result = await Location.geocodeAsync(localAddress);
       if (result.length > 0) {
         const { latitude, longitude } = result[0];
-        const newRegion = {
-          ...region,
-          latitude,
-          longitude,
-        };
-        setRegion(newRegion);
-        mapRef.current?.animateToRegion(newRegion, 1000);
+        setRegion(prev => ({ ...prev, latitude, longitude }));
+        webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat: latitude, lng: longitude }));
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -178,68 +272,65 @@ export default function MapsScreen() {
     }
   };
 
+  const onMessage = async (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'move') {
+        setRegion(prev => ({ ...prev, latitude: data.lat, longitude: data.lng }));
+
+        try {
+          const reverse = await Location.reverseGeocodeAsync({
+            latitude: data.lat,
+            longitude: data.lng,
+          });
+          if (reverse.length > 0) {
+            const item = reverse[0];
+            const addressParts = [
+              item.street,
+              item.name,
+              item.subregion,
+              item.city,
+              item.region
+            ].filter(Boolean);
+            const newAddr = addressParts.join(', ');
+            if (newAddr) setLocalAddress(newAddr);
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Real Map View */}
       <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          initialRegion={region}
-          showsUserLocation={true}
-          showsMyLocationButton={false}
-          onRegionChangeComplete={async (r) => {
-            setRegion(r);
-            bouncePin();
-            // Only update address if map is moved (not during manual typing search)
-            try {
-              const reverse = await Location.reverseGeocodeAsync({
-                latitude: r.latitude,
-                longitude: r.longitude,
-              });
-              if (reverse.length > 0) {
-                const item = reverse[0];
-                const addressParts = [
-                  item.street,
-                  item.name,
-                  item.subregion,
-                  item.city,
-                  item.region
-                ].filter(Boolean);
-                
-                const newAddr = addressParts.join(', ');
-                if (newAddr) {
-                  setLocalAddress(newAddr);
-                }
-              }
-            } catch (e) {}
-          }}
-        />
-        
+        {pinUri ? (
+          <WebView
+            ref={webViewRef}
+            source={{ html: LEAFLET_HTML(region.latitude, region.longitude, pinUri) }}
+            style={styles.map}
+            onMessage={onMessage}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
+        ) : (
+          <View style={[styles.map, { backgroundColor: '#F5F5F7', alignItems: 'center', justifyContent: 'center' }]}>
+            <ActivityIndicator size="large" color={PURPLE} />
+          </View>
+        )}
+
         {loading && (
           <View style={styles.loader}>
             <ActivityIndicator size="large" color={PURPLE} />
           </View>
         )}
 
-        {/* Custom Premium Marker with Animation */}
-        <Animated.View style={[styles.markerContainer, animatedMarkerStyle]} pointerEvents="none">
-          <View style={styles.markerHead}>
-            <View style={styles.markerDot} />
-          </View>
-          <View style={styles.markerTail} />
-        </Animated.View>
-
-        {/* Back Button Overlay */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={() => router.back()}>
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
 
-        {/* Search Overlay */}
-        <View style={styles.searchOverlay}>
+        <View style={[styles.searchOverlay, { top: insets.top + 10 }]}>
           <View style={styles.searchBar}>
             <Search size={18} color={TEXT_MUTED} />
             <TextInput 
@@ -273,14 +364,12 @@ export default function MapsScreen() {
           )}
         </View>
 
-        {/* My Location Button */}
         <TouchableOpacity style={styles.myLocationBtn} onPress={goToMyLocation}>
           <Navigation size={20} color={PURPLE} />
         </TouchableOpacity>
       </View>
 
-      {/* Address Details Bottom Sheet */}
-      <View style={styles.bottomSheet}>
+      <View style={[styles.bottomSheet, { paddingBottom: 24 + insets.bottom }]}>
         <View style={styles.handle} />
         <Text style={styles.sheetTitle}>Konfirmasi Lokasi</Text>
         
@@ -299,7 +388,6 @@ export default function MapsScreen() {
           onPress={() => {
             setAddress(localAddress);
             setCoords({ latitude: region.latitude, longitude: region.longitude });
-            // Navigate back specifically to Order screen with serviceId
             if (from === 'order') {
               router.push({ pathname: '/order', params: { serviceId, from: sourceFrom as string } });
             } else {
@@ -332,54 +420,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 15,
   },
-  markerContainer: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -22,
-    marginTop: -55,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  markerHead: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: PURPLE,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  markerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
-  },
-  markerTail: {
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 12,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: PURPLE,
-    marginTop: -2,
-  },
   backButton: {
     position: 'absolute',
-    top: 50,
-    left: 20,
+    left: 16,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -391,18 +434,17 @@ const styles = StyleSheet.create({
   },
   searchOverlay: {
     position: 'absolute',
-    top: 110,
-    left: 20,
-    right: 20,
-    zIndex: 20,
+    left: 70,
+    right: 16,
+    zIndex: 50,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 15,
-    height: 54,
-    borderRadius: 15,
+    paddingHorizontal: 14,
+    height: 44,
+    borderRadius: 22,
     elevation: 4,
     borderWidth: 1,
     borderColor: BORDER,
@@ -410,7 +452,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
@@ -418,14 +460,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     marginTop: 8,
-    elevation: 5,
+    elevation: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 5,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: BORDER,
+    zIndex: 100,
   },
   suggestionItem: {
     flexDirection: 'row',
@@ -436,7 +478,7 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
@@ -463,6 +505,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     padding: 24,
     paddingTop: 12,
+    paddingBottom: 40,
     elevation: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -10 },
@@ -479,35 +522,35 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sheetTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   addressCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8F9FA',
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 24,
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: BORDER,
   },
   addressIconBox: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 15,
+    marginRight: 14,
   },
   addressInfo: {
     flex: 1,
   },
   addressMain: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_MUTED,
     textTransform: 'uppercase',
@@ -515,14 +558,14 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   addressSub: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_DARK,
   },
   confirmBtn: {
     backgroundColor: PURPLE,
-    height: 56,
-    borderRadius: 18,
+    height: 52,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
@@ -533,4 +576,3 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Bold',
   },
 });
-

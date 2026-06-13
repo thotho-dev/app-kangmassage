@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAlert } from '@/context/AlertContext';
 import { getAppSettings, DEFAULT_SETTINGS } from '@/lib/appSettings';
+import { API_URL } from '@/lib/config';
 
 const PURPLE = '#240080';
 const BG = '#F8F9FE';
@@ -358,7 +359,21 @@ export default function SearchingTherapistScreen() {
       const orderData = cancelledOrders[0];
       
       // Refund Logic
-      if (orderData.payment_method === 'saldo') {
+      const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
+        'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
+      
+      if (gatewayMethods.includes(orderData.payment_method)) {
+        // Refund via API untuk payment gateway
+        try {
+          await fetch(`${API_URL}/api/refund/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: id }),
+          });
+        } catch (e) {
+          console.warn('Refund API error:', e);
+        }
+      } else if (orderData.payment_method === 'saldo') {
         const { data: userProfile } = await supabase
           .from('users')
           .select('wallet_balance, cashback_balance')
@@ -370,14 +385,25 @@ export default function SearchingTherapistScreen() {
           const earnedCashback = Number(orderData.earned_cashback) || 0;
           const paidAmount = Number(orderData.total_price) || 0;
           
-          if (usedCashback > 0 || earnedCashback > 0) {
-            await supabase
-              .from('users')
-              .update({ 
-                cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
-              })
-              .eq('id', orderData.user_id);
-          }
+          // Kembalikan wallet balance
+          await supabase
+            .from('users')
+            .update({ 
+              wallet_balance: (userProfile.wallet_balance || 0) + paidAmount,
+              cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
+            })
+            .eq('id', orderData.user_id);
+
+          // Catat transaksi refund
+          await supabase.from('transactions').insert({
+            user_id: orderData.user_id,
+            order_id: id,
+            type: 'refund',
+            amount: paidAmount,
+            balance_before: userProfile.wallet_balance || 0,
+            balance_after: (userProfile.wallet_balance || 0) + paidAmount,
+            description: `Refund pembatalan pesanan ${orderData.order_number} ke saldo`,
+          });
         }
       }
 

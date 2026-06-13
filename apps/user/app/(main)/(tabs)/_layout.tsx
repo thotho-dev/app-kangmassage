@@ -5,8 +5,8 @@ import {
   StyleSheet,
   Text,
   Pressable,
-  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -19,16 +19,14 @@ import { Home, Clock, MessageCircle, User } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 
-const PURPLE = '#5B2A86';
-const PURPLE_SOFT = '#F3E8FF';
 const INACTIVE_ICON = '#9CA3AF';
 const BAR_BG = '#FFFFFF';
 
-const TAB_META: Record<string, { label: string; Icon: any }> = {
-  home:    { label: 'Home',    Icon: Home },
-  history: { label: 'Riwayat', Icon: Clock },
-  chat:    { label: 'Chat',    Icon: MessageCircle },
-  profile: { label: 'Profil',  Icon: User },
+const TAB_META: Record<string, { label: string; Icon: any; bg: string; color: string }> = {
+  home:    { label: 'Home',    Icon: Home,    bg: '#F3E8FF', color: '#7C3AED' },
+  history: { label: 'Riwayat', Icon: Clock,  bg: '#EFF6FF', color: '#3B82F6' },
+  chat:    { label: 'Chat',    Icon: MessageCircle, bg: '#FFFBEB', color: '#F59E0B' },
+  profile: { label: 'Profil',  Icon: User,   bg: '#ECFDF5', color: '#10B981' },
 };
 
 // ─── Animated Tab Item ─────────────────────────────────────────────────────────
@@ -37,11 +35,15 @@ function AnimatedTabItem({
   label,
   Icon,
   onPress,
+  bg,
+  color,
 }: {
   focused: boolean;
   label: string;
   Icon: any;
   onPress: () => void;
+  bg: string;
+  color: string;
 }) {
   const progress = useSharedValue(focused ? 1 : 0);
 
@@ -77,14 +79,14 @@ function AnimatedTabItem({
       android_ripple={{ color: 'transparent' }}
     >
       <Animated.View style={[styles.pill, contentStyle]}>
-        <Animated.View style={[styles.pillBg, bgStyle]} />
+        <Animated.View style={[styles.pillBg, { backgroundColor: bg }, bgStyle]} />
         <Icon
           size={22}
-          color={focused ? PURPLE : INACTIVE_ICON}
+          color={focused ? color : INACTIVE_ICON}
           strokeWidth={focused ? 2.5 : 1.8}
         />
         <Animated.View style={[styles.labelWrap, labelStyle]}>
-          <Text style={styles.activeLabel} numberOfLines={1}>
+          <Text style={[styles.activeLabel, { color: color }]} numberOfLines={1}>
             {label}
           </Text>
         </Animated.View>
@@ -97,12 +99,13 @@ function AnimatedTabItem({
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Filter only valid tab routes
   const visibleRoutes = state.routes.filter((r) => TAB_META[r.name]);
 
   return (
-    <View pointerEvents="box-none" style={styles.barContainer}>
+    <View pointerEvents="box-none" style={[styles.barContainer, { bottom: insets.bottom + 12 }]}>
       <View style={styles.bar}>
         {visibleRoutes.map((route) => {
           const meta = TAB_META[route.name];
@@ -133,6 +136,8 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
               label={meta.label}
               Icon={meta.Icon}
               onPress={onPress}
+              bg={meta.bg}
+              color={meta.color}
             />
           );
         })}
@@ -167,7 +172,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: Platform.OS === 'ios' ? 76 : 40,
     alignItems: 'center',
     paddingHorizontal: 16,
   },
@@ -207,7 +211,6 @@ const styles = StyleSheet.create({
   },
   pillBg: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: PURPLE_SOFT,
     borderRadius: 24,
   },
   labelWrap: {
@@ -215,7 +218,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activeLabel: {
-    color: PURPLE,
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 12,
     letterSpacing: 0.2,

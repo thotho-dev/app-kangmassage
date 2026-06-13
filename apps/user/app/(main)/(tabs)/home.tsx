@@ -21,9 +21,17 @@ import {
   Wallet,
   ChevronRight,
   Star,
-  Scissors,
   X,
   Clock,
+  Flame,
+  LayoutGrid,
+  BookOpen,
+  Heart,
+  Activity,
+  Sun,
+  Smile,
+  Droplets,
+  Search,
 } from 'lucide-react-native';
 import { useServices } from '@/hooks/useServices';
 import { useLocation } from '@/context/LocationContext';
@@ -32,6 +40,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = (SCREEN_WIDTH - 44) / 2;
+const REC_CARD_WIDTH = 152;
+const WHY_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 72) / 2);
 
 const ORANGE = '#FF6B2C';
 const ORANGE_SOFT = '#FFF1E8';
@@ -104,6 +115,31 @@ const HOME_SERVICES = [
 
 const formatRupiah = (value: number) =>
   `Rp ${value.toLocaleString('id-ID')}`;
+
+// ─── Category Data ─────────────────────────────────────────────────────────────
+const CATEGORIES = [
+  { id: '1', name: 'Body Massage', icon: 'Heart', color: '#6A0DAD', bg: '#F0E8FF' },
+  { id: '2', name: 'Bekam', icon: 'Droplets', color: '#DC2626', bg: '#FFE8E8' },
+  { id: '3', name: 'Refleksi', icon: 'Activity', color: '#059669', bg: '#E8FFF0' },
+  { id: '4', name: 'Shiatsu', icon: 'Sun', color: '#2563EB', bg: '#E8F0FF' },
+  { id: '5', name: 'Ibu Hamil', icon: 'Heart', color: '#D97706', bg: '#FFF8E8' },
+  { id: '6', name: 'Anak', icon: 'Smile', color: '#7C3AED', bg: '#F3E8FF' },
+];
+
+// ─── How It Works Data ─────────────────────────────────────────────────────────
+const HOW_IT_WORKS = [
+  { id: '1', title: 'Pilih Layanan', desc: 'Telusuri & pilih layanan pijat yang kamu butuhkan', bg: '#F5F3FF', color: '#7C3AED', icon: 'Search' },
+  { id: '2', title: 'Terapis Datang', desc: 'Konfirmasi, lalu terapis kami datang ke lokasi kamu', bg: '#EFF6FF', color: '#3B82F6', icon: 'MapPin' },
+  { id: '3', title: 'Nikmati Relaksasi', desc: 'Duduk santai dan nikmati pijatan profesional', bg: '#ECFDF5', color: '#10B981', icon: 'Heart' },
+];
+
+// ─── Why Us Data ───────────────────────────────────────────────────────────────
+const WHY_US = [
+  { id: '1', title: 'Terapis Tersertifikasi', desc: 'Berpengalaman & profesional', icon: 'Star', bg: '#FFFBEB', iconBg: '#F59E0B' },
+  { id: '2', title: 'Harga Transparan', desc: 'Tanpa biaya tersembunyi', icon: 'Wallet', bg: '#ECFDF5', iconBg: '#10B981' },
+  { id: '3', title: 'Layanan Door-to-Door', desc: 'Datang ke rumah atau hotel', icon: 'MapPin', bg: '#EFF6FF', iconBg: '#3B82F6' },
+  { id: '4', title: 'Proses Cepat', desc: 'Pesan dalam hitungan menit', icon: 'Flame', bg: '#FFF7ED', iconBg: '#F97316' },
+];
 
 // ─── Banner Slideshow ──────────────────────────────────────────────────────────
 function BannerSlideshow({ onBookNow }: { onBookNow: () => void }) {
@@ -194,6 +230,8 @@ export default function HomeScreen() {
 
   const [floatingOrder, setFloatingOrder] = useState<any>(null);
   const [isDismissed, setIsDismissed] = useState(false);
+  const stepScrollRef = useRef<ScrollView>(null);
+  const [activeStep, setActiveStep] = useState(0);
 
   const fetchFloatingOrder = async () => {
     if (!profile?.id) {
@@ -267,6 +305,17 @@ export default function HomeScreen() {
       supabase.removeChannel(channel);
     };
   }, [profile?.id]);
+
+  // Auto-slide Cara Pesan
+  const stepWidth = SCREEN_WIDTH - 60;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nextIndex = (activeStep + 1) % HOW_IT_WORKS.length;
+      stepScrollRef.current?.scrollTo({ x: nextIndex * stepWidth, animated: true });
+      setActiveStep(nextIndex);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeStep]);
 
   const getFloatingStatusInfo = (ord: any) => {
     if (ord.status === 'completed' && !ord.rating) {
@@ -397,13 +446,13 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.brandName}>Kang Massage</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.bellButton} 
-            activeOpacity={0.85}
-            onPress={() => handleProtectedAction('/notifications')}
-          >
-            <Bell size={18} color="#FFFFFF" fill="#FFFFFF" />
-          </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.bellButton, { backgroundColor: '#F3E8FF' }]} 
+              activeOpacity={0.85}
+              onPress={() => handleProtectedAction('/notifications')}
+            >
+              <Bell size={18} color={PURPLE} />
+            </TouchableOpacity>
         </View>
 
         {/* ── Sticky User Header ── */}
@@ -430,30 +479,30 @@ export default function HomeScreen() {
               </View>
             </View>
             <TouchableOpacity 
-              style={styles.circleAction} 
+              style={[styles.circleAction, { backgroundColor: '#FEF3C7' }]} 
               activeOpacity={0.85}
               onPress={() => handleProtectedAction('/vouchers')}
             >
-              <Ticket size={25} color={PURPLE} />
+              <Ticket size={25} color="#D97706" />
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.circleAction} 
+              style={[styles.circleAction, { backgroundColor: '#DBEAFE' }]} 
               activeOpacity={0.85}
               onPress={() => handleProtectedAction('/wallet')}
             >
-              <Wallet size={25} color={PURPLE} />
+              <Wallet size={25} color="#2563EB" />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* ── Location ── */}
         <TouchableOpacity 
-          style={styles.locationBlock} 
           activeOpacity={0.75}
           onPress={() => handleProtectedAction('/maps', { from: 'home' })}
+          style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 16 }}
         >
-          <MapPin size={14} color={PURPLE} fill={PURPLE} />
-          <View style={{ flex: 1, marginLeft: 6 }}>
+          <MapPin size={16} color={PURPLE} />
+          <View style={{ flex: 1, marginLeft: 8 }}>
             <Text style={styles.locationLabel}>Lokasi saat ini</Text>
             <Text style={styles.locationText} numberOfLines={1}>
               {isLocLoading ? 'Mencari lokasi...' : address}
@@ -467,14 +516,169 @@ export default function HomeScreen() {
           onBookNow={() => handleProtectedAction('/services')}
         />
 
-        {/* ── Layanan section ── */}
+        {/* ── Kategori Layanan ── */}
+        <View style={styles.catSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIconBox, { backgroundColor: '#3B82F6' }]}>
+                <LayoutGrid size={14} color="#FFFFFF" />
+              </View>
+              <Text style={styles.sectionTitle}>Kategori Layanan</Text>
+              <View style={[styles.sectionBadge, { backgroundColor: '#2563EB' }]}>
+                <Text style={styles.sectionBadgeText}>Jelajahi</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catScroll}
+          >
+            {CATEGORIES.map((cat) => {
+              const IconComp = cat.icon === 'Heart' ? Heart : cat.icon === 'Droplets' ? Droplets : cat.icon === 'Activity' ? Activity : cat.icon === 'Sun' ? Sun : Smile;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={styles.catItem}
+                  activeOpacity={0.75}
+                  onPress={() => router.push('/services')}
+                >
+                  <View style={[styles.catCircle, { backgroundColor: cat.bg }]}>
+                    <IconComp size={22} color={cat.color} />
+                  </View>
+                  <Text style={styles.catLabel}>{cat.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* ── Cara Pesan ── */}
+        <View style={styles.stepsSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIconBox, { backgroundColor: '#7C3AED' }]}>
+                <BookOpen size={14} color="#FFFFFF" />
+              </View>
+              <Text style={styles.sectionTitle}>Cara Pesan</Text>
+              <View style={[styles.sectionBadge, { backgroundColor: '#7C3AED' }]}>
+                <Text style={styles.sectionBadgeText}>3 Langkah</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView
+            ref={stepScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.stepsScroll}
+            snapToInterval={stepWidth}
+            decelerationRate="fast"
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / stepWidth);
+              setActiveStep(idx);
+            }}
+          >
+            {HOW_IT_WORKS.map((step) => {
+              const StepIcon = step.icon === 'Search' ? Search : step.icon === 'MapPin' ? MapPin : Heart;
+              return (
+                <View key={step.id} style={[styles.stepCard, { backgroundColor: step.bg }]}>
+                  <View style={[styles.stepNum, { backgroundColor: step.color }]}>
+                    <StepIcon size={18} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                  <Text style={styles.stepDesc}>{step.desc}</Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.stepDots}>
+            {HOW_IT_WORKS.map((_, i) => (
+              <View key={i} style={[styles.stepDot, i === activeStep && styles.stepDotActive]} />
+            ))}
+          </View>
+        </View>
+
+        {/* ── Rekomendasi section ── */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <View style={styles.sectionIconBox}>
-              <Scissors size={14} color="#FFFFFF" />
+            <View style={[styles.sectionIconBox, { backgroundColor: '#F59E0B' }]}>
+              <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
-            <Text style={styles.sectionTitle}>Layanan Kami</Text>
-          </View>
+            <Text style={styles.sectionTitle}>Rekomendasi</Text>
+              <View style={[styles.sectionBadge, { backgroundColor: '#059669' }]}>
+                <Text style={styles.sectionBadgeText}>Pilihan Top</Text>
+              </View>
+            </View>
+          <TouchableOpacity onPress={() => router.push('/services')}>
+            <Text style={styles.seeAll}>Lihat Semua</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.recScroll}
+        >
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <View key={i} style={[styles.gridCard, { width: REC_CARD_WIDTH }]}>
+                <Skeleton width="100%" height={110} borderRadius={0} />
+                <View style={styles.gridCardBody}>
+                  <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                  <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: 4 }} />
+                  <Skeleton width="100%" height={10} borderRadius={4} style={{ marginBottom: 8 }} />
+                  <Skeleton width="50%" height={26} borderRadius={13} />
+                </View>
+              </View>
+            ))
+          ) : (
+            [...(services || [])].sort((a, b) => {
+              const pa = a.duration_options?.[0]?.price || a.price || 0;
+              const pb = b.duration_options?.[0]?.price || b.price || 0;
+              return pb - pa;
+            }).slice(0, 7).map((service) => (
+              <TouchableOpacity
+                key={service.id}
+                style={[styles.gridCard, { width: REC_CARD_WIDTH }]}
+                activeOpacity={0.85}
+                onPress={() =>
+                  handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
+                }
+              >
+                <Image
+                  source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
+                  style={styles.gridCardImage}
+                />
+                <View style={styles.gridCardBody}>
+                  <Text style={styles.gridCardName} numberOfLines={1}>
+                    {service.name}
+                  </Text>
+                  <Text style={styles.gridCardPrice}>
+                    Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
+                  </Text>
+                  <Text style={styles.gridCardDesc} numberOfLines={1}>
+                    {service.description}
+                  </Text>
+                  <View style={styles.gridCardBtn}>
+                    <Text style={styles.gridCardBtnText}>Pilih</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+
+        {/* ── Banyak Dipesan section ── */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <View style={[styles.sectionIconBox, { backgroundColor: '#EA580C' }]}>
+              <Flame size={14} color="#FFFFFF" fill="#FFFFFF" />
+            </View>
+            <Text style={styles.sectionTitle}>Banyak Dipesan</Text>
+              <View style={[styles.sectionBadge, { backgroundColor: '#EA580C' }]}>
+                <Text style={styles.sectionBadgeText}>Populer</Text>
+              </View>
+            </View>
           <TouchableOpacity onPress={() => router.push('/services')}>
             <Text style={styles.seeAll}>Lihat Semua</Text>
           </TouchableOpacity>
@@ -483,57 +687,77 @@ export default function HomeScreen() {
         <View style={styles.grid}>
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <View key={i} style={styles.serviceCard}>
-                <Skeleton width="100%" height={120} borderRadius={0} />
-                <View style={styles.serviceInfo}>
-                  <Skeleton width="80%" height={16} borderRadius={4} style={{ marginBottom: 8 }} />
-                  <Skeleton width="40%" height={12} borderRadius={4} style={{ marginBottom: 8 }} />
-                  <Skeleton width="100%" height={24} borderRadius={4} style={{ marginBottom: 12 }} />
-                  <Skeleton width="100%" height={36} borderRadius={10} />
+              <View key={i} style={styles.gridCard}>
+                <Skeleton width="100%" height={110} borderRadius={0} />
+                <View style={styles.gridCardBody}>
+                  <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                  <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: 4 }} />
+                  <Skeleton width="100%" height={10} borderRadius={4} style={{ marginBottom: 8 }} />
+                  <Skeleton width="50%" height={26} borderRadius={13} />
                 </View>
               </View>
             ))
           ) : (
-            services?.slice(0, 4).map((service) => (
-              <View key={service.id} style={styles.serviceCard}>
+            services?.slice(4, 8).map((service) => (
+              <TouchableOpacity
+                key={service.id}
+                style={styles.gridCard}
+                activeOpacity={0.85}
+                onPress={() =>
+                  handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
+                }
+              >
                 <Image
                   source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
-                  style={styles.serviceImage}
+                  style={styles.gridCardImage}
                 />
-                <View style={styles.serviceInfo}>
-                  <Text style={styles.serviceName} numberOfLines={1}>
+                <View style={styles.gridCardBody}>
+                  <Text style={styles.gridCardName} numberOfLines={1}>
                     {service.name}
                   </Text>
-                  <Text style={styles.servicePrice}>
+                  <Text style={styles.gridCardPrice}>
                     Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
                   </Text>
-                  <Text style={styles.serviceDesc} numberOfLines={2}>
+                  <Text style={styles.gridCardDesc} numberOfLines={1}>
                     {service.description}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.pickButton}
-                    activeOpacity={0.9}
-                    onPress={() =>
-                      handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
-                    }
-                  >
-                    <Text style={styles.pickButtonText}>Pilih Layanan</Text>
-                  </TouchableOpacity>
+                  <View style={styles.gridCardBtn}>
+                    <Text style={styles.gridCardBtnText}>Pilih</Text>
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
 
-        {/* ── All Services button ── */}
-        <TouchableOpacity
-          style={styles.allServicesBtn}
-          activeOpacity={0.9}
-          onPress={() => router.push('/services')}
-        >
-          <Text style={styles.allServicesText}>Semua Layanan</Text>
-          <ChevronRight size={16} color={PURPLE} />
-        </TouchableOpacity>
+        {/* ── Mengapa Pilih Kami ── */}
+        <View style={styles.whySection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIconBox, { backgroundColor: '#10B981' }]}>
+                <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
+              </View>
+              <Text style={styles.sectionTitle}>Mengapa Pilih Kami</Text>
+              <View style={[styles.sectionBadge, { backgroundColor: '#059669' }]}>
+                <Text style={styles.sectionBadgeText}>Terpercaya</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.whyGrid}>
+            {WHY_US.map((item) => {
+              const IconComp = item.icon === 'Star' ? Star : item.icon === 'Wallet' ? Wallet : item.icon === 'MapPin' ? MapPin : Flame;
+              return (
+                <View key={item.id} style={[styles.whyCard, { backgroundColor: item.bg }]}>
+                  <View style={[styles.whyIconBox, { backgroundColor: item.iconBg + '20' }]}>
+                    <IconComp size={18} color={item.iconBg} />
+                  </View>
+                  <Text style={styles.whyTitle}>{item.title}</Text>
+                  <Text style={styles.whyDesc}>{item.desc}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -768,6 +992,8 @@ const styles = StyleSheet.create({
     backgroundColor: PURPLE,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   avatarText: {
     color: '#FFFFFF',
@@ -846,7 +1072,6 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 8,
-    backgroundColor: PURPLE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -860,95 +1085,233 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: PURPLE,
   },
+  sectionBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 2,
+  },
+  sectionBadgeText: {
+    fontSize: 9,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
 
-  // Grid
+  // Kategori Layanan
+  catSection: {
+    marginBottom: 20,
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  catScroll: {
+    gap: 16,
+    paddingRight: 20,
+  },
+  catItem: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  catCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  catLabel: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    color: TEXT_DARK,
+  },
+
+  // Cara Pesan
+  stepsSection: {
+    marginBottom: 20,
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  stepsScroll: {
+    gap: 10,
+    paddingRight: 10,
+  },
+  stepCard: {
+    width: SCREEN_WIDTH - 70,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  stepNum: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  stepTitle: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: TEXT_DARK,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  stepDesc: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Regular',
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  stepDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  stepDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D1D5DB',
+  },
+  stepDotActive: {
+    width: 18,
+    backgroundColor: '#7C3AED',
+    borderRadius: 3,
+  },
+
+  // Mengapa Pilih Kami
+  whySection: {
+    marginBottom: 20,
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  whyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  whyCard: {
+    width: WHY_CARD_WIDTH,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  whyIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: PURPLE_SOFT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  whyTitle: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: TEXT_DARK,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  whyDesc: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-Regular',
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+
+  // Grid Cards
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 20,
   },
-  serviceCard: {
-    width: '48.5%',
+  gridCard: {
+    width: CARD_WIDTH,
     backgroundColor: CARD_BG,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: BORDER,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  serviceImage: {
+  gridCardImage: {
     width: '100%',
-    height: 90,
+    height: 110,
     resizeMode: 'cover',
+    backgroundColor: '#F0F0F0',
   },
-  serviceBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 10,
-    backgroundColor: '#DCFCE7',
-  },
-  serviceBadgePopular: {
-    backgroundColor: '#DCFCE7',
-  },
-  serviceBadgeDiscount: {
-    backgroundColor: PURPLE_SOFT,
-  },
-  serviceBadgeText: {
-    fontSize: 9,
-    fontFamily: 'PlusJakartaSans-Bold',
-    color: '#15803D',
-  },
-  serviceBadgeTextDiscount: {
-    color: PURPLE,
-  },
-  serviceInfo: {
+  gridCardBody: {
     padding: 10,
+    gap: 4,
   },
-  serviceName: {
-    fontSize: 12,
+  gridCardName: {
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
-    marginBottom: 2,
   },
-  servicePrice: {
-    fontSize: 11,
+  gridCardPrice: {
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
-    marginBottom: 4,
   },
-  serviceDesc: {
+  gridCardDesc: {
     fontSize: 10,
     fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
-    lineHeight: 14,
-    marginBottom: 10,
+    lineHeight: 13,
   },
-  pickButton: {
-    backgroundColor: PURPLE,
-    borderRadius: 20,
-    paddingVertical: 8,
+  gridCardBtn: {
+    marginTop: 6,
+    backgroundColor: PURPLE_SOFT,
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
     alignItems: 'center',
-    shadowColor: PURPLE,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  pickButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+  gridCardBtnText: {
+    color: PURPLE,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Bold',
+  },
+
+  // Rekomendasi horizontal scroll
+  recScroll: {
+    gap: 12,
+    paddingRight: 20,
+    marginBottom: 20,
   },
 
   // All services

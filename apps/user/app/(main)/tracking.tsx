@@ -6,7 +6,7 @@ const PURPLE = '#240080';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Phone, MessageCircle, MapPin, Clock, Navigation, Star, Send, CheckCircle2, X, Calendar, ClipboardList } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
@@ -14,6 +14,103 @@ import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/config';
 
 const { width } = Dimensions.get('window');
+
+const getTrackingLeafletHTML = (
+  userLat: number, userLng: number,
+  therapistLat: number, therapistLng: number,
+  therapistAvatar: string, therapistName: string,
+  userAddress: string,
+  routeCoords: {latitude: number, longitude: number}[]
+) => {
+  const routeJSON = JSON.stringify(routeCoords.map(c => [c.latitude, c.longitude]));
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html, #map { width: 100%; height: 100%; }
+    .leaflet-control-zoom { display: none; }
+    .leaflet-control-attribution { display: none !important; }
+    .user-marker {
+      width: 36px; height: 36px; border-radius: 18px;
+      background: #E74C3C; border: 3px solid #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .user-marker svg { width: 18px; height: 18px; fill: #fff; }
+    .therapist-marker {
+      width: 44px; height: 44px; border-radius: 22px;
+      background: #fff; padding: 3px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .therapist-marker img {
+      width: 100%; height: 100%; border-radius: 20px; object-fit: cover;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map', { zoomControl: false, attributionControl: false })
+      .setView([${userLat}, ${userLng}], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+    var userIcon = L.divIcon({
+      className: 'user-marker',
+      html: '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+
+    var therapistIcon = L.divIcon({
+      className: 'therapist-marker',
+      html: '<img src="${therapistAvatar}" alt="${therapistName}" />',
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
+    });
+
+    var userMarker = L.marker([${userLat}, ${userLng}], { icon: userIcon }).addTo(map);
+    var therapistMarker = L.marker([${therapistLat}, ${therapistLng}], { icon: therapistIcon }).addTo(map);
+
+    var routeLine = null;
+    ${routeCoords.length > 0 ? `
+    var routeCoords = ${routeJSON};
+    routeLine = L.polyline(routeCoords, { color: '#00B14F', weight: 5, opacity: 1 }).addTo(map);
+    L.polyline(routeCoords, { color: 'rgba(0,177,79,0.25)', weight: 10, opacity: 1 }).addTo(map);
+    ` : ''}
+
+    map.fitBounds([[${userLat}, ${userLng}], [${therapistLat}, ${therapistLng}]], { padding: [120, 60, 420, 60] });
+
+    window.updateTracking = function(data) {
+      if (data.userLat && data.userLng) {
+        userMarker.setLatLng([data.userLat, data.userLng]);
+      }
+      if (data.therapistLat && data.therapistLng) {
+        therapistMarker.setLatLng([data.therapistLat, data.therapistLng]);
+      }
+      if (data.routeCoords && data.routeCoords.length > 0) {
+        if (routeLine) map.removeLayer(routeLine);
+        routeLine = L.polyline(data.routeCoords, { color: '#00B14F', weight: 5, opacity: 1 }).addTo(map);
+        L.polyline(data.routeCoords, { color: 'rgba(0,177,79,0.25)', weight: 10, opacity: 1 }).addTo(map);
+      }
+      if (data.fitBounds) {
+        var bounds = L.latLngBounds([
+          [data.userLat || ${userLat}, data.userLng || ${userLng}],
+          [data.therapistLat || ${therapistLat}, data.therapistLng || ${therapistLng}]
+        ]);
+        map.fitBounds(bounds, { padding: [120, 60, 420, 60], animate: true });
+      }
+    };
+  </script>
+</body>
+</html>`;
+};
 
 const STATUS_STEPS = [
   { key: 'accepted',    label: 'Pesanan Diterima',   icon: 'checkmark-circle' },
@@ -42,7 +139,7 @@ export default function TrackingScreen() {
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   
   // Map View Reference and Bounds Auto-fit
-  const mapRef = useRef<MapView>(null);
+  const webViewRef = useRef<WebView>(null);
 
   // Custom Alert Modal State
   const [alertConfig, setAlertConfig] = useState<{
@@ -71,26 +168,16 @@ export default function TrackingScreen() {
   };
 
   useEffect(() => {
-    if (order?.latitude && order?.longitude && mapRef.current) {
-      const coords = [
-        { latitude: order.latitude, longitude: order.longitude }
-      ];
-      
-      if (order.therapist?.latitude && order.therapist?.longitude) {
-        coords.push({
-          latitude: order.therapist.latitude,
-          longitude: order.therapist.longitude
-        });
-      }
-      
-      const timer = setTimeout(() => {
-        mapRef.current?.fitToCoordinates(coords, {
-          edgePadding: { top: 120, right: 60, bottom: 420, left: 60 },
-          animated: true
-        });
-      }, 500);
-      
-      return () => clearTimeout(timer);
+    if (order?.latitude && order?.longitude && webViewRef.current) {
+      const userLat = order.latitude;
+      const userLng = order.longitude;
+      const therapistLat = order.therapist?.latitude || (order.latitude + 0.005);
+      const therapistLng = order.therapist?.longitude || (order.longitude + 0.005);
+
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'fitBounds',
+        userLat, userLng, therapistLat, therapistLng
+      }));
     }
   }, [order?.latitude, order?.longitude, order?.therapist?.latitude, order?.therapist?.longitude]);
 
@@ -198,6 +285,22 @@ export default function TrackingScreen() {
       fetchRoute();
     }
   }, [order?.latitude, order?.therapist?.latitude, order?.therapist?.longitude]);
+
+  // Send updates to Leaflet WebView when data changes
+  useEffect(() => {
+    if (webViewRef.current && order) {
+      const msg = {
+        type: 'updateTracking',
+        userLat: order.latitude,
+        userLng: order.longitude,
+        therapistLat: order.therapist?.latitude || (order.latitude ? order.latitude + 0.005 : null),
+        therapistLng: order.therapist?.longitude || (order.longitude ? order.longitude + 0.005 : null),
+        routeCoords: routeCoords.map(c => [c.latitude, c.longitude]),
+        fitBounds: true
+      };
+      webViewRef.current.postMessage(JSON.stringify(msg));
+    }
+  }, [order?.latitude, order?.longitude, order?.therapist?.latitude, order?.therapist?.longitude, routeCoords]);
 
   const fetchLogs = async () => {
     const { data } = await supabase
@@ -374,7 +477,20 @@ export default function TrackingScreen() {
                 const orderData = data[0];
                 
                 // Refund Logic
-                if (orderData.payment_method === 'saldo') {
+                const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
+                  'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
+                
+                if (gatewayMethods.includes(orderData.payment_method)) {
+                  try {
+                    await fetch(`${API_URL}/api/refund/create`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ order_id: id }),
+                    });
+                  } catch (e) {
+                    console.warn('Refund API error:', e);
+                  }
+                } else if (orderData.payment_method === 'saldo') {
                   const { data: userProfile } = await supabase
                     .from('users')
                     .select('wallet_balance, cashback_balance')
@@ -386,14 +502,23 @@ export default function TrackingScreen() {
                     const earnedCashback = Number(orderData.earned_cashback) || 0;
                     const paidAmount = Number(orderData.total_price) || 0;
                     
-                    if (usedCashback > 0 || earnedCashback > 0) {
-                      await supabase
-                        .from('users')
-                        .update({ 
-                          cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
-                        })
-                        .eq('id', orderData.user_id);
-                    }
+                    await supabase
+                      .from('users')
+                      .update({ 
+                        wallet_balance: (userProfile.wallet_balance || 0) + paidAmount,
+                        cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
+                      })
+                      .eq('id', orderData.user_id);
+
+                    await supabase.from('transactions').insert({
+                      user_id: orderData.user_id,
+                      order_id: id,
+                      type: 'refund',
+                      amount: paidAmount,
+                      balance_before: userProfile.wallet_balance || 0,
+                      balance_after: (userProfile.wallet_balance || 0) + paidAmount,
+                      description: `Refund pembatalan pesanan ${orderData.order_number} ke saldo`,
+                    });
                   }
                 }
 
@@ -555,103 +680,23 @@ export default function TrackingScreen() {
       {/* Map Area - Hidden when completed */}
       {order?.status !== 'completed' && (
         <View style={styles.mapContainer}>
-          <MapView
-            ref={mapRef}
+          <WebView
+            ref={webViewRef}
+            source={{ html: getTrackingLeafletHTML(
+              order?.latitude || -6.2020,
+              order?.longitude || 106.8250,
+              order?.therapist?.latitude || (order?.latitude ? order.latitude + 0.005 : -6.1970),
+              order?.therapist?.longitude || (order?.longitude ? order.longitude + 0.005 : 106.8300),
+              order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
+              order?.therapist?.full_name || 'Terapis',
+              order?.address || '',
+              routeCoords
+            )}}
             style={styles.map}
-            initialRegion={{
-              latitude: order?.latitude || -6.2020,
-              longitude: order?.longitude || 106.8250,
-              latitudeDelta: 0.015,
-              longitudeDelta: 0.015,
-            }}
-            showsUserLocation={true}
-          >
-            {/* User Location Marker */}
-            {order?.latitude && (
-              <Marker
-                coordinate={{ latitude: order.latitude, longitude: order.longitude }}
-                title="Lokasi Anda"
-                description={order.address}
-              >
-                 <View style={styles.userMarker}>
-                    <MapPin size={32} color={COLORS.error} fill={COLORS.error} />
-                 </View>
-              </Marker>
-            )}
-
-            {/* Therapist Location Marker - Only show if assigned */}
-            {order?.therapist && (
-              <Marker
-                coordinate={{ 
-                  latitude: order.therapist.latitude || (order.latitude + 0.005), 
-                  longitude: order.therapist.longitude || (order.longitude + 0.005) 
-                }}
-                title="Terapis"
-                description={order.therapist.full_name}
-              >
-                 <View style={styles.therapistMarker}>
-                   <Image 
-                    source={{ uri: order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
-                     style={styles.markerAvatar} 
-                   />
-                   <View style={styles.markerPulse} />
-                 </View>
-              </Marker>
-            )}
-
-            {/* Rute Mengikuti Jalan (OSRM) - Premium Gojek Glowing Style */}
-            {routeCoords.length > 0 ? (
-              <>
-                {/* Glow Outer Line */}
-                <Polyline
-                  coordinates={routeCoords}
-                  strokeColor="rgba(0, 177, 79, 0.25)"
-                  strokeWidth={10}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-                {/* Solid Inner Line */}
-                <Polyline
-                  coordinates={routeCoords}
-                  strokeColor="#00B14F"
-                  strokeWidth={5}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-              </>
-            ) : order?.latitude && order?.therapist && (
-              <>
-                {/* Fallback Glow Outer Line */}
-                <Polyline
-                  coordinates={[
-                    { latitude: order.latitude, longitude: order.longitude },
-                    { 
-                      latitude: order.therapist.latitude || (order.latitude + 0.005), 
-                      longitude: order.therapist.longitude || (order.longitude + 0.005) 
-                    }
-                  ]}
-                  strokeColor="rgba(0, 177, 79, 0.25)"
-                  strokeWidth={10}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-                {/* Fallback Solid Inner Line */}
-                <Polyline
-                  coordinates={[
-                    { latitude: order.latitude, longitude: order.longitude },
-                    { 
-                      latitude: order.therapist.latitude || (order.latitude + 0.005), 
-                      longitude: order.therapist.longitude || (order.longitude + 0.005) 
-                    }
-                  ]}
-                  strokeColor="#00B14F"
-                  strokeWidth={5}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-              </>
-            )}
-          </MapView>
+            onMessage={(event) => {}}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
           <LinearGradient
             colors={isDark ? ['rgba(2, 6, 23, 0.9)', 'rgba(2, 6, 23, 0)'] : ['rgba(255, 255, 255, 0.7)', 'rgba(255, 255, 255, 0)']}
             start={{ x: 0, y: 0 }}

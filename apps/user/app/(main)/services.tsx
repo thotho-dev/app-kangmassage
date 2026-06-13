@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,21 +8,20 @@ import {
   StatusBar,
   Dimensions,
   Image,
-  ListRenderItem,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Search } from 'lucide-react-native';
 import { SERVICES } from '@/constants/Services';
 import { useServices } from '@/hooks/useServices';
 import { COLORS, FONTS } from '@/constants/Theme';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const NUM_COLS = 2;
 const HORIZONTAL_PAD = 16;
 const GAP = 14;
-const CARD_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PAD * 2 - GAP) / NUM_COLS;
+const CARD_WIDTH = SCREEN_WIDTH - HORIZONTAL_PAD * 2;
 
 const TEXT_DARK = '#1A1A2E';
 const TEXT_MUTED = '#6B7280';
@@ -46,40 +45,35 @@ function ServiceCard({ item, onPress }: { item: Service; onPress: () => void }) 
       onPress={onPress}
       style={styles.card}
     >
-      {/* Image */}
-      <Image
-        source={{
-          uri: item.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
-        }}
-        style={styles.cardImage}
-      />
+      <View style={styles.imageWrap}>
+        <Image
+          source={{
+            uri: item.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
+          }}
+          style={styles.cardImage}
+        />
+      </View>
 
-      {/* Emoji badge */}
-      {item.icon ? (
-        <View style={styles.iconBadge}>
-          <Text style={styles.iconEmoji}>{item.icon}</Text>
-        </View>
-      ) : null}
-
-      {/* Info */}
       <View style={styles.cardBody}>
-        <Text style={styles.cardName} numberOfLines={1}>
-          {item.name}
-        </Text>
-
-        <Text style={styles.cardDesc} numberOfLines={2}>
-          {item.description}
-        </Text>
-
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Mulai</Text>
-          <Text style={styles.priceValue}>
-            Rp {item.price.toLocaleString('id-ID')}/Jam
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardName} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={styles.cardDesc} numberOfLines={2}>
+            {item.description}
           </Text>
         </View>
 
-        <View style={styles.selectBtn}>
-          <Text style={styles.selectBtnText}>Pilih</Text>
+        <View style={styles.cardFooter}>
+          <View>
+            <Text style={styles.priceLabel}>Mulai</Text>
+            <Text style={styles.priceValue}>
+              Rp {item.price.toLocaleString('id-ID')}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.selectBtn} activeOpacity={0.8} onPress={onPress}>
+            <Text style={styles.selectBtnText}>Pilih</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -89,13 +83,21 @@ function ServiceCard({ item, onPress }: { item: Service; onPress: () => void }) 
 function SkeletonCard() {
   return (
     <View style={[styles.card, { overflow: 'hidden' }]}>
-      <Skeleton width="100%" height={120} borderRadius={0} />
+      <View style={styles.imageWrap}>
+        <Skeleton width="100%" height="100%" borderRadius={0} />
+      </View>
       <View style={styles.cardBody}>
-        <Skeleton width="75%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
-        <Skeleton width="100%" height={28} borderRadius={4} style={{ marginBottom: 10 }} />
-        <Skeleton width="50%" height={10} borderRadius={2} style={{ marginBottom: 4 }} />
-        <Skeleton width="70%" height={16} borderRadius={4} style={{ marginBottom: 12 }} />
-        <Skeleton width="100%" height={36} borderRadius={25} />
+        <View style={styles.cardHeader}>
+          <Skeleton width="75%" height={15} borderRadius={4} />
+          <Skeleton width="100%" height={30} borderRadius={4} />
+        </View>
+        <View style={styles.cardFooter}>
+          <View>
+            <Skeleton width={50} height={10} borderRadius={2} />
+            <Skeleton width={80} height={16} borderRadius={4} />
+          </View>
+          <Skeleton width={60} height={32} borderRadius={20} />
+        </View>
       </View>
     </View>
   );
@@ -106,8 +108,18 @@ export default function ServicesScreen() {
   const router = useRouter();
   const { therapistId } = useLocalSearchParams();
   const { data: servicesData, isLoading } = useServices();
+  const [search, setSearch] = useState('');
 
   const displayServices: Service[] = servicesData || SERVICES;
+
+  const filteredServices = useMemo(() => {
+    return [...displayServices]
+      .sort((a, b) => a.price - b.price)
+      .filter((s) =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.description.toLowerCase().includes(search.toLowerCase())
+      );
+  }, [displayServices, search]);
 
   const navigateToOrder = useCallback(
     (serviceId: string) => {
@@ -119,26 +131,23 @@ export default function ServicesScreen() {
     [router, therapistId]
   );
 
-  const renderItem: ListRenderItem<Service> = useCallback(
-    ({ item }) => (
-      <ServiceCard item={item} onPress={() => navigateToOrder(item.id)} />
-    ),
-    [navigateToOrder]
-  );
-
   const renderSkeletonItem = useCallback(
     ({ index }: { index: number }) => <SkeletonCard key={index} />,
     []
   );
 
-  const keyExtractor = useCallback((item: Service) => item.id, []);
-
   const ListHeader = (
-    <View style={styles.introSection}>
-      <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
-      <Text style={styles.introSubtitle}>
-        Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
-      </Text>
+    <View>
+      <View style={styles.decoSection}>
+        <View style={styles.decoCircle1} />
+        <View style={styles.decoCircle2} />
+      </View>
+      <View style={styles.introSection}>
+        <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
+        <Text style={styles.introSubtitle}>
+          Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
+        </Text>
+      </View>
     </View>
   );
 
@@ -157,27 +166,38 @@ export default function ServicesScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* Sticky Search Bar */}
+      <View style={styles.searchWrap}>
+        <Search size={16} color="#9CA3AF" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cari layanan..."
+          placeholderTextColor="#9CA3AF"
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+        />
+      </View>
+
       {isLoading ? (
         <FlatList
           data={skeletonData}
           keyExtractor={(item) => item.toString()}
-          numColumns={NUM_COLS}
           renderItem={renderSkeletonItem}
           ListHeaderComponent={ListHeader}
-          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           scrollEnabled={false}
         />
       ) : (
         <FlatList
-          data={displayServices}
-          keyExtractor={keyExtractor}
-          numColumns={NUM_COLS}
-          renderItem={renderItem}
+          data={filteredServices}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <ServiceCard item={item} onPress={() => navigateToOrder(item.id)} />
+          )}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={<View style={{ height: 40 }} />}
-          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           initialNumToRender={6}
@@ -220,31 +240,82 @@ const styles = StyleSheet.create({
     color: TEXT_DARK,
   },
 
+  // ─ Decorative ──────────────────────────────────────────────────────────────
+  decoSection: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    overflow: 'hidden',
+  },
+  decoCircle1: {
+    position: 'absolute',
+    top: -50,
+    right: -30,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(234,88,12,0.04)',
+  },
+  decoCircle2: {
+    position: 'absolute',
+    top: 20,
+    left: -40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(91,42,134,0.03)',
+  },
+
+  // ─ Search ───────────────────────────────────────────────────────────────────
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 42,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: TEXT_DARK,
+    paddingVertical: 0,
+  },
+
   // ─ List ────────────────────────────────────────────────────────────────────
   listContent: {
     paddingHorizontal: HORIZONTAL_PAD,
     paddingBottom: 20,
   },
-  columnWrapper: {
-    gap: GAP,
-    marginBottom: GAP,
-  },
 
   // ─ Intro ───────────────────────────────────────────────────────────────────
   introSection: {
-    paddingVertical: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
     paddingHorizontal: 4,
-    marginBottom: 4,
+    marginBottom: 15,
   },
   introTitle: {
     fontFamily: FONTS.extraBold,
-    fontSize: 24,
+    fontSize: 18,
     color: TEXT_DARK,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   introSubtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 14,
+    fontSize: 12,
     color: TEXT_MUTED,
     lineHeight: 20,
   },
@@ -252,60 +323,55 @@ const styles = StyleSheet.create({
   // ─ Card ────────────────────────────────────────────────────────────────────
   card: {
     width: CARD_WIDTH,
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     overflow: 'hidden',
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#EFEFEF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  imageWrap: {
+    width: 120,
+    height: 120,
   },
   cardImage: {
     width: '100%',
-    height: 120,
+    height: '100%',
     backgroundColor: '#F5F5F7',
   },
-  iconBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-  },
-  iconEmoji: {
-    fontSize: 14,
-  },
   cardBody: {
-    padding: 12,
+    flex: 1,
+    padding: 14,
+    justifyContent: 'space-between',
+  },
+  cardHeader: {
+    gap: 4,
   },
   cardName: {
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 13,
     color: TEXT_DARK,
-    marginBottom: 4,
   },
   cardDesc: {
     fontFamily: FONTS.regular,
-    fontSize: 11,
+    fontSize: 10,
     color: TEXT_MUTED,
-    lineHeight: 15,
-    marginBottom: 10,
-    height: 30,
+    lineHeight: 14,
   },
-  priceRow: {
-    marginBottom: 12,
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   priceLabel: {
     fontFamily: FONTS.medium,
-    fontSize: 10,
+    fontSize: 9,
     color: TEXT_MUTED,
     marginBottom: 2,
   },
@@ -316,14 +382,13 @@ const styles = StyleSheet.create({
   },
   selectBtn: {
     backgroundColor: COLORS.primary[500],
-    paddingVertical: 10,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   selectBtnText: {
     fontFamily: FONTS.bold,
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 11,
   },
 });
