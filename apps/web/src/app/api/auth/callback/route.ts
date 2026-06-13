@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const APP_SCHEME = 'kangmassage:///';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const accessToken = searchParams.get('access_token');
@@ -7,8 +9,7 @@ export async function GET(req: NextRequest) {
   // Second request: tokens in query params — redirect to app via custom scheme
   if (accessToken) {
     const params = searchParams.toString();
-    const appUrl = `kangmassage://auth/callback?${params}`;
-    return NextResponse.redirect(appUrl, { status: 302 });
+    return NextResponse.redirect(`${APP_SCHEME}?${params}`, { status: 302 });
   }
 
   // First request: no query params, tokens only in hash fragment (client-side)

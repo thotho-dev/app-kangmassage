@@ -52,34 +52,26 @@ export default function LoginScreen() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      const redirectTo = Linking.createURL('/');
+      const returnUrl = Linking.createURL('/');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo, skipBrowserRedirect: true },
+        options: {
+          redirectTo: `${API_BASE}/api/auth/callback`,
+          skipBrowserRedirect: true,
+        },
       });
       if (error) throw error;
 
-      const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      const res = await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
       if (res.type === 'success') {
         const { url } = res;
         const parsed = Linking.parse(url);
 
-        // Extract tokens from either query params or hash fragment
-        const raw = parsed.queryParams?.access_token
-          ? parsed.queryParams as Record<string, string>
-          : parsed.fragment
-            ? Object.fromEntries(
-                parsed.fragment.split('&').map((p: string) => {
-                  const i = p.indexOf('=');
-                  return i > 0 ? [decodeURIComponent(p.slice(0, i)), decodeURIComponent(p.slice(i + 1))] : [];
-                }).filter((e: string[]) => e.length)
-              )
-            : {};
-
-        if (raw.access_token) {
+        // Extract tokens from query params (302 redirect from web endpoint)
+        if (parsed.queryParams?.access_token) {
           const { error: sessionError } = await supabase.auth.setSession({
-            access_token: raw.access_token,
-            refresh_token: raw.refresh_token || '',
+            access_token: parsed.queryParams.access_token as string,
+            refresh_token: (parsed.queryParams.refresh_token as string) || '',
           });
           if (!sessionError) {
             router.replace('/home');
