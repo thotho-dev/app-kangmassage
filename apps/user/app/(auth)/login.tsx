@@ -5,8 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
-import { Phone, Eye, EyeOff } from 'lucide-react-native';
-import { FontAwesome } from '@expo/vector-icons';
+import { Eye, EyeOff } from 'lucide-react-native';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -41,6 +41,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState<'phone' | 'password' | null>(null);
 
   const normalizedPhone = (p: string) => {
     const digits = p.replace(/\D/g, '');
@@ -157,32 +158,34 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.form}>
-            <View style={styles.phoneInputContainer}>
-              <View style={[styles.phonePrefix, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <Phone size={18} color={theme.textSecondary} />
-                <Text style={[styles.prefixText, { color: theme.text }]}>+62</Text>
-              </View>
-              <View style={[styles.phoneInputWrap, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <TextInput
-                  style={[styles.phoneInput, { color: theme.text }]}
-                  placeholder="8xxxxxxxxx"
-                  placeholderTextColor={theme.textSecondary}
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
-                  autoFocus
-                />
-              </View>
+            <Text style={[styles.label, { color: theme.text }]}>Nomor Telepon</Text>
+            <View style={[styles.inputWrap, focused === 'phone' && styles.inputFocused, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+              <Ionicons name="call-outline" size={20} color={focused === 'phone' ? theme.primary : theme.textSecondary} />
+              <TextInput
+                style={[styles.input, { color: theme.text }]}
+                placeholder="08xxxxxxxxxx"
+                placeholderTextColor={theme.textSecondary}
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+                onFocus={() => setFocused('phone')}
+                onBlur={() => setFocused(null)}
+                autoFocus
+              />
             </View>
 
-            <View style={[styles.passwordInputWrap, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+            <Text style={[styles.label, { marginTop: 16 }]}>Kata Sandi</Text>
+            <View style={[styles.inputWrap, styles.inputLast, focused === 'password' && styles.inputFocused, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={focused === 'password' ? theme.primary : theme.textSecondary} />
               <TextInput
-                style={[styles.passwordInput, { color: theme.text }]}
-                placeholder="Kata sandi"
+                style={[styles.input, { color: theme.text }]}
+                placeholder="Masukkan kata sandi"
                 placeholderTextColor={theme.textSecondary}
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => setFocused('password')}
+                onBlur={() => setFocused(null)}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 {showPassword ? <EyeOff size={20} color={theme.textSecondary} /> : <Eye size={20} color={theme.textSecondary} />}
@@ -265,19 +268,15 @@ const styles = StyleSheet.create({
   title: { ...TYPOGRAPHY.h1, fontSize: 28, marginBottom: 8, textAlign: 'center' },
   subtitle: { ...TYPOGRAPHY.body, textAlign: 'center', paddingHorizontal: 20, lineHeight: 22, fontSize: 14 },
   form: {},
-  phoneInputContainer: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  phonePrefix: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, borderRadius: 16, borderWidth: 1.5, height: 56,
-  },
-  prefixText: { fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold' },
-  phoneInputWrap: { flex: 1, borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 16, height: 56, justifyContent: 'center' },
-  phoneInput: { fontSize: 18, fontFamily: 'PlusJakartaSans-Medium' },
-  passwordInputWrap: {
+  label: { ...TYPOGRAPHY.body, fontFamily: 'PlusJakartaSans-SemiBold', marginBottom: 8 },
+  inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 16, height: 56, marginBottom: 24,
+    borderRadius: 16, borderWidth: 1.5,
+    paddingHorizontal: 16, paddingVertical: 14,
   },
-  passwordInput: { flex: 1, fontSize: 14, fontFamily: 'PlusJakartaSans-Medium' },
+  inputFocused: { borderColor: COLORS.primary[500] },
+  inputLast: { marginBottom: 24 },
+  input: { flex: 1, fontSize: 14, fontFamily: 'PlusJakartaSans-Medium' },
   loginBtn: {
     alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 28, marginBottom: 16,
     elevation: 6, shadowColor: COLORS.primary[500],

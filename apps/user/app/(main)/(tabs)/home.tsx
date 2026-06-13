@@ -410,10 +410,17 @@ export default function HomeScreen() {
         <View style={styles.stickyHeader}>
           <View style={styles.userRow}>
             <View style={styles.userCard}>
-              <View style={[styles.avatar, !isAuthenticated && { backgroundColor: TEXT_MUTED }]}>
-                <Text style={styles.avatarText}>
-                  {isAuthenticated ? getInitials(profile?.full_name || user?.email || 'User') : 'G'}
-                </Text>
+              <View style={[styles.avatar, !isAuthenticated && { backgroundColor: TEXT_MUTED }, { overflow: 'hidden' }]}>
+                {isAuthenticated && profile?.avatar_url ? (
+                  <Image
+                    source={{ uri: profile.avatar_url }}
+                    style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {isAuthenticated ? getInitials(profile?.full_name || user?.email || 'User') : 'G'}
+                  </Text>
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.greetingSmall}>{getGreeting()} 👋</Text>
