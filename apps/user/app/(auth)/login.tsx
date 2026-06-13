@@ -52,7 +52,7 @@ export default function LoginScreen() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      const redirectTo = Linking.createURL('', { scheme: 'kangmassage' });
+      const redirectTo = `${API_BASE}/api/auth/callback`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo, skipBrowserRedirect: true },
@@ -62,17 +62,42 @@ export default function LoginScreen() {
       const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
       if (res.type === 'success') {
         const { url } = res;
-        const { queryParams } = Linking.parse(url);
-        const access_token = queryParams?.access_token as string;
-        const refresh_token = queryParams?.refresh_token as string;
-        if (access_token) {
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-          if (error) throw error;
-          router.replace('/home');
-        } else {
-          const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData.session) router.replace('/home');
+        const parsed = Linking.parse(url);
+
+        // PKCE flow: exchange code for session
+        if (parsed.queryParams?.code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+            parsed.queryParams.code as string
+          );
+          if (!exchangeError) {
+            router.replace('/home');
+            return;
+          }
         }
+
+        // Implicit flow: tokens in hash fragment (#access_token=xxx&refresh_token=xxx)
+        const hash = parsed.fragment || url.split('#').slice(1).join('#');
+        if (hash) {
+          const params: Record<string, string> = {};
+          hash.split('&').forEach((pair) => {
+            const idx = pair.indexOf('=');
+            if (idx > 0) params[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1));
+          });
+          if (params.access_token) {
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: params.access_token,
+              refresh_token: params.refresh_token || '',
+            });
+            if (!sessionError) {
+              router.replace('/home');
+              return;
+            }
+          }
+        }
+
+        // Fallback: session might already be set
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) router.replace('/home');
       }
     } catch (error: any) {
       showAlert('Google Login Gagal', error.message);
