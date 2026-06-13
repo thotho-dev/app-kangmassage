@@ -52,7 +52,7 @@ export default function LoginScreen() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      const returnUrl = Linking.createURL('/');
+      const returnUrl = 'kangmassage://callback';
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -66,12 +66,22 @@ export default function LoginScreen() {
       if (res.type === 'success') {
         const { url } = res;
         const parsed = Linking.parse(url);
+        const q = parsed.queryParams || {};
 
-        // Extract tokens from query params (302 redirect from web endpoint)
-        if (parsed.queryParams?.access_token) {
+        // PKCE flow: exchange code for session
+        if (q.code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(q.code as string);
+          if (!exchangeError) {
+            router.replace('/home');
+            return;
+          }
+        }
+
+        // Implicit flow: tokens in query params
+        if (q.access_token) {
           const { error: sessionError } = await supabase.auth.setSession({
-            access_token: parsed.queryParams.access_token as string,
-            refresh_token: (parsed.queryParams.refresh_token as string) || '',
+            access_token: q.access_token as string,
+            refresh_token: (q.refresh_token as string) || '',
           });
           if (!sessionError) {
             router.replace('/home');
