@@ -52,7 +52,7 @@ export default function LoginScreen() {
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-      const redirectTo = `${API_BASE}/api/auth/callback`;
+      const redirectTo = Linking.createURL('/');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo, skipBrowserRedirect: true },
@@ -64,34 +64,26 @@ export default function LoginScreen() {
         const { url } = res;
         const parsed = Linking.parse(url);
 
-        // PKCE flow: exchange code for session
-        if (parsed.queryParams?.code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
-            parsed.queryParams.code as string
-          );
-          if (!exchangeError) {
+        // Extract tokens from either query params or hash fragment
+        const raw = parsed.queryParams?.access_token
+          ? parsed.queryParams as Record<string, string>
+          : parsed.fragment
+            ? Object.fromEntries(
+                parsed.fragment.split('&').map((p: string) => {
+                  const i = p.indexOf('=');
+                  return i > 0 ? [decodeURIComponent(p.slice(0, i)), decodeURIComponent(p.slice(i + 1))] : [];
+                }).filter((e: string[]) => e.length)
+              )
+            : {};
+
+        if (raw.access_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: raw.access_token,
+            refresh_token: raw.refresh_token || '',
+          });
+          if (!sessionError) {
             router.replace('/home');
             return;
-          }
-        }
-
-        // Implicit flow: tokens in hash fragment (#access_token=xxx&refresh_token=xxx)
-        const hash = parsed.fragment || url.split('#').slice(1).join('#');
-        if (hash) {
-          const params: Record<string, string> = {};
-          hash.split('&').forEach((pair) => {
-            const idx = pair.indexOf('=');
-            if (idx > 0) params[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1));
-          });
-          if (params.access_token) {
-            const { error: sessionError } = await supabase.auth.setSession({
-              access_token: params.access_token,
-              refresh_token: params.refresh_token || '',
-            });
-            if (!sessionError) {
-              router.replace('/home');
-              return;
-            }
           }
         }
 
