@@ -142,6 +142,23 @@ function ViewOrderDetailModal({ order, onClose, onRefresh }: {
                 <p className="text-xs text-text-muted">{(order.service as any)?.duration_min || '-'} menit</p>
               </div>
             </div>
+
+            {/* Additional Services */}
+            {(order as any).additional_services && (order as any).additional_services.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-ui-border">
+                <p className="text-[10px] font-bold text-primary-400 uppercase tracking-widest mb-2">Layanan Tambahan</p>
+                <div className="space-y-1">
+                  {(order as any).additional_services.map((addon: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center text-xs">
+                      <span className="text-text-secondary">• {addon.name}</span>
+                      <span className="text-text-muted">
+                        {addon.price_type === 'treatment' ? '1 Treatment' : `${addon.duration} Menit`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Price Breakdown */}

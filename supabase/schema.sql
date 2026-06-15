@@ -12,8 +12,8 @@ CREATE EXTENSION IF NOT EXISTS "postgis"; -- For geospatial queries (optional, f
 
 CREATE TYPE user_role AS ENUM ('user', 'therapist', 'admin');
 CREATE TYPE order_status AS ENUM (
-  'pending',       -- Order placed, searching for therapist (or paid & ready for matching)
-  'awaiting_payment', -- Payment gateway: waiting for user to pay
+  'pending',       -- Order placed, searching for therapist
+  'awaiting_payment', -- Reserved for future payment gateway use
   'accepted',      -- Therapist accepted
   'on_the_way',    -- Therapist heading to customer
   'in_progress',   -- Session started
@@ -231,6 +231,8 @@ CREATE TABLE orders (
   -- Notes
   user_notes        TEXT,
   cancellation_reason TEXT,
+  additional_services JSONB DEFAULT '[]',
+  tips              DECIMAL(12,2) DEFAULT 0.00,
 
   -- Rating
   rating            INTEGER CHECK (rating >= 1 AND rating <= 5),
@@ -745,6 +747,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE app_settings;
 ALTER PUBLICATION supabase_realtime ADD TABLE support_messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE support_chats;
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE banners;
 
 -- Trigger function: notify therapist / increment admin unread on new message
 CREATE OR REPLACE FUNCTION notify_support_message()
@@ -775,6 +778,46 @@ CREATE TRIGGER on_support_message_insert
   EXECUTE FUNCTION notify_support_message();
 
 -- ============================================================
+-- BANNERS TABLE
+-- ============================================================
+
+CREATE TABLE banners (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title           TEXT NOT NULL,
+  subtitle        TEXT DEFAULT '',
+  image_url       TEXT NOT NULL,
+  badge           TEXT DEFAULT '',
+  link            TEXT DEFAULT '',
+  sort_order      INTEGER DEFAULT 0,
+  is_active       BOOLEAN DEFAULT true,
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE banners ENABLE ROW LEVEL SECURITY;
+
+-- Everyone can read active banners
+CREATE POLICY "Banners are readable by everyone"
+  ON banners FOR SELECT
+  USING (is_active = true);
+
+-- Only admin can insert/update/delete
+CREATE POLICY "Banners are insertable by admin"
+  ON banners FOR INSERT
+  TO authenticated
+  WITH CHECK ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+
+CREATE POLICY "Banners are updatable by admin"
+  ON banners FOR UPDATE
+  TO authenticated
+  USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+
+CREATE POLICY "Banners are deletable by admin"
+  ON banners FOR DELETE
+  TO authenticated
+  USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin');
+
+-- ============================================================
 -- SEED DATA
 -- ============================================================
 
@@ -797,3 +840,8 @@ UPDATE vouchers SET start_time = '10:00:00', end_time = '15:00:00', days_of_week
 
 INSERT INTO vouchers (code, description, category, type, value, is_cashback, usage_limit, valid_from, valid_until) VALUES
   ('CASHBACK20', 'Cashback Rp 20.000 ke Wallet', 'cashback', 'fixed', 20000, true, NULL, NOW(), NOW() + INTERVAL '30 days');
+
+INSERT INTO banners (title, subtitle, image_url, badge, sort_order, is_active) VALUES
+  ('Relaksasi Total', 'Rasakan pijatan terbaik di rumahmu', 'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=800&q=80', 'HOT PROMO', 1, true),
+  ('Body Massage Premium', 'Terapis berpengalaman siap datang', 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800&q=80', 'NEW', 2, true),
+  ('Bekam & Refleksi', 'Sehat dari dalam, bugar setiap hari', 'https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=800&q=80', 'POPULER', 3, true);

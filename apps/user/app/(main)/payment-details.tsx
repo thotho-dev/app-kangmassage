@@ -87,7 +87,7 @@ export default function PaymentDetailsScreen() {
         .eq('id', orderId)
         .single();
       if (error) throw error;
-      if (data.payment_status === 'paid' || (data.status !== 'pending' && data.status !== 'awaiting_payment')) {
+      if (data.payment_status === 'paid' || data.status !== 'pending') {
         if (data.status === 'accepted' || data.status === 'on_the_way' || data.status === 'arrived' || data.status === 'in_progress') {
           router.replace({ pathname: '/tracking', params: { id: orderId } });
         } else {

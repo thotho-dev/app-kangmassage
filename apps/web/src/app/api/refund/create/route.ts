@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Only allow refund for cancellable statuses
-    if (!['pending', 'accepted', 'awaiting_payment'].includes(order.status)) {
+    if (!['pending', 'accepted'].includes(order.status)) {
       return NextResponse.json({ error: 'Order cannot be refunded in current status' }, { status: 400 });
     }
 

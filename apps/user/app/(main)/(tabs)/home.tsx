@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,13 +34,14 @@ import {
   Search,
 } from 'lucide-react-native';
 import { useServices } from '@/hooks/useServices';
+import { useBanners } from '@/hooks/useBanners';
 import { useLocation } from '@/context/LocationContext';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { titleCase } from '@/lib/utils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = (SCREEN_WIDTH - 44) / 2;
 const REC_CARD_WIDTH = 152;
 const WHY_CARD_WIDTH = Math.floor((SCREEN_WIDTH - 72) / 2);
 
@@ -54,30 +55,7 @@ const BORDER = '#EFEFEF';
 const PURPLE = '#240080';
 const PURPLE_SOFT = '#F3E8FF';
 
-// ─── Banner Data ───────────────────────────────────────────────────────────────
-const BANNERS = [
-  {
-    id: '1',
-    image: 'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=800&q=80',
-    title: 'Relaksasi Total',
-    subtitle: 'Rasakan pijatan terbaik di rumahmu',
-    badge: 'HOT PROMO',
-  },
-  {
-    id: '2',
-    image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800&q=80',
-    title: 'Body Massage Premium',
-    subtitle: 'Terapis berpengalaman siap datang',
-    badge: 'NEW',
-  },
-  {
-    id: '3',
-    image: 'https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=800&q=80',
-    title: 'Bekam & Refleksi',
-    subtitle: 'Sehat dari dalam, bugar setiap hari',
-    badge: 'POPULER',
-  },
-];
+// ─── (No hardcoded BANNERS — fetched from DB) ───────────────────────────────────
 
 // ─── Service Data ──────────────────────────────────────────────────────────────
 const HOME_SERVICES = [
@@ -142,19 +120,20 @@ const WHY_US = [
 ];
 
 // ─── Banner Slideshow ──────────────────────────────────────────────────────────
-function BannerSlideshow({ onBookNow }: { onBookNow: () => void }) {
+function BannerSlideshow({ banners, onBookNow }: { banners: any[]; onBookNow: () => void }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!banners.length) return;
     const interval = setInterval(() => {
-      const nextIndex = (activeIndex + 1) % BANNERS.length;
+      const nextIndex = (activeIndex + 1) % banners.length;
       flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
       setActiveIndex(nextIndex);
     }, 3500);
     return () => clearInterval(interval);
-  }, [activeIndex]);
+  }, [activeIndex, banners.length]);
 
   const onMomentumScrollEnd = (e: any) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
@@ -165,7 +144,7 @@ function BannerSlideshow({ onBookNow }: { onBookNow: () => void }) {
     <View style={bannerStyles.wrapper}>
       <Animated.FlatList
         ref={flatListRef}
-        data={BANNERS}
+        data={banners}
         horizontal
         pagingEnabled
         snapToInterval={SCREEN_WIDTH - 32}
@@ -179,19 +158,19 @@ function BannerSlideshow({ onBookNow }: { onBookNow: () => void }) {
         )}
         renderItem={({ item }) => (
           <View style={bannerStyles.slide}>
-            <Image source={{ uri: item.image }} style={bannerStyles.image} />
-            {/* Gradient overlay */}
+            <Image source={{ uri: item.image_url }} style={bannerStyles.image} />
             <View style={bannerStyles.overlay} />
-            {/* Badge */}
-            <View style={bannerStyles.badgePill}>
-              <Text style={bannerStyles.badgeText}>{item.badge}</Text>
-            </View>
-            {/* Text */}
+            {item.badge ? (
+              <View style={bannerStyles.badgePill}>
+                <Text style={bannerStyles.badgeText}>{item.badge}</Text>
+              </View>
+            ) : null}
             <View style={bannerStyles.textBlock}>
               <Text style={bannerStyles.slideTitle}>{item.title}</Text>
-              <Text style={bannerStyles.slideSubtitle}>{item.subtitle}</Text>
+              {item.subtitle ? (
+                <Text style={bannerStyles.slideSubtitle}>{item.subtitle}</Text>
+              ) : null}
             </View>
-            {/* Book Now */}
             <TouchableOpacity
               style={bannerStyles.bookBtn}
               activeOpacity={0.85}
@@ -202,18 +181,19 @@ function BannerSlideshow({ onBookNow }: { onBookNow: () => void }) {
           </View>
         )}
       />
-      {/* Dot Indicator */}
-      <View style={bannerStyles.dots}>
-        {BANNERS.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              bannerStyles.dot,
-              i === activeIndex ? bannerStyles.dotActive : null,
-            ]}
-          />
-        ))}
-      </View>
+      {banners.length > 1 && (
+        <View style={bannerStyles.dots}>
+          {banners.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                bannerStyles.dot,
+                i === activeIndex ? bannerStyles.dotActive : null,
+              ]}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -226,12 +206,43 @@ export default function HomeScreen() {
   const { theme, isDark } = useTheme();
   const { isAuthenticated, user, profile, refreshProfile } = useAuth();
   const { data: services, isLoading } = useServices();
+  const { data: banners } = useBanners();
   const { address, isLoading: isLocLoading, refreshLocation } = useLocation();
 
   const [floatingOrder, setFloatingOrder] = useState<any>(null);
   const [isDismissed, setIsDismissed] = useState(false);
   const stepScrollRef = useRef<ScrollView>(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [popularIds, setPopularIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase
+        .from('orders')
+        .select('service_id')
+        .eq('status', 'completed');
+      if (!mounted || !data) return;
+      const countMap = new Map<string, number>();
+      data.forEach((o) => {
+        countMap.set(o.service_id, (countMap.get(o.service_id) || 0) + 1);
+      });
+      const top4 = [...countMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([id]) => id);
+      setPopularIds(new Set(top4));
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const displayPopular = useMemo(() => {
+    if (!services) return [];
+    const popular = services.filter((s) => popularIds.has(s.id));
+    if (popular.length === 0) return services.slice(4, 8);
+    const rest = services.filter((s) => !popularIds.has(s.id));
+    return [...popular, ...rest].slice(0, 4);
+  }, [services, popularIds]);
 
   const fetchFloatingOrder = async () => {
     if (!profile?.id) {
@@ -513,6 +524,7 @@ export default function HomeScreen() {
 
         {/* ── Banner Slideshow ── */}
         <BannerSlideshow
+          banners={banners || []}
           onBookNow={() => handleProtectedAction('/services')}
         />
 
@@ -581,7 +593,10 @@ export default function HomeScreen() {
             {HOW_IT_WORKS.map((step) => {
               const StepIcon = step.icon === 'Search' ? Search : step.icon === 'MapPin' ? MapPin : Heart;
               return (
-                <View key={step.id} style={[styles.stepCard, { backgroundColor: step.bg }]}>
+                <View key={step.id} style={[styles.stepCard, { backgroundColor: step.bg, overflow: 'hidden' }]}>
+                  <View style={[styles.stepOrb, { backgroundColor: step.color + '15' }]} />
+                  <View style={[styles.stepOrbSmall, { backgroundColor: step.color + '20', top: 20, right: 20 }]} />
+                  <View style={[styles.stepOrbSmall, { backgroundColor: step.color + '15', bottom: 30, left: 10, width: 20, height: 20 }]} />
                   <View style={[styles.stepNum, { backgroundColor: step.color }]}>
                     <StepIcon size={18} color="#FFFFFF" />
                   </View>
@@ -601,7 +616,7 @@ export default function HomeScreen() {
         {/* ── Rekomendasi section ── */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <View style={[styles.sectionIconBox, { backgroundColor: '#F59E0B' }]}>
+            <View style={[styles.sectionIconBox, { backgroundColor: '#059669' }]}>
               <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
             <Text style={styles.sectionTitle}>Rekomendasi</Text>
@@ -621,7 +636,7 @@ export default function HomeScreen() {
         >
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <View key={i} style={[styles.gridCard, { width: REC_CARD_WIDTH }]}>
+              <View key={i} style={[styles.recCard, { width: REC_CARD_WIDTH }]}>
                 <Skeleton width="100%" height={110} borderRadius={0} />
                 <View style={styles.gridCardBody}>
                   <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
@@ -632,50 +647,50 @@ export default function HomeScreen() {
               </View>
             ))
           ) : (
-            [...(services || [])].sort((a, b) => {
-              const pa = a.duration_options?.[0]?.price || a.price || 0;
-              const pb = b.duration_options?.[0]?.price || b.price || 0;
-              return pb - pa;
-            }).slice(0, 7).map((service) => (
-              <TouchableOpacity
-                key={service.id}
-                style={[styles.gridCard, { width: REC_CARD_WIDTH }]}
-                activeOpacity={0.85}
-                onPress={() =>
-                  handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
-                }
-              >
-                <Image
-                  source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
-                  style={styles.gridCardImage}
-                />
-                <View style={styles.gridCardBody}>
-                  <Text style={styles.gridCardName} numberOfLines={1}>
-                    {service.name}
-                  </Text>
-                  <Text style={styles.gridCardPrice}>
-                    Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
-                  </Text>
-                  <Text style={styles.gridCardDesc} numberOfLines={1}>
-                    {service.description}
-                  </Text>
-                  <View style={styles.gridCardBtn}>
-                    <Text style={styles.gridCardBtnText}>Pilih</Text>
+              [...(services || [])].sort((a, b) => {
+                const pa = a.duration_options?.[0]?.price || a.price || 0;
+                const pb = b.duration_options?.[0]?.price || b.price || 0;
+                return pb - pa;
+              }).slice(0, 7).map((service) => (
+                <TouchableOpacity
+                  key={service.id}
+                  style={[styles.recCard, { width: REC_CARD_WIDTH }]}
+                  activeOpacity={0.85}
+                  onPress={() =>
+                    handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
+                  }
+                >
+                  <Image
+                    source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
+                    style={styles.gridCardImage}
+                  />
+                  <View style={styles.gridCardBody}>
+                    <Text style={[styles.gridCardName, { color: '#065F46' }]} numberOfLines={1}>
+                      {service.name}
+                    </Text>
+                    <Text style={[styles.gridCardPrice, { color: '#059669' }]}>
+                      Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
+                    </Text>
+                    <Text style={[styles.gridCardDesc, { color: '#6B7280' }]} numberOfLines={1}>
+                      {service.description}
+                    </Text>
+                    <View style={styles.recCardBtn}>
+                      <Text style={styles.recCardBtnText}>Pilih</Text>
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
+                </TouchableOpacity>
+              )))
+          }
         </ScrollView>
 
         {/* ── Banyak Dipesan section ── */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <View style={[styles.sectionIconBox, { backgroundColor: '#EA580C' }]}>
+            <View style={[styles.sectionIconBox, { backgroundColor: '#3B82F6' }]}>
               <Flame size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
             <Text style={styles.sectionTitle}>Banyak Dipesan</Text>
-              <View style={[styles.sectionBadge, { backgroundColor: '#EA580C' }]}>
+              <View style={[styles.sectionBadge, { backgroundColor: '#3B82F6' }]}>
                 <Text style={styles.sectionBadgeText}>Populer</Text>
               </View>
             </View>
@@ -684,50 +699,66 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.grid}>
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <View key={i} style={styles.gridCard}>
-                <Skeleton width="100%" height={110} borderRadius={0} />
-                <View style={styles.gridCardBody}>
-                  <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
-                  <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: 4 }} />
-                  <Skeleton width="100%" height={10} borderRadius={4} style={{ marginBottom: 8 }} />
-                  <Skeleton width="50%" height={26} borderRadius={13} />
-                </View>
-              </View>
-            ))
-          ) : (
-            services?.slice(4, 8).map((service) => (
-              <TouchableOpacity
-                key={service.id}
-                style={styles.gridCard}
-                activeOpacity={0.85}
-                onPress={() =>
-                  handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
-                }
-              >
-                <Image
-                  source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
-                  style={styles.gridCardImage}
-                />
-                <View style={styles.gridCardBody}>
-                  <Text style={styles.gridCardName} numberOfLines={1}>
-                    {service.name}
-                  </Text>
-                  <Text style={styles.gridCardPrice}>
-                    Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
-                  </Text>
-                  <Text style={styles.gridCardDesc} numberOfLines={1}>
-                    {service.description}
-                  </Text>
-                  <View style={styles.gridCardBtn}>
-                    <Text style={styles.gridCardBtnText}>Pilih</Text>
+        <View style={styles.popularCardOuter}>
+          <View style={styles.popularCardAccent} />
+          <View style={styles.popularCard}>
+            {isLoading ? (
+              <View style={styles.grid}>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <View key={i} style={styles.gridCardWrapper}>
+                    <View style={styles.gridCard}>
+                      <Skeleton width="100%" height={110} borderRadius={0} />
+                      <View style={styles.gridCardBody}>
+                        <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                        <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: 4 }} />
+                        <Skeleton width="100%" height={10} borderRadius={4} style={{ marginBottom: 8 }} />
+                        <Skeleton width="50%" height={26} borderRadius={13} />
+                      </View>
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
+                ))}
+              </View>
+            ) : (
+              <View style={styles.grid}>
+                {displayPopular.map((service) => (
+                  <View key={service.id} style={styles.gridCardWrapper}>
+                    <TouchableOpacity
+                      style={styles.popularServiceCard}
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
+                      }
+                    >
+                      <View style={styles.popularServiceImageWrapper}>
+                        <Image
+                          source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
+                          style={styles.popularServiceImage}
+                        />
+                        <View style={styles.popularServiceBadge}>
+                          <Flame size={8} color="#FFFFFF" fill="#FFFFFF" />
+                          <Text style={styles.popularServiceBadgeText}>Populer</Text>
+                        </View>
+                      </View>
+                      <View style={styles.gridCardBody}>
+                        <Text style={styles.gridCardName} numberOfLines={1}>
+                          {service.name}
+                        </Text>
+                        <Text style={styles.gridCardPrice}>
+                          Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
+                        </Text>
+                        <Text style={styles.gridCardDesc} numberOfLines={1}>
+                          {service.description}
+                        </Text>
+                        <View style={styles.popularServiceBtn}>
+                          <Text style={styles.popularServiceBtnText}>Pilih</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
 
         {/* ── Mengapa Pilih Kami ── */}
@@ -1153,8 +1184,8 @@ const styles = StyleSheet.create({
   },
   stepCard: {
     width: SCREEN_WIDTH - 70,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 24,
+    padding: 28,
     alignItems: 'center',
   },
   stepNum: {
@@ -1164,13 +1195,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
+    position: 'relative',
+    zIndex: 1,
+  },
+  stepOrb: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    top: -30,
+    left: -20,
+  },
+  stepOrbSmall: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
   stepTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginBottom: 6,
     textAlign: 'center',
+    zIndex: 1,
   },
   stepDesc: {
     fontSize: 12,
@@ -1178,6 +1226,7 @@ const styles = StyleSheet.create({
     color: TEXT_MUTED,
     textAlign: 'center',
     lineHeight: 17,
+    zIndex: 1,
   },
   stepDots: {
     flexDirection: 'row',
@@ -1251,11 +1300,14 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    marginHorizontal: -6,
     marginBottom: 20,
   },
+  gridCardWrapper: {
+    width: '50%',
+    padding: 6,
+  },
   gridCard: {
-    width: CARD_WIDTH,
     backgroundColor: CARD_BG,
     borderRadius: 20,
     overflow: 'hidden',
@@ -1303,6 +1355,112 @@ const styles = StyleSheet.create({
   },
   gridCardBtnText: {
     color: PURPLE,
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+
+  // Banyak Dipesan — container card
+  popularCardOuter: {
+    width: '100%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 24,
+    backgroundColor: '#F0F7FF',
+    borderWidth: 1,
+    borderColor: '#D4E6FF',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  popularCardAccent: {
+    height: 3,
+    width: '100%',
+    backgroundColor: '#60A5FA',
+  },
+  popularCard: {
+    padding: 14,
+  },
+
+  // Banyak Dipesan — service cards
+  popularServiceCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E8F0FE',
+  },
+  popularServiceImageWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 120,
+  },
+  popularServiceImage: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+    backgroundColor: '#F0F0F0',
+  },
+  popularServiceBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#3B82F6',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  popularServiceBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+  popularServiceBtn: {
+    marginTop: 6,
+    backgroundColor: '#3B82F6',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  popularServiceBtnText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+
+  // Rekomendasi — green cards
+  recCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    shadowColor: '#065F46',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  recCardBtn: {
+    marginTop: 6,
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  recCardBtnText: {
+    color: '#FFFFFF',
     fontSize: 10,
     fontFamily: 'PlusJakartaSans-Bold',
   },

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,9 +15,13 @@ export default function SearchingTherapistScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { showAlert } = useAlert();
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const searchScale = useRef(new Animated.Value(1)).current;
+  const searchRotate = useRef(new Animated.Value(0)).current;
+  const ringScale = useRef(new Animated.Value(1)).current;
+  const ringOpacity = useRef(new Animated.Value(0.4)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
-  const spinAnim = useRef(new Animated.Value(0)).current;
+  const sparkle1 = useRef(new Animated.Value(0)).current;
+  const sparkle2 = useRef(new Animated.Value(0)).current;
   const [order, setOrder] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState(45);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -38,7 +42,6 @@ export default function SearchingTherapistScreen() {
     setIsTimeout(false);
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
-        console.log('[DEBUG Timer] Tick:', prev - 1);
         if (prev <= 1) {
           stopTimer();
           setIsTimeout(true);
@@ -52,25 +55,71 @@ export default function SearchingTherapistScreen() {
   useEffect(() => {
     if (!id) return;
 
-    // 1. Start Pulse Animation
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.5,
-          duration: 1500,
-          easing: Easing.out(Easing.ease),
+        Animated.timing(searchScale, {
+          toValue: 0.85,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
+        Animated.timing(searchScale, {
           toValue: 1,
-          duration: 1500,
-          easing: Easing.in(Easing.ease),
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ])
     ).start();
 
-    // 1b. Start Floating Ornaments Animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(ringScale, {
+            toValue: 1.8,
+            duration: 2000,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(ringOpacity, {
+            toValue: 0,
+            duration: 2000,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(ringScale, {
+            toValue: 1,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+          Animated.timing(ringOpacity, {
+            toValue: 0.4,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(searchRotate, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(searchRotate, {
+          toValue: 0,
+          duration: 3000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
     Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
@@ -88,24 +137,41 @@ export default function SearchingTherapistScreen() {
       ])
     ).start();
 
-    // 1c. Start Spin Animation
     Animated.loop(
-      Animated.timing(spinAnim, {
-        toValue: 1,
-        duration: 20000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
+      Animated.sequence([
+        Animated.delay(0),
+        Animated.timing(sparkle1, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sparkle1, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
     ).start();
 
-    // 2. Fetch Initial Data
-    fetchOrder();
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(800),
+        Animated.timing(sparkle2, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sparkle2, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
-    // 3. Start Timer
-    console.log('[DEBUG Timer] Starting countdown...');
+    fetchOrder();
     startTimer();
 
-    // 4. Subscribe to Real-time Changes
     const channel = supabase
       .channel(`searching_order_${id}`)
       .on('postgres_changes', { 
@@ -114,10 +180,12 @@ export default function SearchingTherapistScreen() {
         table: 'orders',
         filter: `id=eq.${id}`
       }, (payload) => {
-        console.log('Order Updated:', payload.new);
         if (payload.new.status === 'accepted') {
           stopTimer();
           router.replace({ pathname: '/tracking', params: { id } });
+        } else if (payload.new.status === 'cancelled') {
+          stopTimer();
+          setIsTimeout(true);
         }
       })
       .subscribe();
@@ -128,14 +196,12 @@ export default function SearchingTherapistScreen() {
     };
   }, [id]);
 
-  // Fetch dynamic app settings on mount
   useEffect(() => {
     getAppSettings().then(setAppSettings);
   }, []);
 
   const handleRetry = async () => {
     if (retryCount >= 2) {
-      // Jika sudah klik 3x (0, 1, 2), maka batalkan otomatis
       showAlert(
         'Batas Pencarian Tercapai',
         'Maaf, sepertinya belum ada terapis yang tersedia saat ini. Silakan coba lagi beberapa saat lagi.',
@@ -147,7 +213,6 @@ export default function SearchingTherapistScreen() {
     setIsTimeout(false);
     setRetryCount(prev => prev + 1);
     
-    // Update updated_at agar muncul lagi di broadcast terapis sebagai pesanan baru
     await supabase
       .from('orders')
       .update({ updated_at: new Date().toISOString() })
@@ -157,7 +222,7 @@ export default function SearchingTherapistScreen() {
   };
 
   const fetchOrder = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('orders')
       .select('*, service:services(name, category_slug)')
       .eq('id', id)
@@ -165,254 +230,82 @@ export default function SearchingTherapistScreen() {
 
     if (data) {
       setOrder(data);
-      // Jika ternyata sudah di-accept
       if (data.status === 'accepted') {
         stopTimer();
         router.replace({ pathname: '/tracking', params: { id } });
       } else if (data.scheduled_at) {
-        // Jika pesanan terjadwal, arahkan langsung ke pelacakan (jangan tunggu countdown)
         stopTimer();
         router.replace({ pathname: '/tracking', params: { id } });
-      } else {
-        // Broadcast mode: Pesanan akan muncul di semua HP terapis terdekat secara otomatis
-        console.log('[DEBUG Broadcast] Pesanan sedang menunggu untuk diambil oleh terapis terdekat...');
       }
-    }
-  };
-
-  const findMatchingTherapist = async (orderData: any) => {
-    try {
-      // [DEBUG] Cek apakah User bisa membaca tabel therapists sama sekali (Cek RLS)
-      const { data: testAll, error: testErr } = await supabase.from('therapists').select('id, status');
-      console.log('[DEBUG Matchmaking] Total SEMUA terapis di database yang bisa dibaca User:', testAll?.length, 'Error:', testErr?.message);
-      if (testAll && testAll.length > 0) {
-         console.log('[DEBUG Matchmaking] Status terapis yang ada:', testAll.map(t => t.status).join(', '));
-      }
-
-      // 1. Ambil data semua terapis yang sedang Online
-      let query = supabase
-        .from('therapists')
-        .select(`
-          id,
-          gender,
-          specializations,
-          is_verified,
-          rating,
-          wallet_balance,
-          therapist_locations (
-            latitude,
-            longitude
-          )
-        `)
-        .eq('status', 'online');
-
-      const { data: allOnline, error } = await query;
-      
-      console.log('[DEBUG Matchmaking] Hasil Query Terapis Online:', allOnline?.length, 'terapis. Error:', error?.message);
-
-      if (error || !allOnline || allOnline.length === 0) {
-        console.log('[DEBUG Matchmaking] GAGAL: Tidak ada satupun terapis yang sedang ONLINE di database.');
-        return null;
-      }
-
-      const settings = appSettings;
-      // Filter manual kriteria awal agar bisa di-log
-      const candidates = allOnline.filter((t: any) => {
-        if (!t.is_verified) {
-          console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: is_verified = false (Belum verifikasi)`);
-          return false;
-        }
-        if (t.rating < settings.min_rating) {
-          console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Rating (${t.rating}) di bawah ${settings.min_rating}`);
-          return false;
-        }
-        
-        // Cek Saldo: Harus cukup untuk bagi hasil (platform fee)
-        // Estimasi fee menggunakan platform cut dari settings (bronze sebagai default)
-        const feePercent = settings.bronze_platform_cut;
-        const estimatedFee = (orderData.total_price || 0) * (feePercent / 100);
-        const minBalance = Math.max(settings.min_wallet_balance, estimatedFee);
-
-        if (t.wallet_balance < minBalance) {
-          console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Saldo ${t.wallet_balance} kurang untuk fee Rp ${estimatedFee}`);
-          return false;
-        }
-
-        if (orderData.therapist_preference && orderData.therapist_preference !== 'any') {
-          if (t.gender !== orderData.therapist_preference) {
-             console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Gender ${t.gender} tidak sesuai preferensi ${orderData.therapist_preference}`);
-             return false;
-          }
-        }
-
-        return true;
-      });
-
-      console.log(`[DEBUG Matchmaking] Terapis yang lolos syarat awal (Aktif, Verified, Rating > 4.5, Saldo >= 15000): ${candidates.length}`);
-
-      if (candidates.length === 0) return null;
-
-      const EARTH_RADIUS = 6371; // km
-      const lat1 = orderData.latitude;
-      const lon1 = orderData.longitude;
-      
-      console.log(`[DEBUG Matchmaking] Lokasi Order: Lat ${lat1}, Lon ${lon1}, Service ID: ${orderData.service_id}`);
-
-      // 2. Cek Terapis Favorit
-      const { data: favs, error: favError } = await supabase
-        .from('user_favorites')
-        .select('therapist_id')
-        .eq('user_id', orderData.user_id);
-        
-      const favoriteIds = favs && !favError ? favs.map((f: any) => f.therapist_id) : [];
-
-      // 3. Filter Jarak (< 3KM) dan Skil Terapis
-      const validTherapists = candidates.filter((t: any) => {
-        // Skil Terapis: kita cocokkan array `category_slug` dari services dengan array `specializations` terapis
-        // Jika category_slug tidak ada, fallback ke `name`
-        const requiredSkills = orderData.service?.category_slug || [orderData.service?.name];
-        
-        if (t.specializations && Array.isArray(t.specializations)) {
-          const therapistSkills: string[] = t.specializations;
-          const checkSkill = (skill: string) => therapistSkills.some(ts => ts.toLowerCase() === skill.toLowerCase());
-          
-          let hasSkill = false;
-          // Cek irisan (apakah ada minimal 1 kategori yang cocok)
-          if (Array.isArray(requiredSkills)) {
-            hasSkill = requiredSkills.some((skill: string) => checkSkill(skill));
-          } else if (requiredSkills) {
-            hasSkill = checkSkill(requiredSkills);
-          }
-
-          if (!hasSkill) {
-            console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Tidak match. Skil dibutuhkan: ${JSON.stringify(requiredSkills)}, Dimiliki terapis: ${JSON.stringify(t.specializations)}`);
-            return false;
-          }
-        } else {
-           console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Kolom specializations kosong/invalid`);
-           return false;
-        }
-
-        // Hitung Jarak dengan lokasi order
-        const loc = Array.isArray(t.therapist_locations) ? t.therapist_locations[0] : t.therapist_locations;
-        if (!loc || !loc.latitude || !loc.longitude || !lat1 || !lon1) {
-           console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Data lokasi tidak valid`);
-           return false;
-        }
-
-        const lat2 = loc.latitude;
-        const lon2 = loc.longitude;
-
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = 
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const distance = EARTH_RADIUS * c;
-
-        t.distance = distance;
-        
-        if (distance > settings.matching_radius_km) {
-           console.log(`[DEBUG Matchmaking] Terapis ${t.id} digugurkan: Jarak terlalu jauh (${distance.toFixed(2)} KM, max ${settings.matching_radius_km} KM)`);
-           return false;
-        }
-        
-        console.log(`[DEBUG Matchmaking] Terapis ${t.id} LOLOS! Jarak: ${distance.toFixed(2)} KM`);
-        return true;
-      });
-
-      console.log('[DEBUG Matchmaking] Jumlah terapis yang valid setelah filter lokal:', validTherapists.length);
-
-      if (validTherapists.length > 0) {
-        // Jika ada terapis favorit yang sedang online dan memenuhi kriteria, prioritaskan dia
-        const favoriteOnline = validTherapists.find((t: any) => favoriteIds.includes(t.id));
-        if (favoriteOnline) {
-          console.log("Favorite therapist selected:", favoriteOnline.id);
-          return favoriteOnline.id;
-        }
-
-        // Sortir jarak paling dekat (opsional, untuk memastikan yang terdekat yang dapat)
-        validTherapists.sort((a: any, b: any) => a.distance - b.distance);
-        return validTherapists[0].id;
-      }
-
-      return null;
-    } catch (e) {
-      console.error("Matchmaking error:", e);
-      return null;
     }
   };
 
   const handleCancelAction = async () => {
     setIsTimeout(false);
-    // Atomic update: only if still pending
-    const { data: cancelledOrders, error: updateError } = await supabase
-      .from('orders')
-      .update({ status: 'cancelled' })
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select();
-    
-    if (cancelledOrders && cancelledOrders.length > 0) {
-      const orderData = cancelledOrders[0];
+    try {
+      const { data: cancelledOrders } = await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', id)
+        .in('status', ['pending', 'accepted'])
+        .select();
       
-      // Refund Logic
-      const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
-        'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
-      
-      if (gatewayMethods.includes(orderData.payment_method)) {
-        // Refund via API untuk payment gateway
-        try {
-          await fetch(`${API_URL}/api/refund/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_id: id }),
-          });
-        } catch (e) {
-          console.warn('Refund API error:', e);
-        }
-      } else if (orderData.payment_method === 'saldo') {
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('wallet_balance, cashback_balance')
-          .eq('id', orderData.user_id)
-          .single();
-
-        if (userProfile) {
-          const usedCashback = Number(orderData.used_cashback) || 0;
-          const earnedCashback = Number(orderData.earned_cashback) || 0;
-          const paidAmount = Number(orderData.total_price) || 0;
-          
-          // Kembalikan wallet balance
-          await supabase
+      if (cancelledOrders && cancelledOrders.length > 0) {
+        const orderData = cancelledOrders[0];
+        
+        const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
+          'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
+        
+        if (gatewayMethods.includes(orderData.payment_method)) {
+          try {
+            await fetch(`${API_URL}/api/refund/create`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ order_id: id }),
+            });
+          } catch (e) {
+            console.warn('Refund API error:', e);
+          }
+        } else if (orderData.payment_method === 'saldo') {
+          const { data: userProfile } = await supabase
             .from('users')
-            .update({ 
-              wallet_balance: (userProfile.wallet_balance || 0) + paidAmount,
-              cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
-            })
-            .eq('id', orderData.user_id);
+            .select('wallet_balance, cashback_balance')
+            .eq('id', orderData.user_id)
+            .single();
 
-          // Catat transaksi refund
-          await supabase.from('transactions').insert({
-            user_id: orderData.user_id,
-            order_id: id,
-            type: 'refund',
-            amount: paidAmount,
-            balance_before: userProfile.wallet_balance || 0,
-            balance_after: (userProfile.wallet_balance || 0) + paidAmount,
-            description: `Refund pembatalan pesanan ${orderData.order_number} ke saldo`,
-          });
+          if (userProfile) {
+            const usedCashback = Number(orderData.used_cashback) || 0;
+            const earnedCashback = Number(orderData.earned_cashback) || 0;
+            const paidAmount = Number(orderData.total_price) || 0;
+            
+            await supabase
+              .from('users')
+              .update({ 
+                wallet_balance: (userProfile.wallet_balance || 0) + paidAmount,
+                cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
+              })
+              .eq('id', orderData.user_id);
+
+            await supabase.from('transactions').insert({
+              user_id: orderData.user_id,
+              order_id: id,
+              type: 'refund',
+              amount: paidAmount,
+              balance_before: userProfile.wallet_balance || 0,
+              balance_after: (userProfile.wallet_balance || 0) + paidAmount,
+              description: `Refund pembatalan pesanan ${orderData.order_number} ke saldo`,
+            });
+          }
         }
-      }
 
-      // Add log entry
-      await supabase.from('order_logs').insert({
-        order_id: id,
-        status: 'cancelled',
-        note: 'Dibatalkan oleh pengguna (Timeout)'
-      });
+        await supabase.from('order_logs').insert({
+          order_id: id,
+          status: 'cancelled',
+          note: 'Dibatalkan oleh pengguna (Timeout)'
+        });
+      }
+    } catch (err) {
+      console.error('Cancel error:', err);
     }
 
     router.replace('/home');
@@ -433,69 +326,107 @@ export default function SearchingTherapistScreen() {
     );
   };
 
-  const spin = spinAnim.interpolate({
+  const searchRotation = searchRotate.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
+    outputRange: ['-15deg', '15deg'],
   });
 
   const floatY = floatAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -20]
+    outputRange: [0, -20],
   });
 
   const floatYReverse = floatAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 20]
+    outputRange: [0, 20],
   });
 
   const ORNAMENTS = [
-    { id: 1, icon: 'leaf-outline', size: 36, top: -30, left: -10, color: '#10B981', rotation: '15deg', reverse: false },
-    { id: 2, icon: 'flower-outline', size: 42, top: -10, right: -30, color: '#EC4899', rotation: '-20deg', reverse: true },
-    { id: 3, icon: 'water-outline', size: 32, bottom: -10, left: -30, color: '#3B82F6', rotation: '45deg', reverse: true },
-    { id: 4, icon: 'sparkles-outline', size: 34, bottom: -40, right: 0, color: '#F59E0B', rotation: '0deg', reverse: false },
-    { id: 5, icon: 'moon-outline', size: 28, top: 70, left: -50, color: '#8B5CF6', rotation: '-15deg', reverse: false },
-    { id: 6, icon: 'body-outline', size: 32, top: 90, right: -50, color: '#F97316', rotation: '10deg', reverse: true },
+    { id: 1, icon: 'leaf-outline', size: 36, top: -30, left: -10, color: '#10B981', reverse: false },
+    { id: 2, icon: 'flower-outline', size: 42, top: -10, right: -30, color: '#EC4899', reverse: true },
+    { id: 3, icon: 'water-outline', size: 32, bottom: -10, left: -30, color: '#3B82F6', reverse: true },
+    { id: 4, icon: 'sparkles-outline', size: 34, bottom: -40, right: 0, color: '#F59E0B', reverse: false },
+    { id: 5, icon: 'moon-outline', size: 28, top: 70, left: -50, color: '#8B5CF6', reverse: false },
+    { id: 6, icon: 'body-outline', size: 32, top: 90, right: -50, color: '#F97316', reverse: true },
   ];
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.content}>
         <View style={styles.animationContainer}>
-          {/* Massage Ornaments */}
-          <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: spin }] }]}>
-            {ORNAMENTS.map((ornament) => (
-              <Animated.View 
-                key={ornament.id}
-                style={{
-                  position: 'absolute',
-                  top: ornament.top,
-                  bottom: ornament.bottom,
-                  left: ornament.left,
-                  right: ornament.right,
-                  transform: [
-                    { rotate: ornament.rotation },
-                    { translateY: ornament.reverse ? floatYReverse : floatY }
-                  ],
-                  opacity: 0.6
-                }}
-              >
-                {/* @ts-ignore */}
-                <Ionicons name={ornament.icon} size={ornament.size} color={ornament.color} />
-              </Animated.View>
-            ))}
+          {ORNAMENTS.map((ornament) => (
+            <Animated.View 
+              key={ornament.id}
+              style={{
+                position: 'absolute',
+                top: ornament.top,
+                bottom: ornament.bottom,
+                left: ornament.left,
+                right: ornament.right,
+                transform: [
+                  { translateY: ornament.reverse ? floatYReverse : floatY }
+                ],
+                opacity: 0.5,
+              }}
+            >
+              <Ionicons name={ornament.icon as any} size={ornament.size} color={ornament.color} />
+            </Animated.View>
+          ))}
+
+          <Animated.View
+            style={[
+              styles.ring,
+              {
+                transform: [{ scale: ringScale }],
+                opacity: ringOpacity,
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.ring,
+              {
+                width: 90,
+                height: 90,
+                borderRadius: 45,
+                transform: [
+                  {
+                    scale: ringScale.interpolate({
+                      inputRange: [1, 1.8],
+                      outputRange: [0.6, 1.2],
+                    }),
+                  },
+                ],
+                opacity: ringOpacity.interpolate({
+                  inputRange: [0, 0.4],
+                  outputRange: [0, 0.3],
+                }),
+              },
+            ]}
+          />
+
+          <Animated.View style={[styles.sparkle, styles.sparkle1, { opacity: sparkle1 }]}>
+            <Ionicons name="sparkles" size={18} color="#F59E0B" />
+          </Animated.View>
+          <Animated.View style={[styles.sparkle, styles.sparkle2, { opacity: sparkle2 }]}>
+            <Ionicons name="sparkles" size={14} color="#8B5CF6" />
           </Animated.View>
 
-          {/* @ts-ignore */}
-          <Animated.View style={[styles.pulse, { transform: [{ scale: pulseAnim }], opacity: 0.3 }]} />
-          {/* @ts-ignore */}
-          <Animated.View style={[styles.pulse, { transform: [{ scale: Animated.multiply(pulseAnim, 0.7) }], opacity: 0.5 }]} />
-          
-          <View style={styles.iconCircle}>
-            <Image
-              source={require('../../assets/logo-kang-massage.png')}
-              style={styles.logoImage}
-            />
-          </View>
+          <Animated.View
+            style={[
+              styles.searchIconContainer,
+              {
+                transform: [
+                  { scale: searchScale },
+                  { rotate: searchRotation },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.searchIconBg}>
+              <Ionicons name="search" size={44} color={PURPLE} />
+            </View>
+          </Animated.View>
         </View>
 
         <Text style={styles.title}>Mencari Terapis...</Text>
@@ -521,7 +452,6 @@ export default function SearchingTherapistScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Timeout Popup Modal */}
       {isTimeout && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -569,30 +499,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   animationContainer: {
-    width: 200,
-    height: 200,
+    width: 220,
+    height: 220,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 40,
   },
-  pulse: {
+  ring: {
     position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: PURPLE,
-  },
-  iconCircle: {
     width: 100,
     height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: PURPLE,
+  },
+  searchIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchIconBg: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
-  logoImage: {
-    width: 70,
-    height: 70,
-    resizeMode: 'contain',
+  sparkle: {
+    position: 'absolute',
+  },
+  sparkle1: {
+    top: 10,
+    right: 15,
+  },
+  sparkle2: {
+    bottom: 20,
+    left: 10,
   },
   title: {
     fontSize: 24,
@@ -623,20 +570,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 12,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-  },
   infoItem: {
     alignItems: 'center',
     gap: 8,
     paddingVertical: 10,
-  },
-  dividerVertical: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#E2E8F0',
   },
   infoLabel: {
     fontSize: 13,

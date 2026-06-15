@@ -188,7 +188,6 @@ export async function POST(req: NextRequest) {
 
     const updateData: any = { payment_status: paymentStatus };
     if (paymentStatus === 'failed') updateData.status = 'cancelled';
-    if (paymentStatus === 'paid' && order.status === 'awaiting_payment') updateData.status = 'pending';
 
     await supabase.from('orders').update(updateData).eq('id', order.id);
 

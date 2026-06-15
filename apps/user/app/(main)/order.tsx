@@ -220,7 +220,7 @@ export default function OrderScreen() {
     const fetchAddons = async () => {
       const { data } = await supabase
         .from('services')
-        .select('id, name, base_price, description, image_url, category_slug')
+        .select('id, name, base_price, description, image_url, category_slug, duration_min, price_type')
         .eq('is_active', true)
         .eq('is_deleted', false)
         .order('sort_order', { ascending: true });
@@ -239,6 +239,8 @@ export default function OrderScreen() {
           price: Number(s.base_price) || 0,
           desc: s.description || '',
           image: s.image_url,
+          duration: s.duration_min,
+          price_type: s.price_type
         })));
       }
     };
@@ -544,20 +546,10 @@ export default function OrderScreen() {
   const PAYMENT_GROUPS = [
     {
       id: 'internal',
-      title: 'Metode Langsung',
+      title: 'Metode Pembayaran',
       items: [
         { id: 'tunai', label: 'Tunai', icon: Banknote },
         { id: 'saldo', label: 'Saldo Dompet', icon: Wallet },
-      ]
-    },
-    {
-      id: 'ewallet',
-      title: 'E-Wallet & QRIS',
-      items: [
-        { id: 'gopay', label: 'GoPay', image: require('@/assets/Gopay.png') },
-        { id: 'qris', label: 'QRIS', image: require('@/assets/Gopay.png') },
-        { id: 'dana', label: 'DANA', image: require('@/assets/Dana.png'), disabled: true, comingSoon: 'Akan tersedia' },
-        { id: 'shopeepay', label: 'ShopeePay', image: require('@/assets/ShopeePay.png'), disabled: true, comingSoon: 'Akan tersedia' },
       ]
     },
   ];
@@ -608,7 +600,7 @@ export default function OrderScreen() {
         user_id: profile?.id,
         service_id: initialService.id,
         duration: selectedDuration.value,
-        status: (paymentMethod === 'saldo' || paymentMethod === 'tunai') ? 'pending' : 'awaiting_payment',
+        status: 'pending',
         service_price: selectedDuration.price,
         service_fee: serviceFee,
         total_price: finalPrice,
@@ -626,7 +618,8 @@ export default function OrderScreen() {
         therapist_preference: therapistGender,
         order_number: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
         used_cashback: usedCashback,
-        earned_cashback: earnedCashback
+        earned_cashback: earnedCashback,
+        additional_services: additionalServices.filter(a => selectedAddons.includes(a.id))
       };
 
       const { data: order, error: orderError } = await supabase
@@ -788,6 +781,27 @@ export default function OrderScreen() {
 
             {/* Accordion Layanan Tambahan */}
             <View style={styles.combinedDivider} />
+
+            {/* Selected Addons Preview */}
+            {selectedAddons.length > 0 && (
+              <View style={{ paddingTop: 12, paddingHorizontal: 16, gap: 10, marginBottom: 13 }}>
+                {additionalServices.filter(a => selectedAddons.includes(a.id)).map((addon, idx) => (
+                  <View key={addon.id}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: `${PURPLE}10`, alignItems: 'center', justifyContent: 'center' }}>
+                        <Check size={16} color={PURPLE} strokeWidth={3} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.serviceName}>{addon.name}</Text>
+                      </View>
+                      <Text style={styles.servicePrice}>+Rp {addon.price.toLocaleString('id-ID')}</Text>
+                    </View>
+                    {idx < selectedAddons.length - 1 && <View style={{ height: 1, backgroundColor: BORDER, marginTop: 10 }} />}
+                  </View>
+                ))}
+              </View>
+            )}
+
             <TouchableOpacity
               style={styles.accordionHeader}
               onPress={() => setShowAdditional(!showAdditional)}
@@ -829,6 +843,9 @@ export default function OrderScreen() {
                         </View>
                         <View style={styles.addonInfo}>
                           <Text style={styles.addonName}>{addon.name}</Text>
+                          <Text style={[styles.addonDesc, { color: PURPLE, fontSize: 10, fontFamily: 'PlusJakartaSans-Bold' }]}>
+                            {addon.price_type === 'treatment' ? '1 Treatment' : `${addon.duration} Menit`}
+                          </Text>
                           <Text style={styles.addonDesc} numberOfLines={1}>{addon.desc}</Text>
                         </View>
                         <Text style={[styles.addonPrice, isSelected && { color: PURPLE }]}>
@@ -1222,12 +1239,12 @@ export default function OrderScreen() {
             <Text style={styles.breakdownValue}>Rp {serviceFee.toLocaleString('id-ID')}</Text>
           </View>
 
-          {addonTotal > 0 && (
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Layanan Tambahan</Text>
-              <Text style={styles.breakdownValue}>Rp {addonTotal.toLocaleString('id-ID')}</Text>
+          {addonTotal > 0 && additionalServices.filter(a => selectedAddons.includes(a.id)).map((addon) => (
+            <View key={addon.id} style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>+ {addon.name}</Text>
+              <Text style={styles.breakdownValue}>Rp {addon.price.toLocaleString('id-ID')}</Text>
             </View>
-          )}
+          ))}
 
           {discountAmount > 0 && (
             <View style={styles.breakdownRow}>

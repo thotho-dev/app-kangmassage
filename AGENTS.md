@@ -151,6 +151,47 @@ node_modules/@notifee/react-native/android/libs/.../core/.../*.aar
 
 ---
 
+## Session 3 (Order page redesign — Midtrans integration prep, Lottie via WebView)
+
+### Problem
+1. Payment method accordion outdated — many inactive gateways shown.
+2. No additional services accordion with dynamic pricing.
+3. Cancel flow didn't work after therapist accepted.
+4. Refund flow missing for cancelled orders.
+5. `lottie-react-native` fails Kotlin compile with Kotlin 2.1.20.
+
+### Changes made
+
+| File | Change |
+|---|---|
+| `app/(main)/order.tsx` | New `PAYMENT_GROUPS` — only **Tunai** & **Saldo** active. DANA/ShopeePay disabled with comingSoon badge. Additional services accordion with preview above header. Addon price calc with Hermes hoisting fix. |
+| `app/(main)/searching-therapist.tsx` | Cancel uses `.in('status', ['pending', 'accepted'])`. Animated API search icon (pulse, rotate, ring ripple, sparkles). No native modules. |
+| `app/(main)/tracking.tsx` | Cancel creates refund transaction + calls `/api/refund/create` for gateway. Realtime `cancelled` → redirect to `/searching-therapist`. ETA section replaced with full-width Lottie via `LottieWebView`. |
+| `app/(main)/payment-details.tsx` | Reverted `awaiting_payment` check to `status !== 'pending'`. |
+| `components/LottieWebView.tsx` | **NEW** — Renders Lottie JSON via `react-native-webview` + `bodymovin` CDN. Respects original aspect ratio (not stretch). Zero native modules. |
+| `assets/lottie/anim-*.json` | 5 Lottie JSON extracted from DOTLottie: search, navigate, arrive, cycle, progress. |
+| `apps/web/src/app/api/payments/create/route.ts` | Added `gopay`, `shopeepay`, `qris` support. |
+| `apps/web/src/app/api/refund/create/route.ts` | **NEW** — Midtrans cancel/void + wallet balance credit + refund transaction record. |
+| `supabase/schema.sql` | `awaiting_payment` kept in enum for future Midtrans re-enable. |
+
+### Key decisions
+- Refund goes to wallet balance (saldo), not original payment source.
+- Cancel uses `.in('status', ['pending', 'accepted'])` for both pre/post-therapist scenarios.
+- Therapist-cancelled → redirect to `searching-therapist` (not home).
+- Lottie via WebView + CDN because `lottie-react-native` fails on Kotlin 2.1.20.
+- `LottieWebView` calculates display size from JSON's original `w`/`h` aspect ratio — no distortion.
+
+### Next steps
+- Re-activate Midtrans by adding payment methods back to `PAYMENT_GROUPS` and uncommenting `awaiting_payment` logic.
+- Verify cancel flow for all payment methods (tunai, saldo, future gateway).
+- Swap any Lottie file in `STATUS_LOTTIE` map without rebuilding.
+
+### Known issues
+- `lottie-react-native@7.2.1` / `7.3.8` both fail Kotlin compile with Kotlin 2.1.20. Use `LottieWebView` component instead.
+- `awaiting_payment` requires `ALTER TYPE order_status ADD VALUE 'awaiting_payment'` in Supabase SQL Editor when re-enabling.
+
+---
+
 ## Previous session (ANDROID_HOME fix — Android SDK CLI tools installed)
 
 ### Problem

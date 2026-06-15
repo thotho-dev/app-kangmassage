@@ -16,6 +16,7 @@ import { COLORS } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAlert } from '@/context/AlertContext';
+import { titleCase } from '@/lib/utils';
 
 const PURPLE = '#240080';
 const GOLD = '#FDB927';
@@ -411,8 +412,15 @@ export default function HistoryScreen() {
                       style={styles.therapistImage} 
                     />
                     <View style={styles.infoBox}>
-                      <Text style={styles.therapistName}>{item.therapists?.full_name || 'Mencari Terapis...'}</Text>
+                      <Text style={styles.therapistName}>{titleCase(item.therapists?.full_name) || 'Mencari Terapis...'}</Text>
                       <Text style={styles.serviceName}>{item.services?.name}</Text>
+                      {item.additional_services && item.additional_services.length > 0 && (
+                        <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginTop: 2 }}>
+                          <Text style={{ fontSize: 9, color: '#0369A1', fontFamily: 'PlusJakartaSans-Bold' }}>
+                            +{item.additional_services.length} Layanan Tambahan
+                          </Text>
+                        </View>
+                      )}
                       {item.scheduled_at ? (
                         <View style={[styles.metaRow, { backgroundColor: '#F5F3FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginTop: 4 }]}>
                           <Clock size={11} color="#8B5CF6" />

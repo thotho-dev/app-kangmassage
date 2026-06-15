@@ -234,8 +234,20 @@ export default function OrderDetailScreen() {
       return;
     }
     const startTime = new Date(inProgressLog.created_at).getTime();
-    const durationMinutes = order.services?.duration_min || order.duration || 60;
-    const endTime = startTime + durationMinutes * 60 * 1000;
+    
+    // Hitung total durasi: Layanan Utama + Layanan Tambahan (jika durasi)
+    let totalDuration = order.services?.duration_min || order.duration || 60;
+    if (order.additional_services && Array.isArray(order.additional_services)) {
+      const addonDuration = order.additional_services.reduce((sum: number, addon: any) => {
+        if (addon.price_type === 'duration') {
+          return sum + (Number(addon.duration) || 0);
+        }
+        return sum;
+      }, 0);
+      totalDuration += addonDuration;
+    }
+
+    const endTime = startTime + totalDuration * 60 * 1000;
     const update = () => {
       const now = Date.now();
       const diff = Math.max(0, endTime - now);
@@ -1145,6 +1157,26 @@ export default function OrderDetailScreen() {
                   </View>
                 </View>
 
+                {/* Additional Services */}
+                {order.additional_services && order.additional_services.length > 0 && (
+                  <>
+                    <View style={styles.accDividerSmall} />
+                    <View style={styles.detailItemLong}>
+                      <View style={[styles.detailIcon, { backgroundColor: t.success + '15' }]}>
+                        <Ionicons name="add-circle" size={16} color={t.success} />
+                      </View>
+                      <View>
+                        <Text style={[styles.detailLabel, { color: t.success }]}>LAYANAN TAMBAHAN</Text>
+                        {order.additional_services.map((addon: any, idx: number) => (
+                          <Text key={idx} style={styles.detailValue}>
+                            • {addon.name} ({addon.price_type === 'treatment' ? '1 Treatment' : `${addon.duration} Menit`})
+                          </Text>
+                        ))}
+                      </View>
+                    </View>
+                  </>
+                )}
+
                 <View style={styles.accDividerSmall} />
 
                 {order.scheduled_at && (
@@ -1245,8 +1277,16 @@ export default function OrderDetailScreen() {
 
                   <View style={styles.payRow}>
                     <Text style={styles.payLabel}>Harga Layanan</Text>
-                    <Text style={[styles.payAmount, { color: t.text }]}>Rp {(order.service_price || order.total_price || 0).toLocaleString('id-ID')}</Text>
+                    <Text style={[styles.payAmount, { color: t.text }]}>Rp {(order.service_price || 0).toLocaleString('id-ID')}</Text>
                   </View>
+
+                  {/* Detail Layanan Tambahan */}
+                  {order.additional_services && order.additional_services.length > 0 && order.additional_services.map((addon: any, idx: number) => (
+                    <View key={idx} style={styles.payRow}>
+                      <Text style={styles.payLabel}>+ {addon.name}</Text>
+                      <Text style={[styles.payAmount, { color: t.text }]}>Rp {(addon.price || 0).toLocaleString('id-ID')}</Text>
+                    </View>
+                  ))}
 
                   {order.discount_amount > 0 && (
                     <View style={styles.payRow}>
@@ -1266,6 +1306,13 @@ export default function OrderDetailScreen() {
                     <View style={styles.payRow}>
                       <Text style={styles.payLabel}>Biaya Layanan (Customer)</Text>
                       <Text style={[styles.payAmount, { color: t.text }]}>Rp {order.service_fee.toLocaleString('id-ID')}</Text>
+                    </View>
+                  )}
+
+                  {order.tips > 0 && (
+                    <View style={styles.payRow}>
+                      <Text style={[styles.payLabel, { color: t.success }]}>Tips dari Pelanggan</Text>
+                      <Text style={[styles.payAmount, { color: t.success, fontFamily: 'Inter_700Bold' }]}>+ Rp {Number(order.tips).toLocaleString('id-ID')}</Text>
                     </View>
                   )}
 

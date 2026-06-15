@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar, Animated, PanResponder, ScrollView, Alert, TextInput, ActivityIndicator, Modal, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, StatusBar, Animated, PanResponder, ScrollView, TextInput, ActivityIndicator, Modal, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PURPLE = '#240080';
@@ -10,8 +10,15 @@ import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/config';
+import LottieWebView from '@/components/LottieWebView';
+import animSearch from '@/assets/lottie/anim-search.json';
+import animCycle from '@/assets/lottie/anim-cycle.json';
+import animOnTheWay from '@/assets/lottie/on-the-way.json';
+import animTiba from '@/assets/lottie/tiba-dilokasi.json';
+import animConfirm from '@/assets/lottie/confrim-order.json';
 
 const { width } = Dimensions.get('window');
 
@@ -123,23 +130,48 @@ const STATUS_STEPS = [
 export default function TrackingScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { profile, refreshProfile } = useAuth();
   const { id } = useLocalSearchParams();
 
   const [order, setOrder] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
+  const [serviceRemaining, setServiceRemaining] = useState('');
   const [loading, setLoading] = useState(true);
   const [routeCoords, setRouteCoords] = useState<{latitude: number, longitude: number}[]>([]);
   
   // Rating State
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
+  const [tips, setTips] = useState('');
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   const [hasRated, setHasRated] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+
+  const QUICK_MESSAGES = [
+    "Terapis ramah & sopan",
+    "Pijatan sangat enak",
+    "Tepat waktu",
+    "Tekanan pijat pas",
+    "Sangat profesional"
+  ];
+
+  const QUICK_TIPS = [5000, 10000, 15000, 20000, 50000];
+
+  const userBalance = profile?.wallet_balance || 0;
+  const isBalanceZero = userBalance <= 0;
   
   // Map View Reference and Bounds Auto-fit
   const webViewRef = useRef<WebView>(null);
+
+  // Status Lottie Animations
+  const STATUS_LOTTIE: Record<string, { source: any; label: string }> = {
+    pending:     { source: animSearch,    label: 'Mencari Mitra Terdekat' },
+    accepted:    { source: animConfirm,   label: 'Terapis Menuju Anda' },
+    on_the_way:  { source: animOnTheWay,  label: 'Terapis Dalam Perjalanan' },
+    arrived:     { source: animTiba,      label: 'Terapis Sudah Tiba' },
+    in_progress: { source: animCycle,     label: 'Layanan Sedang Berlangsung' },
+  };
 
   // Custom Alert Modal State
   const [alertConfig, setAlertConfig] = useState<{
@@ -194,7 +226,14 @@ export default function TrackingScreen() {
         table: 'orders',
         filter: `id=eq.${id}`
       }, (payload) => {
-        console.log('[DEBUG Tracking User] Order Updated:', payload.new.status);
+        console.log('[DEBUG Tracking User] Order Updated:', payload.new.status, 'Old:', payload.old?.status);
+        
+        // Jika therapist cancel setelah accept → redirect ke searching-therapist
+        if (payload.new.status === 'cancelled' && payload.old?.status === 'accepted') {
+          router.replace({ pathname: '/searching-therapist', params: { id } });
+          return;
+        }
+        
         // Re-fetch full order to get nested data (therapist, service)
         fetchOrder();
         fetchLogs();
@@ -318,6 +357,49 @@ export default function TrackingScreen() {
     return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Timer for in_progress duration countdown
+  useEffect(() => {
+    if (!logs || !order || order.status !== 'in_progress') {
+      setServiceRemaining('');
+      return;
+    }
+    if (order.service?.price_type && order.service.price_type !== 'duration') {
+      setServiceRemaining('');
+      return;
+    }
+    const inProgressLog = logs.find((l: any) => l.status === 'in_progress');
+    if (!inProgressLog) {
+      setServiceRemaining('');
+      return;
+    }
+    const startTime = new Date(inProgressLog.created_at).getTime();
+    
+    // Hitung total durasi: Layanan Utama + Layanan Tambahan (jika durasi)
+    let totalDuration = order.service?.duration_min || order.duration || 60;
+    if (order.additional_services && Array.isArray(order.additional_services)) {
+      const addonDuration = order.additional_services.reduce((sum: number, addon: any) => {
+        if (addon.price_type === 'duration') {
+          return sum + (Number(addon.duration) || 0);
+        }
+        return sum;
+      }, 0);
+      totalDuration += addonDuration;
+    }
+
+    const endTime = startTime + totalDuration * 60 * 1000;
+    const update = () => {
+      const now = Date.now();
+      const diff = Math.max(0, endTime - now);
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setServiceRemaining(`${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [order?.status, logs, order?.service?.price_type]);
+
   const fetchOrder = async () => {
     if (!id || typeof id !== 'string') {
       console.warn('[DEBUG Tracking User] Invalid ID:', id);
@@ -371,17 +453,51 @@ export default function TrackingScreen() {
 
     setIsSubmittingRating(true);
     try {
+      const tipAmount = Number(tips) || 0;
+
+      if (tipAmount > userBalance) {
+        showAlert('Saldo Kurang', 'Saldo Anda tidak cukup untuk memberikan tips sebesar ini.');
+        setIsSubmittingRating(false);
+        return;
+      }
+
       // 1. Update order rating
       const { error } = await supabase
         .from('orders')
         .update({ 
           rating, 
           review,
+          tips: tipAmount,
           updated_at: new Date().toISOString()
         })
         .eq('id', id);
 
       if (error) throw error;
+
+      // 1.1 Handle Tips (Deduct from user balance and create transaction)
+      if (tipAmount > 0) {
+        // Potong saldo user
+        const { error: balanceErr } = await supabase
+          .from('users')
+          .update({ wallet_balance: userBalance - tipAmount })
+          .eq('id', profile.id);
+        
+        if (!balanceErr) {
+          // Catat transaksi
+          await supabase.from('transactions').insert({
+            user_id: profile.id,
+            order_id: id,
+            type: 'tips',
+            amount: -tipAmount,
+            balance_before: userBalance,
+            balance_after: userBalance - tipAmount,
+            description: `Tips untuk terapis ${order?.therapist?.full_name || ''} dari pesanan ${order?.order_number || ''}`,
+          });
+
+          // Update profile local state
+          refreshProfile();
+        }
+      }
       
       // 2. Sync Therapist Rating
       const therapistId = order?.therapist?.id || order?.therapist_id;
@@ -615,6 +731,7 @@ export default function TrackingScreen() {
 
   // Animations
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
   const lastOffset = useRef(0);
 
   const panResponder = useRef(
@@ -677,8 +794,8 @@ export default function TrackingScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'bottom']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      {/* Map Area - Hidden when completed */}
-      {order?.status !== 'completed' && (
+      {/* Map Area - Hidden when arrived, in_progress, completed */}
+      {order?.status !== 'arrived' && order?.status !== 'in_progress' && order?.status !== 'completed' && (
         <View style={styles.mapContainer}>
           <WebView
             ref={webViewRef}
@@ -703,65 +820,65 @@ export default function TrackingScreen() {
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFillObject}
           />
-          
-          {/* Header Overlay */}
-          <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <ChevronLeft size={24} color={theme.text} />
-            </TouchableOpacity>
-            <View style={[styles.orderBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text style={[styles.orderBadgeText, { color: theme.text }]}>{order?.order_number || 'ORD-...'}</Text>
-            </View>
-          </Animated.View>
-
-          {/* Floating Therapist Info */}
-          <Animated.View style={[styles.floatingInfo, { transform: [{ translateY: therapistCardTranslateY }] }]}>
-            <View style={styles.infoCard}>
-              <View style={styles.therapistInfo}>
-                <View style={styles.avatarWrapper}>
-                  <Image 
-                    source={{ uri: order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
-                    style={styles.avatar}
-                  />
-                  <View style={[styles.onlineDot, { backgroundColor: order?.therapist ? COLORS.success : '#CBD5E1' }]} />
-                </View>
-                <View style={styles.textInfo}>
-                  <Text style={styles.name}>{order?.therapist?.full_name || 'Mencari Terapis...'}</Text>
-                  <View style={styles.statusRow}>
-                    <Navigation size={10} color={COLORS.gold[500]} />
-                    <Text style={styles.status}>
-                      {order?.status === 'pending' ? 'Menunggu konfirmasi' : 
-                       order?.status === 'on_the_way' ? 'Menuju lokasi Anda' :
-                       order?.status === 'arrived' ? 'Sudah tiba di lokasi' :
-                       order?.status === 'in_progress' ? 'Sedang melakukan layanan' :
-                       order?.status === 'completed' ? 'Layanan selesai' :
-                       order?.status === 'cancelled' ? 'Pesanan ini telah dibatalkan' : 'Memproses...'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              {order?.therapist && (
-                <View style={[styles.actionButtons, (order?.status === 'completed' || order?.status === 'cancelled') && { opacity: 0.5 }]}>
-                  <TouchableOpacity 
-                    style={styles.actionBtn} 
-                    onPress={handleCall}
-                    disabled={order?.status === 'completed' || order?.status === 'cancelled'}
-                  >
-                    <Phone size={18} color='#6B7280' />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, styles.msgBtn]} 
-                    onPress={handleChat}
-                    disabled={order?.status === 'completed' || order?.status === 'cancelled'}
-                  >
-                    <MessageCircle size={18} color="white" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </Animated.View>
         </View>
       )}
+      
+      {/* Header Overlay - Always Visible */}
+      <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color={theme.text} />
+        </TouchableOpacity>
+        <View style={[styles.orderBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.orderBadgeText, { color: theme.text }]}>{order?.order_number || 'ORD-...'}</Text>
+        </View>
+      </Animated.View>
+
+      {/* Floating Therapist Info - Always Visible */}
+      <Animated.View style={[styles.floatingInfo, { transform: [{ translateY: therapistCardTranslateY }] }]}>
+        <View style={styles.infoCard}>
+          <View style={styles.therapistInfo}>
+            <View style={styles.avatarWrapper}>
+              <Image 
+                source={{ uri: order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
+                style={styles.avatar}
+              />
+              <View style={[styles.onlineDot, { backgroundColor: order?.therapist ? COLORS.success : '#CBD5E1' }]} />
+            </View>
+            <View style={styles.textInfo}>
+              <Text style={styles.name}>{order?.therapist?.full_name || 'Mencari Terapis...'}</Text>
+              <View style={styles.statusRow}>
+                <Navigation size={10} color={COLORS.gold[500]} />
+                <Text style={styles.status}>
+                  {order?.status === 'pending' ? 'Menunggu konfirmasi' : 
+                   order?.status === 'on_the_way' ? 'Menuju lokasi Anda' :
+                   order?.status === 'arrived' ? 'Sudah tiba di lokasi' :
+                   order?.status === 'in_progress' ? 'Sedang melakukan layanan' :
+                   order?.status === 'completed' ? 'Layanan selesai' :
+                   order?.status === 'cancelled' ? 'Pesanan ini telah dibatalkan' : 'Memproses...'}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {order?.therapist && (
+            <View style={[styles.actionButtons, (order?.status === 'completed' || order?.status === 'cancelled') && { opacity: 0.5 }]}>
+              <TouchableOpacity 
+                style={styles.actionBtn} 
+                onPress={handleCall}
+                disabled={order?.status === 'completed' || order?.status === 'cancelled'}
+              >
+                <Phone size={18} color='#6B7280' />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, styles.msgBtn]} 
+                onPress={handleChat}
+                disabled={order?.status === 'completed' || order?.status === 'cancelled'}
+              >
+                <MessageCircle size={18} color="white" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Animated.View>
 
       {/* Completed Header - Show only when completed */}
       {order?.status === 'completed' && (
@@ -778,43 +895,48 @@ export default function TrackingScreen() {
       <Animated.View 
         style={[
           styles.statusCard, 
-          { backgroundColor: theme.surface, borderTopColor: theme.border },
+           { backgroundColor: theme.surface, borderTopColor: theme.border },
           order?.status === 'completed' ? { position: 'relative', flex: 1, borderTopWidth: 0, height: 'auto', borderTopLeftRadius: 0, borderTopRightRadius: 0, shadowOpacity: 0, elevation: 0 } : { transform: [{ translateY: slideAnim }] }
         ]}
-      >
-         {order?.status !== 'completed' && (
-           <View 
-             style={styles.dragHandleContainer}
-             {...panResponder.panHandlers}
-           >
-             <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
-           </View>
-         )}
-         
-         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-            {/* ETA Section - Only show if therapist is on the way or pending */}
-            {(((order?.status === 'pending' && !order?.scheduled_at) || order?.status === 'accepted' || order?.status === 'on_the_way')) && (
-              <View style={styles.etaContainer}>
-                 <View>
-                    <Text style={[styles.etaLabel, { color: theme.textSecondary }]}>Perkiraan Tiba</Text>
-                    <Text style={[styles.etaTime, { color: theme.text }]}>
-                      {etaMinutes || '--'} <Text style={styles.etaUnit}>menit</Text>
-                    </Text>
-                 </View>
-                 <View style={styles.etaIconWrapper}>
-                    <LinearGradient
-                      colors={[PURPLE, '#12004D']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.etaIcon}
-                    >
-                       <Clock size={28} color="white" />
-                    </LinearGradient>
-                 </View>
-              </View>
-            )}
+        >
 
-            {order?.status === 'cancelled' && (
+          <LinearGradient
+            colors={['#FFFFFF', 'transparent']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          {order?.status !== 'completed' && (
+            <View 
+              style={styles.dragHandleContainer}
+              {...panResponder.panHandlers}
+            >
+              <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
+            </View>
+          )}
+          
+          <Animated.ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
+          >
+              {/* Status Animation Section */}
+              {order?.status !== 'cancelled' && order?.status !== 'in_progress' && order?.status !== 'completed' && (
+                  <Animated.View style={[styles.statusAnimContainer, { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 300], outputRange: [-30, 120], extrapolate: 'clamp' }) }] }]}>
+                   <LottieWebView
+                   source={STATUS_LOTTIE[order?.status]?.source || animSearch}
+                   width={420}
+                   height={300}
+                  />
+                </Animated.View>
+              )}
+
+             {order?.status === 'cancelled' && (
               <View style={[styles.cancelledBanner, { backgroundColor: COLORS.error + '10', borderColor: COLORS.error + '30' }]}>
                 <Ionicons name="alert-circle" size={24} color={COLORS.error} />
                 <View style={{ flex: 1 }}>
@@ -836,37 +958,66 @@ export default function TrackingScreen() {
               </View>
             )}
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Status Pesanan</Text>
-              <View style={styles.stepsCard}>
-                {STATUS_STEPS.map((step, i) => {
-                  // Jika status saat ini 'pending' (belum accepted), semua steps belum jalan
-                  // Jika order belum dapet therapist (pending), index = -1
-                  const isDone = currentStepIndex >= 0 && i <= currentStepIndex;
-                  const isCurrent = currentStepIndex >= 0 && i === currentStepIndex;
-                  
-                  return (
-                    <View key={step.key} style={styles.step}>
-                      <View style={styles.stepLeft}>
-                        <View style={[styles.stepIcon, isDone ? styles.stepDone : isCurrent ? styles.stepCurrent : styles.stepPending]}>
-                          <Ionicons
-                            name={isDone && !isCurrent ? 'checkmark' : step.icon as any}
-                            size={16}
-                            color={isDone ? '#FFFFFF' : isCurrent ? COLORS.primary[600] : '#94A3B8'}
-                          />
-                        </View>
-                        {i < STATUS_STEPS.length - 1 && (
-                          <View style={[styles.stepLine, isDone && !isCurrent && styles.stepLineDone]} />
-                        )}
-                      </View>
-                      <Text style={[styles.stepLabel, isDone && styles.stepLabelDone, isCurrent && styles.stepLabelCurrent]}>
-                        {step.label}
+            <View style={(order?.status === 'in_progress' || order?.status === 'completed') ? {} : { transform: [{ translateY: -100 }] }}>
+              {/* In Progress Timer Card */}
+              {order?.status === 'in_progress' && (
+                <View style={[styles.timerCard, { backgroundColor: theme.surface, borderColor: '#10B981' + '40' }]}>
+                  <View style={styles.timerHeader}>
+                    <Ionicons name="time-outline" size={20} color="#10B981" />
+                    <Text style={[styles.timerTitle, { color: '#10B981' }]}>
+                      {order.service?.price_type === 'duration' ? 'Sisa Waktu Pelayanan' : 'Status Pelayanan'}
+                    </Text>
+                  </View>
+                  {order.service?.price_type === 'duration' ? (
+                    <>
+                      <Text style={[styles.timerDisplay, { color: theme.text }]}>{serviceRemaining || '00:00:00'}</Text>
+                      <Text style={[styles.timerSub, { color: theme.textSecondary }]}>
+                        Durasi: {order.service?.duration_min || order.duration || 60} Menit
+                      </Text>
+                    </>
+                  ) : (
+                    <View style={styles.treatmentStatusContainer}>
+                      <Ionicons name="sparkles" size={32} color="#10B981" />
+                      <Text style={[styles.treatmentStatusText, { color: theme.text }]}>Sedang Perawatan</Text>
+                      <Text style={[styles.timerSub, { color: theme.textSecondary }]}>
+                        Layanan sedang berlangsung
                       </Text>
                     </View>
-                  );
-                })}
+                  )}
+                </View>
+              )}
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Status Pesanan</Text>
+                <View style={styles.stepsCard}>
+                   {STATUS_STEPS.map((step, i) => {
+                    // Jika status saat ini 'pending' (belum accepted), semua steps belum jalan
+                    // Jika order belum dapet therapist (pending), index = -1
+                    const isDone = currentStepIndex >= 0 && i <= currentStepIndex;
+                    const isCurrent = currentStepIndex >= 0 && i === currentStepIndex;
+                    
+                    return (
+                      <View key={step.key} style={styles.step}>
+                        <View style={styles.stepLeft}>
+                          <View style={[styles.stepIcon, isDone ? styles.stepDone : isCurrent ? styles.stepCurrent : styles.stepPending]}>
+                            <Ionicons
+                              name={isDone && !isCurrent ? 'checkmark' : step.icon as any}
+                              size={16}
+                              color={isDone ? '#FFFFFF' : isCurrent ? COLORS.primary[600] : '#94A3B8'}
+                            />
+                          </View>
+                          {i < STATUS_STEPS.length - 1 && (
+                            <View style={[styles.stepLine, isDone && !isCurrent && styles.stepLineDone]} />
+                          )}
+                        </View>
+                        <Text style={[styles.stepLabel, isDone && styles.stepLabelDone, isCurrent && styles.stepLabelCurrent]}>
+                          {step.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
 
             <View style={styles.detailSection}>
               <Text style={styles.detailTitle}>Detail Pesanan</Text>
@@ -888,6 +1039,25 @@ export default function TrackingScreen() {
                     </View>
                   </View>
                 </View>
+
+                {/* Additional Services */}
+                {order?.additional_services && order.additional_services.length > 0 && (
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailInfo}>
+                      <View style={styles.serviceIconWrapper}>
+                        <Ionicons name="add-circle-outline" size={16} color="#240080" />
+                      </View>
+                      <View>
+                        <Text style={styles.detailLabel}>Layanan Tambahan</Text>
+                        {order.additional_services.map((addon: any, index: number) => (
+                          <Text key={index} style={styles.detailValue}>
+                            {addon.name} ({addon.price_type === 'treatment' ? '1 Treatment' : `${addon.duration} Menit`})
+                          </Text>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                )}
 
                 {order?.scheduled_at && (
                   <>
@@ -935,10 +1105,26 @@ export default function TrackingScreen() {
                        <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Biaya Layanan</Text>
                        <Text style={[styles.priceValueSmall, { color: theme.text }]}>Rp {(order?.service_fee || 0).toLocaleString('id-ID')}</Text>
                     </View>
+
+                   {/* Detail Layanan Tambahan */}
+                   {order?.additional_services && order.additional_services.length > 0 && order.additional_services.map((addon: any, idx: number) => (
+                     <View key={idx} style={styles.priceRow}>
+                        <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>+ {addon.name}</Text>
+                        <Text style={[styles.priceValueSmall, { color: theme.text }]}>Rp {(addon.price || 0).toLocaleString('id-ID')}</Text>
+                     </View>
+                   ))}
+
                    {order?.discount_amount > 0 && (
                      <View style={styles.priceRow}>
                         <Text style={[styles.priceLabelSmall, { color: theme.textSecondary }]}>Diskon Voucher</Text>
                         <Text style={[styles.priceValueSmall, { color: COLORS.success }]}>-Rp {(order?.discount_amount || 0).toLocaleString('id-ID')}</Text>
+                     </View>
+                   )}
+
+                   {order?.tips > 0 && (
+                     <View style={styles.priceRow}>
+                        <Text style={[styles.priceLabelSmall, { color: COLORS.success }]}>Tips untuk Terapis</Text>
+                        <Text style={[styles.priceValueSmall, { color: COLORS.success }]}>Rp {(Number(order.tips) || 0).toLocaleString('id-ID')}</Text>
                      </View>
                    )}
                   <View style={[styles.priceRow, { marginTop: 8 }]}>
@@ -995,8 +1181,6 @@ export default function TrackingScreen() {
                   </View>
                 )}
               </View>
-            </View>
-
             <View style={[styles.addressCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border, marginTop: 20 }]}>
                <View style={styles.addressIconWrapper}>
                   <MapPin size={20} color="#FDB927" />
@@ -1006,6 +1190,7 @@ export default function TrackingScreen() {
                   <Text style={[styles.addressText, { color: theme.text }]}>{order?.address || 'Alamat tidak ditemukan'}</Text>
                </View>
             </View>
+          </View>
 
 
 
@@ -1031,10 +1216,11 @@ export default function TrackingScreen() {
                 disabled={order?.status === 'on_the_way' || order?.status === 'arrived' || order?.status === 'in_progress'}
               >
                  <Text style={styles.cancelText}>Batalkan Pesanan</Text>
-              </TouchableOpacity>
+               </TouchableOpacity>
             )}
-         </ScrollView>
-      </Animated.View>
+            </View>
+          </Animated.ScrollView>
+       </Animated.View>
 
       {/* Rating Bottom Sheet Modal */}
       <Modal
@@ -1084,6 +1270,33 @@ export default function TrackingScreen() {
                 ))}
               </View>
 
+              <View style={styles.quickMessagesContainer}>
+                {QUICK_MESSAGES.map((msg, index) => {
+                  const isActive = review.includes(msg);
+                  return (
+                    <TouchableOpacity 
+                      key={index}
+                      style={[
+                        styles.quickMessageItem, 
+                        isActive && { backgroundColor: PURPLE + '10', borderColor: PURPLE },
+                        { borderColor: theme.border }
+                      ]}
+                      onPress={() => {
+                        if (isActive) {
+                          setReview(prev => prev.replace(msg, "").replace(/,\s*,/g, ",").replace(/^,|,$/g, "").trim());
+                        } else {
+                          setReview(prev => prev ? `${prev}, ${msg}` : msg);
+                        }
+                      }}
+                    >
+                      <Text style={[styles.quickMessageText, { color: theme.textSecondary }, isActive && { color: PURPLE, fontFamily: 'PlusJakartaSans-Bold' }]}>
+                        {msg}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               <TextInput
                 style={[styles.reviewInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surfaceVariant }]}
                 placeholder="Ceritakan pengalaman Anda... (opsional)"
@@ -1093,6 +1306,76 @@ export default function TrackingScreen() {
                 value={review}
                 onChangeText={setReview}
               />
+
+              <View style={[styles.tipsSection, isBalanceZero && { opacity: 0.5 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <Text style={[styles.tipsLabel, { color: theme.textSecondary, marginBottom: 0 }]}>Tips untuk Terapis (Opsional)</Text>
+                  <Text style={{ fontSize: 10, color: isBalanceZero ? '#EF4444' : '#10B981', fontFamily: 'PlusJakartaSans-Bold' }}>
+                    Saldo: Rp {userBalance.toLocaleString('id-ID')}
+                  </Text>
+                </View>
+
+                {/* Quick Tips */}
+                {!isBalanceZero && (
+                  <View style={[styles.quickTipsContainer, { marginBottom: 12 }]}>
+                    {QUICK_TIPS.map((amount) => (
+                      <TouchableOpacity
+                        key={amount}
+                        style={[
+                          styles.quickTipItem,
+                          tips === String(amount) && { backgroundColor: PURPLE, borderColor: PURPLE },
+                          { borderColor: theme.border }
+                        ]}
+                        onPress={() => setTips(String(amount))}
+                        disabled={amount > userBalance}
+                      >
+                        <Text style={[
+                          styles.quickTipText, 
+                          { color: amount > userBalance ? theme.textSecondary + '50' : theme.textSecondary },
+                          tips === String(amount) && { color: '#FFFFFF' }
+                        ]}>
+                          {amount / 1000}k
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity
+                      style={[
+                        styles.quickTipItem,
+                        tips === '' && { backgroundColor: theme.surfaceVariant, borderColor: theme.border },
+                        { borderColor: theme.border }
+                      ]}
+                      onPress={() => setTips('')}
+                    >
+                      <Text style={[styles.quickTipText, { color: theme.textSecondary }]}>Reset</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <View style={[styles.tipsInputWrapper, { borderColor: theme.border, backgroundColor: isBalanceZero ? '#F1F5F9' : theme.surfaceVariant }]}>
+                  <Text style={[styles.tipsCurrency, { color: theme.textSecondary }]}>Rp</Text>
+                  <TextInput
+                    style={[styles.tipsInput, { color: theme.text }]}
+                    placeholder={isBalanceZero ? "Saldo Tidak Cukup" : "Contoh: 10.000"}
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="numeric"
+                    value={tips}
+                    onChangeText={(val) => {
+                      const num = parseInt(val.replace(/[^0-9]/g, '')) || 0;
+                      if (num <= userBalance) {
+                        setTips(val.replace(/[^0-9]/g, ''));
+                      } else {
+                        setTips(String(userBalance));
+                      }
+                    }}
+                    editable={!isBalanceZero}
+                  />
+                </View>
+                {isBalanceZero && (
+                  <Text style={{ fontSize: 10, color: '#EF4444', marginTop: 4, fontStyle: 'italic' }}>
+                    *Saldo Anda 0 atau tidak cukup untuk memberi tips.
+                  </Text>
+                )}
+              </View>
 
               <TouchableOpacity 
                 style={[styles.submitRatingBtn, { opacity: rating === 0 || isSubmittingRating ? 0.6 : 1 }]}
@@ -1106,7 +1389,7 @@ export default function TrackingScreen() {
                   <ActivityIndicator color="white" />
                 ) : (
                   <>
-                    <Text style={styles.submitRatingText}>Kirim Feedback</Text>
+                    <Text style={styles.submitRatingText}>Kirim Ulasan</Text>
                     <Send size={18} color="white" />
                   </>
                 )}
@@ -1201,7 +1484,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 20,
+    top: 50,
     left: 24,
     right: 24,
     flexDirection: 'row',
@@ -1230,7 +1513,7 @@ const styles = StyleSheet.create({
   },
   floatingInfo: {
     position: 'absolute',
-    top: 90,
+    top: 130,
     left: 10,
     right: 10,
     zIndex: 10,
@@ -1326,7 +1609,7 @@ const styles = StyleSheet.create({
   dragHandleContainer: {
     width: '100%',
     paddingTop: 24,
-    paddingBottom: 28,
+    paddingBottom: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1335,43 +1618,41 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
     alignSelf: 'center',
-    marginBottom: 28,
+    marginBottom: 21,
   },
-  etaContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 36,
-  },
-  etaLabel: {
-    fontSize: 11,
-    fontFamily: 'PlusJakartaSans-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  etaTime: {
-    fontSize: 28,
-    fontFamily: 'PlusJakartaSans-Bold',
-  },
-  etaUnit: {
-    fontSize: 14,
-    color: COLORS.gold[500],
-    fontFamily: 'PlusJakartaSans-SemiBold',
-  },
-  etaIconWrapper: {
-    shadowColor: COLORS.primary[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-  },
-  etaIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  statusAnimContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 20,
+    paddingVertical: 10,
   },
+  timerCard: {
+    marginHorizontal: 4,
+    marginBottom: 16,
+    borderRadius: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderWidth: 1.5,
+    alignItems: 'center',
+  },
+  timerInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  timerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  timerTitleInline: { fontSize: 13, fontFamily: 'PlusJakartaSans-Bold' },
+  timerDisplayInline: { fontSize: 20, fontFamily: 'PlusJakartaSans-Bold', letterSpacing: 2 },
+  timerTitle: { fontSize: 14, fontFamily: 'PlusJakartaSans-Bold' },
+  timerDisplay: { fontSize: 32, fontFamily: 'PlusJakartaSans-Bold', letterSpacing: 2, marginBottom: 4 },
+  timerSub: { fontSize: 12, fontFamily: 'PlusJakartaSans-Medium' },
+  treatmentStatusContainer: { alignItems: 'center', gap: 8, paddingVertical: 8 },
+  treatmentStatusText: { fontSize: 20, fontFamily: 'PlusJakartaSans-Bold', marginTop: 4 },
   section: { paddingHorizontal: 4, marginTop: 10, marginBottom: 20 },
   sectionTitle: { fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#1A1A2E', marginBottom: 12 },
   stepsCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#F0F0F0' },
@@ -1559,21 +1840,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ratingTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   ratingSubtitle: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans-Medium',
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 18,
+    marginBottom: 12,
+    lineHeight: 16,
   },
   starsContainer: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 24,
+    justifyContent: 'center',
+  },
+  quickTipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickTipItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  quickTipText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   reviewInput: {
     width: '100%',
@@ -1604,6 +1903,48 @@ const styles = StyleSheet.create({
   submitRatingText: {
     color: 'white',
     fontSize: 15,
+    fontFamily: 'PlusJakartaSans-Bold',
+  },
+  quickMessagesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  quickMessageItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  quickMessageText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Medium',
+  },
+  tipsSection: {
+    marginBottom: 24,
+  },
+  tipsLabel: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    marginBottom: 10,
+  },
+  tipsInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    height: 56,
+  },
+  tipsCurrency: {
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans-Bold',
+    marginRight: 8,
+  },
+  tipsInput: {
+    flex: 1,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
   },
   ratingSuccess: {
@@ -1708,10 +2049,10 @@ const styles = StyleSheet.create({
   },
   sheetHandle: {
     width: 40,
-    height: 5,
+    height: 4,
     borderRadius: 3,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   closeModalBtn: {
     position: 'absolute',
@@ -1722,14 +2063,14 @@ const styles = StyleSheet.create({
   },
   sheetHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   sheetAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 30,
-    marginBottom: 16,
-    borderWidth: 3,
+    width: 56,
+    height: 56,
+    borderRadius: 20,
+    marginBottom: 8,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   ratingDisplaySection: { 
