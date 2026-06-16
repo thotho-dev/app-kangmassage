@@ -98,6 +98,15 @@ export default function BankAccountsScreen() {
 
   const handleSaveWithPin = () => {
     if (!selectedBank || !accountNumber || !profile?.full_name) return;
+
+    if (selectedBank === 'dana') {
+      const digits = accountNumber.replace(/[^0-9]/g, '');
+      if (digits.length < 10 || digits.length > 13) {
+        showAlert('Nomor Tidak Valid', 'Nomor HP DANA harus 10–13 digit (contoh: 081234567890)');
+        return;
+      }
+    }
+
     setPinError('');
     setPinModalVisible(true);
   };
@@ -120,8 +129,30 @@ export default function BankAccountsScreen() {
       setPinModalVisible(false);
       setPinLoading(false);
 
-      // PIN valid — validate with Xendit
+      // PIN valid — validate with Xendit (skip DANA, not supported)
       const bank = BANK_LIST.find(b => b.id === selectedBank);
+      if (selectedBank === 'dana') {
+        // DANA is e-wallet — skip Xendit validation, save directly
+        setValidating(false);
+        setSaving(true);
+        const { error } = await supabase
+          .from('saved_bank_accounts')
+          .insert([{
+            user_id: profile?.id,
+            bank_code: bank?.code || '',
+            bank_name: bank?.name || selectedBank,
+            account_number: accountNumber,
+            account_name: profile?.full_name,
+            is_verified: true,
+          }]);
+        if (error) throw error;
+        setAddModalVisible(false);
+        setAccountNumber('');
+        showAlert('Berhasil', 'Rekening berhasil ditambahkan');
+        fetchAccounts();
+        setSaving(false);
+        return;
+      }
       setValidating(true);
       try {
         const valRes = await fetch(`${API_URL}/api/bank-accounts/validate`, {

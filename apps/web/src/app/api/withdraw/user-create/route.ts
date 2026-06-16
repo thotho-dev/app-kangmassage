@@ -275,8 +275,11 @@ export async function POST(req: NextRequest) {
     }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
-    // Validate bank account before disbursement
-    const valRes = await fetch('https://api.xendit.co/bank_account_data_requests', {
+    const isDana = bankAccount.bank_name.toLowerCase() === 'dana' || bankCodeMapped === 'DANA';
+
+    // Validate bank account before disbursement (skip DANA, not supported by Xendit)
+    if (!isDana) {
+      const valRes = await fetch('https://api.xendit.co/bank_account_data_requests', {
       method: 'POST',
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': authHeader },
       body: JSON.stringify({ bank_code: bankCodeMapped, account_number: bankAccount.account_number }),
@@ -301,6 +304,7 @@ export async function POST(req: NextRequest) {
       await supabase.from('users').update({ wallet_balance: userPrevBalance }).eq('id', user_id);
       await supabase.from('user_withdrawals').update({ status: 'failed', payment_data: { reason: message } }).eq('id', withdrawal.id);
       return NextResponse.json({ error: message, details: valData }, { status: 400 });
+    }
     }
 
     debugStep = 'CALL_XENDIT_DISBURSEMENT';
