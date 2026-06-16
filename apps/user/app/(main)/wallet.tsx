@@ -28,13 +28,6 @@ const TEXT_MUTED = '#6B7280';
 const BORDER = '#F0F0F0';
 const BG = '#F8F8FB';
 
-const TRANSACTIONS = [
-  { id: 1, title: 'Pembayaran Pijat', date: 'Hari ini, 10:30', amount: -165000, type: 'debit', icon: CreditCard },
-  { id: 2, title: 'Isi Saldo Dompet', date: 'Kemarin, 20:20', amount: 500000, type: 'credit', icon: Plus },
-  { id: 3, title: 'Pengembalian Dana #ORD-992', date: '28 Apr, 14:15', amount: 150000, type: 'credit', icon: ArrowDownLeft },
-  { id: 4, title: 'Pembayaran Pijat', date: '25 Apr, 18:45', amount: -120000, type: 'debit', icon: CreditCard },
-];
-
 import { useAuth } from '@/context/AuthContext';
 
 export default function WalletScreen() {
@@ -44,6 +37,7 @@ export default function WalletScreen() {
   const [transactions, setTransactions] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [withdrawalStatuses, setWithdrawalStatuses] = React.useState<Record<string, string>>({});
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -76,6 +70,20 @@ export default function WalletScreen() {
 
       if (error) throw error;
       setTransactions(data || []);
+
+      // Fetch withdrawal statuses
+      const wdIds = (data || [])
+        .map(tx => tx.metadata?.withdrawal_id)
+        .filter(Boolean);
+      if (wdIds.length > 0) {
+        const { data: wds } = await supabase
+          .from('user_withdrawals')
+          .select('id, status')
+          .in('id', wdIds);
+        const statusMap: Record<string, string> = {};
+        (wds || []).forEach(w => { statusMap[w.id] = w.status; });
+        setWithdrawalStatuses(statusMap);
+      }
     } catch (error) {
       console.log('Error fetching transactions:', error);
     } finally {
@@ -86,8 +94,53 @@ export default function WalletScreen() {
   const formatTxDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    if (date.toDateString() === now.toDateString()) return `Hari ini, ${date.getHours()}:${date.getMinutes()}`;
-    return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    const h = String(date.getHours()).padStart(2, '0');
+    const m = String(date.getMinutes()).padStart(2, '0');
+    if (date.toDateString() === now.toDateString()) return `Hari ini, ${h}:${m}`;
+    if (date.toDateString() === yesterday.toDateString()) return `Kemarin, ${h}:${m}`;
+    return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+  };
+
+  const getTxInfo = (tx: any) => {
+    const desc = (tx.description || '').toLowerCase();
+    const meta = tx.metadata || {};
+
+    // Withdrawal — check real status
+    if (desc.includes('penarikan') || desc.includes('withdrawal')) {
+      const wdId = meta?.withdrawal_id;
+      const wdStatus = wdId ? withdrawalStatuses[wdId] : null;
+      if (wdStatus === 'failed' || wdStatus === 'rejected') {
+        return { icon: 'withdraw', label: tx.description || 'Penarikan Saldo', color: '#E74C3C', status: 'Gagal', statusColor: '#E74C3C' };
+      }
+      if (wdStatus === 'completed') {
+        return { icon: 'withdraw', label: tx.description || 'Penarikan Saldo', color: '#E74C3C', status: 'Berhasil', statusColor: '#00A896' };
+      }
+      return { icon: 'withdraw', label: tx.description || 'Penarikan Saldo', color: '#E74C3C', status: 'Diproses', statusColor: '#F59E0B' };
+    }
+    if (tx.type === 'payment' || desc.includes('pembayaran')) {
+      return { icon: 'payment', label: tx.description || 'Pembayaran Pesanan', color: '#240080', status: 'Selesai', statusColor: '#00A896' };
+    }
+    if (desc.includes('refund') || desc.includes('batal') || meta?.type === 'cancellation') {
+      return { icon: 'refund', label: tx.description || 'Pengembalian Dana', color: '#00A896', status: 'Dibatalkan', statusColor: '#E74C3C' };
+    }
+    if (desc.includes('top up') || desc.includes('topup') || desc.includes('isi saldo')) {
+      return { icon: 'topup', label: 'Isi Saldo', color: '#00A896', status: 'Berhasil', statusColor: '#00A896' };
+    }
+    if (tx.type === 'credit') {
+      return { icon: 'credit', label: tx.description || 'Pemasukan', color: '#00A896', status: 'Selesai', statusColor: '#00A896' };
+    }
+    return { icon: 'debit', label: tx.description || 'Transaksi', color: '#240080', status: 'Selesai', statusColor: '#00A896' };
+  };
+
+  const getTxIcon = (info: { icon: string }) => {
+    switch (info.icon) {
+      case 'withdraw': return TrendingUp;
+      case 'refund': return RotateCcw;
+      case 'topup': return Plus;
+      case 'payment': return CreditCard;
+      default: return CreditCard;
+    }
   };
 
   return (
@@ -184,25 +237,44 @@ export default function WalletScreen() {
           <View style={styles.txList}>
             {transactions.length > 0 ? (
               transactions.map((tx) => {
+                const info = getTxInfo(tx);
+                const Icon = getTxIcon(info);
                 const isCredit = tx.type === 'credit' || tx.type === 'topup' || tx.type === 'refund';
                 return (
                   <TouchableOpacity
                     key={tx.id}
                     activeOpacity={0.7}
                     style={styles.txItem}
+                    onPress={() => {
+                      const d = (tx.description || '').toLowerCase();
+                      if (tx.type === 'payment' || d.includes('pembayaran')) {
+                        // No specific history page for orders yet
+                      } else if (d.includes('penarikan') || d.includes('withdrawal')) {
+                        router.push('/withdraw-history');
+                      } else if (d.includes('top up') || d.includes('topup') || d.includes('isi saldo')) {
+                        router.push('/topup-history');
+                      }
+                    }}
                   >
                     <View style={[
                       styles.txIconBox,
-                      { backgroundColor: isCredit ? 'rgba(0,168,150,0.08)' : 'rgba(36,0,128,0.06)' }
+                      { backgroundColor: isCredit ? 'rgba(0,168,150,0.08)' : 'rgba(231,76,60,0.08)' }
                     ]}>
-                      {isCredit ? <Plus size={18} color={SUCCESS} /> : <CreditCard size={18} color={PURPLE} />}
+                      <Icon size={18} color={info.color as any} />
                     </View>
                     <View style={styles.txInfo}>
-                      <Text style={styles.txTitle} numberOfLines={1}>{tx.description || (isCredit ? 'Isi Saldo' : 'Pembayaran')}</Text>
-                      <Text style={styles.txDate}>{formatTxDate(tx.created_at)}</Text>
+                      <Text style={styles.txTitle} numberOfLines={1}>{info.label}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                        <Text style={styles.txDate}>{formatTxDate(tx.created_at)}</Text>
+                        {info.status && (
+                          <View style={{ backgroundColor: `${info.statusColor}15`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                            <Text style={{ fontSize: 10, fontFamily: 'PlusJakartaSans-Bold', color: info.statusColor }}>{info.status}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                     <View style={styles.txRight}>
-                      <Text style={[styles.txAmount, { color: isCredit ? SUCCESS : TEXT_DARK }]}>
+                      <Text style={[styles.txAmount, { color: isCredit ? SUCCESS : '#E74C3C' }]}>
                         {isCredit ? '+' : '-'} Rp {Math.abs(tx.amount).toLocaleString('id-ID')}
                       </Text>
                       <ChevronRight size={14} color={TEXT_MUTED} style={{ marginTop: 2 }} />

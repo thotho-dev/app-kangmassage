@@ -227,3 +227,69 @@ C:\Android\
 4. If dev build not installed: `npx expo run:android` (first build ~10-15 min)
 5. Test: bikin order dari admin → cek tray notif → tekan **Terima** / **Tolak**
 6. Verify: order status berubah di DB, notif follow-up muncul
+
+---
+
+## Session 4 (Withdrawal security system — PIN transaksi, validasi rekening, admin approval)
+
+### Problems addressed
+1. Form withdrawal tidak validasi field kosong — user bisa submit dengan field kosong
+2. Tidak ada validasi nomor rekening — user bisa input sembarang nomor
+3. Disbursement gagal di tengah jalan karena saldo Xendit habis — user tetap terpotong
+4. Status transaksi tidak berubah ke 'completed' setelah Xendit sukses
+5. Cancel withdrawal rawan race condition — bisa double refund
+6. Wallet activity tidak mencerminkan status real dari table withdrawals
+7. Topup card di wallet tidak bisa diklik (keyword mismatch spasi)
+8. Transaksi pembayaran via saldo tidak muncul di wallet activity
+
+### Changes made
+
+| File | Change |
+|---|---|
+| `apps/user/app/(main)/withdraw.tsx` | Client-side validation di `handlePinVerified` — tampilkan field kosong. Hint button disabled jika field kosong. Review section menampilkan data withdrawal. |
+| `apps/user/app/(main)/withdraw-history.tsx` | Cancel via RPC `cancel_withdrawal` (atomic, SELECT FOR UPDATE). Batas waktu cancel 30 menit. No PIN required. |
+| `apps/user/app/(main)/bank-accounts.tsx` | Validasi rekening via Xendit `/bank_account_data_requests` saat tambah rekening baru. DANA skip Xendit (format HP 10-13 digit). Error message translate. |
+| `apps/user/components/PinModal.tsx` | Bottom padding pakai `useSafeAreaInsets()` — tidak kepotong navigation bar. |
+| `apps/user/app/(main)/wallet.tsx` | `getTxInfo` ikon/status/badge real dari `user_withdrawals`. Navigasi click → history page. Payment type handler (CreditCard icon). Fix keyword 'top up' (with space). |
+| `apps/user/app/(main)/topup.tsx` | Fix realtime channel — cek `supabase.getChannels()` sebelum subscribe. |
+| `apps/web/src/app/api/withdraw/user-create/route.ts` | Fix: status diubah ke 'completed' setelah Xendit sukses. Validasi rekening via Xendit sebelum disbursement. Cek saldo Xendit (`GET /balance`). Skip DANA validation. |
+| `apps/web/src/app/api/withdraw/user-confirm/route.ts` | Fix: status diubah ke 'completed'. Validasi rekening + cek saldo Xendit sebelum disbursement. |
+| `apps/web/src/app/api/withdraw/admin/route.ts` | Cek saldo Xendit sebelum approve withdrawal. |
+| `apps/web/src/app/api/bank-accounts/validate/route.ts` | **NEW** — Validasi rekening via Xendit `/bank_account_data_requests`. Error message map Indonesia. Skip validation untuk DANA. |
+| `apps/web/src/app/api/xendit/balance/route.ts` | **NEW** — Ambil saldo Xendit real-time dari `/balance`. |
+| `apps/web/src/app/api/refund/create/route.ts` | Refund credit ke wallet balance + insert transaction record. |
+| `supabase/migrations/20260616_add_withdrawal_security.sql` | Migration: kolom `withdrawal_pin_hash`, `bank_accounts`, `daily_withdrawal_count`, dll. |
+| `supabase/migrations/20260617_add_cancel_withdrawal_rpc.sql` | **NEW** — RPC `cancel_withdrawal`: SELECT FOR UPDATE, cek status pending, refund + kurangi hold_balance, insert transaksi credit. |
+| `apps/web/src/lib/settings.ts` | Tambah field `withdrawal_admin_approval_threshold`. |
+| `apps/web/src/app/api/settings/route.ts` | Field baru di GET/PUT settings. |
+| `apps/web/src/app/dashboard/settings/page.tsx` | UI tab Withdrawal Security: OTP Threshold, Daily Limit, Max Count/Day, Admin Approval Threshold. |
+| `apps/web/src/app/dashboard/page.tsx` | Card "Saldo Xendit" with real-time balance (cache 60s). |
+
+### Key decisions
+- Cancel withdrawal via RPC atomic (Supabase function) — bukan API endpoint — biar bisa langsung jalan tanpa deploy backend.
+- Xendit validation di **dua tempat**: saat tambah rekening + saat disbursement — cegah nomor asal-asalan.
+- DANA tidak bisa divalidasi via Xendit `/bank_account_data_requests` — skip, cek format HP 10-13 digit.
+- Saldo Xendit dicek **sebelum** disbursement — kalau kurang, reject sebelum kurangi saldo user.
+- Jika withdraw gagal (Xendit error / saldo kurang) — balance di-revert, status = failed, NO transaction record.
+- Transaksi pesanan via saldo masuk ke `transactions` dengan `type: 'payment'` — muncul di wallet activity.
+
+### Xendit error messages (translated to Indonesian)
+| EN (Xendit) | ID (app) |
+|---|---|
+| `ACCOUNT_NOT_FOUND` | Nomor rekening tidak ditemukan di bank |
+| `AMOUNT_EXCEEDS_BALANCE` | Saldo sistem tidak mencukupi, hubungi admin |
+| `DUPLICATE_REFERENCE` | Transksi ini sudah diproses sebelumnya |
+| `INVALID_DESTINATION_AMOUNT` | Jumlah penarikan tidak valid |
+| `BANK_ACCOUNT_BLOCKED` | Rekening tujuan diblokir |
+| `ACCOUNT_LIMIT_EXCEEDED` | Limit rekening tujuan tercapai |
+| (generic) | Penarikan gagal, coba lagi atau hubungi admin |
+
+### Migration files
+- `supabase/migrations/20260616_add_withdrawal_security.sql` — Sudah dijalankan
+- `supabase/migrations/20260617_add_cancel_withdrawal_rpc.sql` — **Belum dijalankan** (perlu run di Supabase SQL Editor)
+
+### Next steps
+- Deploy backend `apps/web` ke production agar endpoint baru berfungsi
+- Jalankan migration `20260617_add_cancel_withdrawal_rpc.sql` di Supabase SQL Editor
+- Test end-to-end: setup PIN → tambah rekening (validasi Xendit) → withdraw → sukses/gagal
+- Admin isi saldo Xendit jika menipis (pantau dari dashboard)

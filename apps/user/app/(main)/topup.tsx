@@ -55,8 +55,11 @@ export default function TopupScreen() {
 
   useEffect(() => {
     if (!profile?.id) return;
+    const channelName = `user-balance-${profile.id}`;
+    const existing = supabase.getChannels().find(c => c.topic === channelName);
+    if (existing) return;
     const channel = supabase
-      .channel(`user-balance-${profile.id}`)
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
