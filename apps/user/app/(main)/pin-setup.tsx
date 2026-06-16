@@ -191,7 +191,7 @@ export default function PinSetupScreen() {
                 disabled={pin.length < 6}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.primaryBtnText, pin.length < 4 && { color: TEXT_MUTED }]}>Lanjutkan</Text>
+                <Text style={[styles.primaryBtnText, pin.length < 6 && { color: TEXT_MUTED }]}>Lanjutkan</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
