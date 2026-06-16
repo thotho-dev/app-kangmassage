@@ -97,6 +97,18 @@ export async function POST(req: NextRequest) {
     }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
+    debugStep = 'CHECK_XENDIT_BALANCE';
+    const balRes = await fetch('https://api.xendit.co/balance', {
+      headers: { 'Authorization': authHeader },
+    });
+    const balData = await balRes.json();
+    const xenditBalance = Number(balData.balance) || 0;
+    if (xenditBalance < Number(withdrawal.amount)) {
+      await supabase.from('users').update({ wallet_balance: userPrevBalance }).eq('id', user.id);
+      await supabase.from('user_withdrawals').update({ status: 'failed', payment_data: { reason: 'Saldo sistem tidak mencukupi, hubungi admin untuk penarikan saldo' } }).eq('id', withdrawal_id);
+      return NextResponse.json({ error: 'Saldo sistem tidak mencukupi, hubungi admin untuk penarikan saldo' }, { status: 400 });
+    }
+
     const bankMapping: Record<string, string> = {
       'bca': 'BCA', 'mandiri': 'MANDIRI', 'bni': 'BNI', 'bri': 'BRI',
       'cimb': 'CIMB', 'permata': 'PERMATA', 'danamon': 'DANAMON', 'bsi': 'BSI',

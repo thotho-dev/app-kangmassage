@@ -89,6 +89,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('therapists');
+  const [xenditBalance, setXenditBalance] = useState<number | null>(null);
+  const [xenditLoading, setXenditLoading] = useState(false);
 
   const statusLabels = getStatusLabels(t);
 
@@ -112,8 +114,18 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchXenditBalance = async () => {
+    try {
+      setXenditLoading(true);
+      const res = await fetch('/api/xendit/balance');
+      const data = await res.json();
+      setXenditBalance(data.error ? null : (data.balance || 0));
+    } catch { setXenditBalance(null); } finally { setXenditLoading(false); }
+  };
+
   useEffect(() => {
     fetchStats();
+    fetchXenditBalance();
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -312,6 +324,12 @@ export default function DashboardPage() {
             value={stats ? formatCurrency(stats.todayWithdrawal) : 'Rp 0'}
             icon={Wallet}
             color="bg-rose-600"
+          />
+          <StatCard
+            label="Saldo Xendit"
+            value={xenditLoading ? '...' : xenditBalance === null ? 'Gagal muat' : formatCurrency(xenditBalance)}
+            icon={Landmark}
+            color="bg-emerald-700"
           />
         </div>
       )}

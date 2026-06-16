@@ -307,6 +307,19 @@ export async function POST(req: NextRequest) {
     }
     }
 
+    debugStep = 'CHECK_XENDIT_BALANCE';
+    const balRes = await fetch('https://api.xendit.co/balance', {
+      headers: { 'Authorization': authHeader },
+    });
+    const balData = await balRes.json();
+    const xenditBalance = Number(balData.balance) || 0;
+    if (xenditBalance < amount) {
+      debugStep = 'REVERT_ON_INSUFFICIENT_BALANCE';
+      await supabase.from('users').update({ wallet_balance: userPrevBalance }).eq('id', user_id);
+      await supabase.from('user_withdrawals').update({ status: 'failed', payment_data: { reason: 'Saldo sistem tidak mencukupi, hubungi admin untuk penarikan saldo' } }).eq('id', withdrawal.id);
+      return NextResponse.json({ error: 'Saldo sistem tidak mencukupi, hubungi admin untuk penarikan saldo' }, { status: 400 });
+    }
+
     debugStep = 'CALL_XENDIT_DISBURSEMENT';
     const response = await fetch('https://api.xendit.co/disbursements', {
       method: 'POST',
