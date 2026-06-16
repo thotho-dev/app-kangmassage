@@ -5,10 +5,22 @@ import { createHash, timingSafeEqual } from 'crypto';
 function verifyPin(pin: string, stored: string): boolean {
   try {
     const [salt, key] = stored.split(':');
-    const hash = createHash('sha256').update(salt + pin).digest('hex');
-    const hashBuf = Buffer.from(hash, 'hex');
-    const keyBuf = Buffer.from(key, 'hex');
-    return hashBuf.length === keyBuf.length && timingSafeEqual(hashBuf, keyBuf);
+    if (!salt || !key) return false;
+
+    // Try SHA-256 (primary)
+    const shaHash = createHash('sha256').update(salt + pin).digest('hex');
+    if (shaHash.length === key.length) {
+      const a = Buffer.from(shaHash, 'hex');
+      const b = Buffer.from(key, 'hex');
+      if (a.length === b.length) return timingSafeEqual(a, b);
+    }
+
+    // Try btoa fallback
+    let h = salt + pin;
+    for (let i = 0; i < 1000; i++) {
+      h = Buffer.from(h).toString('base64').slice(0, 48);
+    }
+    return h === key;
   } catch {
     return false;
   }

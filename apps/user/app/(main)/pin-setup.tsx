@@ -8,7 +8,23 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, KeyRound, Shield, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import * as Crypto from 'expo-crypto';
+
+async function hashPin(pin: string, salt: string): Promise<string> {
+  const input = salt + pin;
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    let h = input;
+    for (let i = 0; i < 1000; i++) {
+      h = btoa(h).slice(0, 48);
+    }
+    return h;
+  }
+}
 
 const PURPLE = '#240080';
 const PURPLE_DARK = '#12004D';
@@ -47,10 +63,7 @@ export default function PinSetupScreen() {
     setLoading(true);
     try {
       const salt = Math.random().toString(36).slice(2, 10);
-      const hash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        salt + pin
-      );
+      const hash = await hashPin(pin, salt);
       const stored = `${salt}:${hash}`;
 
       const { error } = await supabase
