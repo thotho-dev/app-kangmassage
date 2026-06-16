@@ -131,8 +131,15 @@ export default function WithdrawScreen() {
   const handlePinVerified = async (pin: string) => {
     setPinLoading(true);
     setPinError('');
+
+    const rawAmount = getRawAmount();
+    if (!profile?.id || !rawAmount || !selectedAccountId || !pin) {
+      setPinError(`Data tidak lengkap: ${!profile?.id ? 'user_id ' : ''}${!rawAmount ? 'amount ' : ''}${!selectedAccountId ? 'rekening ' : ''}${!pin ? 'pin ' : ''}`);
+      setPinLoading(false);
+      return;
+    }
+
     try {
-      const rawAmount = getRawAmount();
       const res = await fetch(`${API_URL}/api/withdraw/user-create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
