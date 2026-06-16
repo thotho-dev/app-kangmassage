@@ -35,6 +35,7 @@ export default function WithdrawHistoryScreen() {
   const [history, setHistory] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchHistory = async () => {
     if (!profile?.id) return;
@@ -98,51 +99,36 @@ export default function WithdrawHistoryScreen() {
   const handleCancel = async (item: Withdrawal) => {
     if (item.status !== 'pending') return;
 
-    // Simulating confirmation alert in react-native without the native Alert API since custom useAlert doesn't easily support prompts, 
-    // actually, let's just use window.confirm style if possible, or execute directly for now with a standard showAlert.
-    // Assuming custom useAlert only shows messages. We will just cancel it directly or we could implement a prompt.
-    // For simplicity, we just execute cancellation on press:
-    
-    setLoading(true);
+    const created = new Date(item.created_at).getTime();
+    const now = Date.now();
+    const diffMs = now - created;
+    const maxAgeMs = 30 * 60 * 1000; // 30 menit
+    if (diffMs > maxAgeMs) {
+      showAlert('Kadaluarsa', 'Penarikan sudah tidak bisa dibatalkan. Hubungi admin.');
+      return;
+    }
+
+    setCancellingId(item.id);
     try {
-      // 1. Update Withdrawal Status
-      const { error: wdError } = await supabase
-        .from('user_withdrawals')
-        .update({ status: 'failed', payment_data: { reason: 'Cancelled by user' } })
-        .eq('id', item.id);
-
-      if (wdError) throw wdError;
-
-      // 2. Refund Balance
-      const currentBalance = Number(profile?.wallet_balance) || 0;
-      const refundAmount = Number(item.amount) + Number(item.admin_fee);
-      const newBalance = currentBalance + refundAmount;
-
-      const { error: uError } = await supabase
-        .from('users')
-        .update({ wallet_balance: newBalance })
-        .eq('id', profile?.id);
-
-      if (uError) throw uError;
-
-      // 3. Create Transaction Record
-      await supabase.from('transactions').insert({
-        user_id: profile?.id,
-        type: 'credit',
-        amount: refundAmount,
-        balance_before: currentBalance,
-        balance_after: newBalance,
-        description: `Batal: Penarikan Saldo (${item.bank_name})`,
-        metadata: { withdrawal_id: item.id, type: 'cancellation' }
+      const { data, error } = await supabase.rpc('cancel_withdrawal', {
+        p_withdrawal_id: item.id,
+        p_user_id: profile?.id,
       });
+
+      if (error) throw error;
+
+      if (!data?.success) {
+        showAlert('Gagal', data?.error || 'Gagal membatalkan penarikan');
+        return;
+      }
 
       showAlert('Berhasil', 'Penarikan telah dibatalkan dan saldo dikembalikan.');
       fetchHistory();
-      await refreshProfile(); // Refresh global balance
+      await refreshProfile();
     } catch (error: any) {
       showAlert('Gagal', error.message || 'Terjadi kesalahan saat membatalkan');
     } finally {
-      setLoading(false);
+      setCancellingId(null);
     }
   };
 
@@ -176,10 +162,13 @@ export default function WithdrawHistoryScreen() {
         
         {item.status === 'pending' && (
           <TouchableOpacity 
-            style={styles.cancelActionBtn} 
+            style={[styles.cancelActionBtn, cancellingId === item.id && { opacity: 0.5 }]} 
             onPress={() => handleCancel(item)}
+            disabled={cancellingId === item.id}
           >
-            <Text style={styles.cancelActionText}>Batalkan</Text>
+            <Text style={styles.cancelActionText}>
+              {cancellingId === item.id ? 'Membatalkan...' : 'Batalkan'}
+            </Text>
           </TouchableOpacity>
         )}
       </View>

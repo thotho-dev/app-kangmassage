@@ -305,7 +305,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    await supabase.from('user_withdrawals').update({ payment_data: xenditData }).eq('id', withdrawal.id);
+    await supabase.from('user_withdrawals').update({
+      status: 'completed',
+      payment_data: xenditData,
+    }).eq('id', withdrawal.id);
 
     return NextResponse.json({
       status: 'success',
