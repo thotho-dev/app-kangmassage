@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
@@ -14,10 +14,12 @@ export interface Banner {
 
 export function useBanners() {
   const queryClient = useQueryClient();
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
+    const id = Date.now().toString();
     const channel = supabase
-      .channel('banners_realtime')
+      .channel(`banners_realtime_${id}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',

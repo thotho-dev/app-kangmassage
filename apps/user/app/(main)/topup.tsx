@@ -35,10 +35,12 @@ const PAYMENT_GROUPS = [
     title: 'E-Wallet & QRIS',
     icon: QrCode,
     items: [
-      { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png') },
-      { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png') },
-      { id: 'ovo', name: 'OVO', image: require('@/assets/ovo.png') },
-      { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png') },
+      { id: 'gopay', name: 'GoPay', image: require('@/assets/Gopay.png') },
+      { id: 'qris', name: 'QRIS Dinamis GoPay', image: require('@/assets/Gopay.png') },
+      { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png'), disabled: true },
+      { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png'), disabled: true },
+      { id: 'ovo', name: 'OVO', image: require('@/assets/ovo.png'), disabled: true },
+      { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png'), disabled: true },
     ]
   },
 ];
@@ -49,7 +51,7 @@ export default function TopupScreen() {
   const { showAlert } = useAlert();
 
   const [displayAmount, setDisplayAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState('dana');
+  const [selectedMethod, setSelectedMethod] = useState('');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('ewallet');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -58,7 +60,7 @@ export default function TopupScreen() {
   useFocusEffect(
     useCallback(() => {
       setDisplayAmount('');
-      setSelectedMethod('dana');
+      setSelectedMethod('');
       setExpandedGroup('ewallet');
       getAppSettings().then(setSettings);
     }, [])
@@ -260,22 +262,31 @@ export default function TopupScreen() {
 
                   {isExpanded && (
                     <View style={styles.groupContent}>
-                      {group.items.map((item) => (
+                      {group.items.map((item) => {
+                        const isDisabled = item.disabled;
+                        return (
                         <TouchableOpacity 
                           key={item.id} 
+                          disabled={isDisabled}
                           style={[
                             styles.methodItem, 
-                            selectedMethod === item.id && styles.methodItemActive
+                            selectedMethod === item.id && styles.methodItemActive,
+                            isDisabled && { opacity: 0.4 }
                           ]} 
                           onPress={() => setSelectedMethod(item.id)}
                         >
                           <Image source={item.image} style={styles.paymentLogo} />
                           <Text style={styles.methodName}>{item.name}</Text>
-                          <View style={[styles.radio, selectedMethod === item.id && styles.radioActive]}>
-                            {selectedMethod === item.id && <View style={styles.radioInner} />}
-                          </View>
+                          {isDisabled ? (
+                            <Text style={styles.disabledBadge}>Tidak Didukung</Text>
+                          ) : (
+                            <View style={[styles.radio, selectedMethod === item.id && styles.radioActive]}>
+                              {selectedMethod === item.id && <View style={styles.radioInner} />}
+                            </View>
+                          )}
                         </TouchableOpacity>
-                      ))}
+                        );
+                      })}
                     </View>
                   )}
                 </View>
@@ -494,6 +505,17 @@ const styles = StyleSheet.create({
   radioInner: {
     width: 10, height: 10, borderRadius: 5,
     backgroundColor: PURPLE,
+  },
+  disabledBadge: {
+    fontSize: 9,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: TEXT_MUTED,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
 
   // Summary

@@ -198,7 +198,7 @@ export default function HomeScreen() {
   const { theme, isDark } = useTheme();
   const { isAuthenticated, user, profile, refreshProfile } = useAuth();
   const { data: services, isLoading } = useServices();
-  const { data: banners } = useBanners();
+  const { data: banners, isLoading: bannersLoading } = useBanners();
   const { address, isLoading: isLocLoading, refreshLocation } = useLocation();
 
   const [floatingOrder, setFloatingOrder] = useState<any>(null);
@@ -515,7 +515,13 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* ── Banner Slideshow ── */}
-        <BannerSlideshow banners={banners || []} />
+        {bannersLoading ? (
+          <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+            <Skeleton width="100%" height={140} borderRadius={20} />
+          </View>
+        ) : (
+          <BannerSlideshow banners={banners || []} />
+        )}
 
         {/* ── Kategori Layanan ── */}
         <View style={styles.catSection}>

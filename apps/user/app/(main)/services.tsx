@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,6 @@ import {
   Dimensions,
   Image,
   TextInput,
-  Animated,
-  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,16 +19,9 @@ import { COLORS, FONTS } from '@/constants/Theme';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { supabase } from '../../lib/supabase';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HORIZONTAL_PAD = 16;
-const GAP = 14;
 const CARD_WIDTH = SCREEN_WIDTH - HORIZONTAL_PAD * 2;
-
-// Used for per-card parallax calculations
-const CARD_HEIGHT = 144;   // 120 image + 2×12 margin
-const CARD_MARGIN = 14;    // marginBottom between cards
-const HEADER_HEIGHT = 195; // approx height of intro + search header inside FlatList
-const PARALLAX_AMOUNT = 18; // px the image shifts as the card traverses the screen
 
 const TEXT_DARK = '#1A1A2E';
 const TEXT_MUTED = '#6B7280';
@@ -48,16 +39,12 @@ type Service = {
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function ParallaxServiceCard({
+function ServiceCard({
   item,
   onPress,
-  scrollY,
-  index,
 }: {
   item: Service;
   onPress: () => void;
-  scrollY: Animated.Value;
-  index: number;
 }) {
   const badgeColors: Record<string, string> = {
     Rekomendasi: '#059669',
@@ -65,31 +52,8 @@ function ParallaxServiceCard({
     Promo: '#DC2626',
   };
 
-  // Vertical center of this card inside the scroll content
-  const cardCenterY =
-    HEADER_HEIGHT + index * (CARD_HEIGHT + CARD_MARGIN) + CARD_HEIGHT / 2;
-
-  // One card slot width — plateau spans this so 2 adjacent cards are full simultaneously.
-  const CARD_SLOT = CARD_HEIGHT + CARD_MARGIN; // ~158 px
-
-  // Wider zones give the easing curve more room to breathe
-  const focusStart   = cardCenterY - SCREEN_HEIGHT * 0.72; // entering from bottom
-  const plateauStart = cardCenterY - SCREEN_HEIGHT * 0.44 - CARD_SLOT / 2;
-  const plateauEnd   = cardCenterY - SCREEN_HEIGHT * 0.44 + CARD_SLOT / 2;
-  const focusEnd     = cardCenterY - SCREEN_HEIGHT * 0.14; // leaving top
-
-  // Easing.inOut(Easing.quad) applied per-segment:
-  // linear → smooth S-curve on each transition into/out of the plateau.
-  const scale = scrollY.interpolate({
-    inputRange:  [focusStart, plateauStart, plateauEnd, focusEnd],
-    outputRange: [0.86,        1.0,          1.0,        0.88],
-    extrapolate: 'clamp',
-    easing: Easing.inOut(Easing.quad),
-  });
-
   return (
-    // Animated wrapper preserves shadow outside overflow:hidden of the card
-    <Animated.View style={[styles.cardWrapper, { transform: [{ scale }] }]}>
+    <View style={styles.cardWrapper}>
       <TouchableOpacity
         activeOpacity={0.92}
         onPress={onPress}
@@ -128,7 +92,7 @@ function ParallaxServiceCard({
           </View>
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -236,8 +200,6 @@ export default function ServicesScreen() {
       });
   }, [displayServices, search, promoServiceIds, recommendedIds, popularIds]);
 
-  const scrollY = useRef(new Animated.Value(0)).current;
-
   const navigateToOrder = useCallback(
     (serviceId: string) => {
       router.push({
@@ -252,17 +214,6 @@ export default function ServicesScreen() {
     ({ index }: { index: number }) => <SkeletonCard key={index} />,
     []
   );
-
-  const circle1Y = scrollY.interpolate({
-    inputRange: [0, 200],
-    outputRange: [0, -60],
-    extrapolate: 'clamp',
-  });
-  const circle2Y = scrollY.interpolate({
-    inputRange: [0, 200],
-    outputRange: [0, -30],
-    extrapolate: 'clamp',
-  });
 
   const renderHeader = useCallback(
     () => (
@@ -291,31 +242,24 @@ export default function ServicesScreen() {
 
   const skeletonData = Array.from({ length: 6 }, (_, i) => i);
 
-  const onScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
   const renderItem = useCallback(
-    ({ item, index }: { item: Service; index: number }) => (
-      <ParallaxServiceCard
+    ({ item }: { item: Service }) => (
+      <ServiceCard
         item={item}
         onPress={() => navigateToOrder(item.id)}
-        scrollY={scrollY}
-        index={index}
       />
     ),
-    [navigateToOrder, scrollY]
+    [navigateToOrder]
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Decorative circles — absolute overlay so parallax is visible while scrolling */}
+      {/* Decorative circles */}
       <View style={styles.decoSection} pointerEvents="none">
-        <Animated.View style={[styles.decoCircle1, { transform: [{ translateY: circle1Y }] }]} />
-        <Animated.View style={[styles.decoCircle2, { transform: [{ translateY: circle2Y }] }]} />
+        <View style={styles.decoCircle1} />
+        <View style={styles.decoCircle2} />
       </View>
 
       {/* Header */}
@@ -349,8 +293,6 @@ export default function ServicesScreen() {
           initialNumToRender={6}
           maxToRenderPerBatch={6}
           windowSize={5}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
         />
       )}
     </SafeAreaView>
@@ -389,8 +331,6 @@ const styles = StyleSheet.create({
   },
 
   // ─ Decorative ──────────────────────────────────────────────────────────────
-  // Positioned absolutely over the whole screen so the parallax translateY
-  // is actually visible (not clipped inside the scrolling content).
   decoSection: {
     position: 'absolute',
     top: 0,
@@ -471,7 +411,7 @@ const styles = StyleSheet.create({
   },
 
   // ─ Card ────────────────────────────────────────────────────────────────────
-  // Outer animated wrapper: holds shadow, margin, and receives scale/opacity.
+  // Outer wrapper holds shadow and margin.
   // Must NOT have overflow:hidden so shadow renders correctly on Android.
   cardWrapper: {
     width: CARD_WIDTH,

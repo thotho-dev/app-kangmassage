@@ -77,7 +77,15 @@ export async function POST(req: NextRequest) {
     const vaMethods = ['bca_va', 'bni_va', 'bri_va', 'permata_va', 'bsi_va', 'cimb_va'];
     const retailMethods = ['alfamart', 'indomaret'];
 
-    if (payment_method === 'shopeepay') {
+    if (payment_method === 'gopay') {
+      midtransBody.payment_type = 'gopay';
+      midtransBody.gopay = {
+        enable_callback: true,
+        callback_url: 'kang-massage-user://topup-history',
+      };
+    } else if (payment_method === 'qris') {
+      midtransBody.payment_type = 'qris';
+    } else if (payment_method === 'shopeepay') {
       midtransBody.payment_type = 'shopeepay';
     } else if (qrisMethods.includes(payment_method)) {
       midtransBody.payment_type = 'qris';
@@ -173,7 +181,22 @@ export async function POST(req: NextRequest) {
       payment_method,
     };
 
-    if (payment_method === 'shopeepay') {
+    if (payment_method === 'gopay') {
+      const actions = midtransData.actions || [];
+      const deeplinkAction = actions.find((a: any) => a.name === 'deeplink-redirect');
+      const qrCodeAction = actions.find((a: any) => a.name === 'generate-qr-code');
+      formattedData.type = 'ewallet';
+      formattedData.qr_string = midtransData.qr_string || qrCodeAction?.url;
+      formattedData.actions = {
+        mobile_web_checkout_url: deeplinkAction?.url,
+        deeplink_checkout_url: deeplinkAction?.url,
+      };
+    } else if (payment_method === 'qris') {
+      const actions = midtransData.actions || [];
+      const qrCodeAction = actions.find((a: any) => a.name === 'generate-qr-code');
+      formattedData.type = 'qris';
+      formattedData.qr_string = midtransData.qr_string || qrCodeAction?.url;
+    } else if (payment_method === 'shopeepay') {
       const actions = midtransData.actions || [];
       const deeplinkAction = actions.find((a: any) => a.name === 'deeplink-redirect');
       formattedData.type = 'ewallet';
