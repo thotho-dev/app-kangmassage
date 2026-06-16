@@ -24,7 +24,9 @@ import {
   Phone,
   Mail,
   Lock,
-  MessageSquare
+  MessageSquare,
+  KeyRound,
+  Building2,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
@@ -246,6 +248,8 @@ export default function ProfileScreen() {
     { title: 'Data Pribadi', icon: User, color: COLORS.primary[400], onPress: handleOpenPersonal },
     { title: 'Metode Pembayaran', icon: CreditCard, color: COLORS.gold[500], onPress: () => setPaymentModalVisible(true) },
     { title: 'Riwayat Pesanan', icon: Smartphone, color: COLORS.primary[300], onPress: () => router.push('/history') },
+    { title: 'PIN Transaksi', icon: KeyRound, color: COLORS.gold[600], onPress: () => router.push('/pin-setup') },
+    { title: 'Rekening Tujuan', icon: Building2, color: COLORS.primary[400], onPress: () => router.push('/bank-accounts') },
     { title: 'Keamanan', icon: Shield, color: COLORS.success, onPress: () => setSecurityModalVisible(true) },
     { title: 'Notifikasi', icon: Bell, color: COLORS.gold[600], onPress: () => setNotificationModalVisible(true) },
     { title: 'Bantuan & Dukungan', icon: HelpCircle, color: COLORS.primary[300], onPress: () => setSupportModalVisible(true) },

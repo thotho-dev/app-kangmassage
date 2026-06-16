@@ -26,6 +26,8 @@ interface Profile {
   cashback?: number;
   cashback_balance?: number;
   total_orders?: number;
+  transaction_pin?: string | null;
+  pin_enabled?: boolean;
 }
 
 interface AuthContextType {

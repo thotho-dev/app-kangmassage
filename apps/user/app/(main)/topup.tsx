@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, 
@@ -37,10 +37,6 @@ const PAYMENT_GROUPS = [
     items: [
       { id: 'gopay', name: 'GoPay', image: require('@/assets/Gopay.png') },
       { id: 'qris', name: 'QRIS Dinamis GoPay', image: require('@/assets/Gopay.png') },
-      { id: 'dana', name: 'DANA Wallet', image: require('@/assets/Dana.png'), disabled: true },
-      { id: 'shopeepay', name: 'ShopeePay', image: require('@/assets/ShopeePay.png'), disabled: true },
-      { id: 'ovo', name: 'OVO', image: require('@/assets/ovo.png'), disabled: true },
-      { id: 'linkaja', name: 'LINKAJA', image: require('@/assets/linkaja.png'), disabled: true },
     ]
   },
 ];
@@ -56,6 +52,22 @@ export default function TopupScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    const channel = supabase
+      .channel(`user-balance-${profile.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users',
+        filter: `id=eq.${profile.id}`,
+      }, () => {
+        refreshProfile();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -262,31 +274,22 @@ export default function TopupScreen() {
 
                   {isExpanded && (
                     <View style={styles.groupContent}>
-                      {group.items.map((item) => {
-                        const isDisabled = item.disabled;
-                        return (
+                      {group.items.map((item) => (
                         <TouchableOpacity 
                           key={item.id} 
-                          disabled={isDisabled}
                           style={[
                             styles.methodItem, 
-                            selectedMethod === item.id && styles.methodItemActive,
-                            isDisabled && { opacity: 0.4 }
+                            selectedMethod === item.id && styles.methodItemActive
                           ]} 
                           onPress={() => setSelectedMethod(item.id)}
                         >
                           <Image source={item.image} style={styles.paymentLogo} />
                           <Text style={styles.methodName}>{item.name}</Text>
-                          {isDisabled ? (
-                            <Text style={styles.disabledBadge}>Tidak Didukung</Text>
-                          ) : (
-                            <View style={[styles.radio, selectedMethod === item.id && styles.radioActive]}>
-                              {selectedMethod === item.id && <View style={styles.radioInner} />}
-                            </View>
-                          )}
+                          <View style={[styles.radio, selectedMethod === item.id && styles.radioActive]}>
+                            {selectedMethod === item.id && <View style={styles.radioInner} />}
+                          </View>
                         </TouchableOpacity>
-                        );
-                      })}
+                      ))}
                     </View>
                   )}
                 </View>
@@ -506,17 +509,7 @@ const styles = StyleSheet.create({
     width: 10, height: 10, borderRadius: 5,
     backgroundColor: PURPLE,
   },
-  disabledBadge: {
-    fontSize: 9,
-    fontFamily: 'PlusJakartaSans-Bold',
-    color: TEXT_MUTED,
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    overflow: 'hidden',
-  },
+
 
   // Summary
   summaryCard: {

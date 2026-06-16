@@ -30,6 +30,10 @@ export type AppSettings = {
   midtrans_is_production: boolean;
   maintenance_mode: boolean;
   maintenance_message: string;
+  withdrawal_otp_threshold: number;
+  withdrawal_daily_limit: number;
+  withdrawal_max_count_per_day: number;
+  withdrawal_admin_approval: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -62,6 +66,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   midtrans_is_production: false,
   maintenance_mode: false,
   maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+  withdrawal_otp_threshold: 500000,
+  withdrawal_daily_limit: 3000000,
+  withdrawal_max_count_per_day: 3,
+  withdrawal_admin_approval: false,
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -107,6 +115,10 @@ export async function getAppSettings(): Promise<AppSettings> {
       midtrans_is_production: data.midtrans_is_production ?? false,
       maintenance_mode: data.maintenance_mode ?? DEFAULT_SETTINGS.maintenance_mode,
       maintenance_message: data.maintenance_message ?? DEFAULT_SETTINGS.maintenance_message,
+      withdrawal_otp_threshold: Number(data.withdrawal_otp_threshold) ?? DEFAULT_SETTINGS.withdrawal_otp_threshold,
+      withdrawal_daily_limit: Number(data.withdrawal_daily_limit) ?? DEFAULT_SETTINGS.withdrawal_daily_limit,
+      withdrawal_max_count_per_day: Number(data.withdrawal_max_count_per_day) ?? DEFAULT_SETTINGS.withdrawal_max_count_per_day,
+      withdrawal_admin_approval: data.withdrawal_admin_approval ?? DEFAULT_SETTINGS.withdrawal_admin_approval,
     };
   } catch {
     return DEFAULT_SETTINGS;
