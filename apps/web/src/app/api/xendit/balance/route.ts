@@ -5,8 +5,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const settings = await getAppSettings();
-    const secretKey = process.env.XENDIT_DISBURSEMENT_SECRET_KEY || process.env.XENDIT_SECRET_KEY || settings.xendit_disbursement_secret_key || settings.xendit_secret_key;
+    let secretKey = process.env.XENDIT_DISBURSEMENT_SECRET_KEY || process.env.XENDIT_SECRET_KEY;
+    if (!secretKey) {
+      try {
+        const settings = await getAppSettings();
+        secretKey = settings.xendit_disbursement_secret_key || settings.xendit_secret_key;
+      } catch {}
+    }
     if (!secretKey) {
       return NextResponse.json({ balance: 0, error: 'Konfigurasi pembayaran belum lengkap' });
     }
