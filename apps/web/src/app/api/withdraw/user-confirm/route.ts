@@ -113,9 +113,20 @@ export async function POST(req: NextRequest) {
     });
     const valData = await valRes.json();
     if (!valRes.ok) {
+      const xenditMsg = valData.message || valData.error || '';
+      const msgMap: Record<string, string> = {
+        'is not a valid bank account': 'Nomor rekening tidak valid',
+        'account number': 'Nomor rekening tidak valid',
+        'is not supported': 'Bank belum didukung',
+        'bank code': 'Kode bank tidak dikenal',
+        'resource was not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
+        'not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
+        'internal error': 'Terjadi kesalahan sistem, coba lagi nanti',
+      };
       let message = 'Nomor rekening tidak valid';
-      if (valData.message) message = valData.message;
-      if (valData.error) message = valData.error;
+      for (const [key, val] of Object.entries(msgMap)) {
+        if (xenditMsg.toLowerCase().includes(key)) { message = val; break; }
+      }
       debugStep = 'REVERT_ON_INVALID_ACCOUNT';
       await supabase.from('users').update({ wallet_balance: userPrevBalance }).eq('id', user.id);
       await supabase.from('user_withdrawals').update({ status: 'failed', payment_data: { reason: message } }).eq('id', withdrawal_id);

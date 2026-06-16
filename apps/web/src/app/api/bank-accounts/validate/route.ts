@@ -45,9 +45,20 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
+      const xenditMsg = data.message || data.error || '';
+      const msgMap: Record<string, string> = {
+        'is not a valid bank account': 'Nomor rekening tidak valid',
+        'account number': 'Nomor rekening tidak valid',
+        'is not supported': 'Bank belum didukung',
+        'bank code': 'Kode bank tidak dikenal',
+        'resource was not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
+        'not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
+        'internal error': 'Terjadi kesalahan sistem, coba lagi nanti',
+      };
       let message = 'Nomor rekening tidak valid';
-      if (data.message) message = data.message;
-      if (data.error) message = data.error;
+      for (const [key, val] of Object.entries(msgMap)) {
+        if (xenditMsg.toLowerCase().includes(key)) { message = val; break; }
+      }
       return NextResponse.json({ error: message, xendit: data }, { status: 400 });
     }
 
