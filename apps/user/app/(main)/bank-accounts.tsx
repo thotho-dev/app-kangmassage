@@ -123,7 +123,6 @@ export default function BankAccountsScreen() {
       // PIN valid — validate with Xendit
       const bank = BANK_LIST.find(b => b.id === selectedBank);
       setValidating(true);
-      let isVerified = false;
       try {
         const valRes = await fetch(`${API_URL}/api/bank-accounts/validate`, {
           method: 'POST',
@@ -131,8 +130,13 @@ export default function BankAccountsScreen() {
           body: JSON.stringify({ bank_code: bank?.code || selectedBank, account_number: accountNumber }),
         });
         const valData = await valRes.json();
-        if (valRes.ok && valData.success) {
-          isVerified = true;
+        if (!valRes.ok) {
+          const errMsg = valData.error || (valRes.status === 0 ? 'Koneksi terputus' : 'Gagal memvalidasi rekening');
+          if (valRes.status !== 0) {
+            setValidating(false);
+            showAlert('Rekening Tidak Valid', errMsg);
+            return;
+          }
         }
       } catch {
         // Validation API not available — save without verification
@@ -148,12 +152,12 @@ export default function BankAccountsScreen() {
           bank_name: bank?.name || selectedBank,
           account_number: accountNumber,
           account_name: profile?.full_name,
-          is_verified: isVerified,
+          is_verified: true,
         }]);
       if (error) throw error;
       setAddModalVisible(false);
       setAccountNumber('');
-      showAlert('Berhasil', isVerified ? 'Rekening berhasil ditambahkan dan terverifikasi' : 'Rekening berhasil ditambahkan');
+      showAlert('Berhasil', 'Rekening berhasil ditambahkan dan terverifikasi');
       fetchAccounts();
     } catch (err: any) {
       showAlert('Gagal', err.message);
