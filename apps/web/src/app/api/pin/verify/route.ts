@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
-import { scryptSync, timingSafeEqual } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 
 function verifyPin(pin: string, stored: string): boolean {
   try {
     const [salt, key] = stored.split(':');
-    const hash = scryptSync(pin, salt, 64).toString('hex');
+    const hash = createHash('sha256').update(salt + pin).digest('hex');
     const hashBuf = Buffer.from(hash, 'hex');
     const keyBuf = Buffer.from(key, 'hex');
     return hashBuf.length === keyBuf.length && timingSafeEqual(hashBuf, keyBuf);

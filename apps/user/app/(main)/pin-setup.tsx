@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, KeyRound, Shield, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react-native';
+import { ChevronLeft, KeyRound, Shield, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
-import { API_URL } from '@/lib/config';
+import { supabase } from '@/lib/supabase';
+import * as Crypto from 'expo-crypto';
 
 const PURPLE = '#240080';
 const PURPLE_DARK = '#12004D';
@@ -45,13 +46,19 @@ export default function PinSetupScreen() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/pin/set`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: profile?.id, pin, confirm_pin: confirmPin }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const salt = Math.random().toString(36).slice(2, 10);
+      const hash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        salt + pin
+      );
+      const stored = `${salt}:${hash}`;
+
+      const { error } = await supabase
+        .from('users')
+        .update({ transaction_pin: stored, pin_enabled: true })
+        .eq('id', profile?.id);
+
+      if (error) throw error;
       await refreshProfile();
       setStep('success');
     } catch (err: any) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Search, RefreshCw, Eye, CheckCircle, XCircle, ChevronDown, Wallet, Clock,
 } from 'lucide-react';
@@ -41,6 +41,15 @@ export default function WithdrawalsPage() {
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' });
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (toast.show) {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(t => ({ ...t, show: false })), 4000);
+    }
+    return () => { if (toastTimer.current) clearTimeout(toastTimer.current); };
+  }, [toast.show]);
 
   const supabase = createClient();
 
@@ -372,7 +381,6 @@ export default function WithdrawalsPage() {
             {toast.message}
             <button onClick={() => setToast(t => ({ ...t, show: false }))} className="ml-2 opacity-70 hover:opacity-100">×</button>
           </div>
-          {setTimeout(() => setToast(t => ({ ...t, show: false })), 4000)}
         </div>
       )}
     </div>
