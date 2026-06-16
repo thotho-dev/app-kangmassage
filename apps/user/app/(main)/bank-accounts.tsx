@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, StatusBar, Modal, Alert
+  TextInput, ActivityIndicator, StatusBar, Modal, Alert, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Plus, Building2, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react-native';
+import { ChevronLeft, Plus, Building2, Trash2, AlertCircle, CheckCircle2, Shield, Info } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
+import { API_URL } from '@/lib/config';
+import PinModal from '@/components/PinModal';
 
 const PURPLE = '#240080';
 const PURPLE_DARK = '#12004D';
@@ -41,6 +43,8 @@ const BANK_LIST = [
   { id: 'danamon', name: 'Danamon', code: '011' },
 ];
 
+const MAX_ACCOUNTS = 3;
+
 export default function BankAccountsScreen() {
   const router = useRouter();
   const { profile } = useAuth();
@@ -52,9 +56,13 @@ export default function BankAccountsScreen() {
 
   const [selectedBank, setSelectedBank] = useState('bca');
   const [accountNumber, setAccountNumber] = useState('');
-  const [accountName, setAccountName] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  // PIN Modal
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pinError, setPinError] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
 
   const fetchAccounts = async () => {
     try {
@@ -77,11 +85,43 @@ export default function BankAccountsScreen() {
     if (profile?.id) fetchAccounts();
   }, [profile?.id]);
 
-  const handleAdd = async () => {
-    if (!selectedBank || !accountNumber || !accountName) return;
-    const bank = BANK_LIST.find(b => b.id === selectedBank);
-    setSaving(true);
+  const openAddModal = () => {
+    if (accounts.length >= MAX_ACCOUNTS) {
+      showAlert('Batas Maksimal', `Anda hanya dapat mendaftarkan maksimal ${MAX_ACCOUNTS} rekening. Hapus salah satu untuk menambah rekening baru.`);
+      return;
+    }
+    setAccountNumber('');
+    setSelectedBank('bca');
+    setAddModalVisible(true);
+  };
+
+  const handleSaveWithPin = () => {
+    if (!selectedBank || !accountNumber || !profile?.full_name) return;
+    setPinError('');
+    setPinModalVisible(true);
+  };
+
+  const handlePinVerified = async (pin: string) => {
+    setPinLoading(true);
+    setPinError('');
     try {
+      const res = await fetch(`${API_URL}/api/pin/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: profile?.id, pin }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setPinError(data.error);
+        setPinLoading(false);
+        return;
+      }
+      setPinModalVisible(false);
+      setPinLoading(false);
+
+      // PIN valid — proceed to add
+      const bank = BANK_LIST.find(b => b.id === selectedBank);
+      setSaving(true);
       const { error } = await supabase
         .from('saved_bank_accounts')
         .insert([{
@@ -89,13 +129,11 @@ export default function BankAccountsScreen() {
           bank_code: bank?.code || '',
           bank_name: bank?.name || selectedBank,
           account_number: accountNumber,
-          account_name: accountName,
+          account_name: profile?.full_name,
         }]);
       if (error) throw error;
       setAddModalVisible(false);
       setAccountNumber('');
-      setAccountName('');
-      setSelectedBank('bca');
       showAlert('Berhasil', 'Rekening berhasil ditambahkan');
       fetchAccounts();
     } catch (err: any) {
@@ -137,7 +175,7 @@ export default function BankAccountsScreen() {
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rekening Tujuan</Text>
-        <TouchableOpacity onPress={() => setAddModalVisible(true)} style={styles.addBtn}>
+        <TouchableOpacity onPress={openAddModal} style={styles.addBtn}>
           <Plus size={24} color={PURPLE} />
         </TouchableOpacity>
       </View>
@@ -158,7 +196,7 @@ export default function BankAccountsScreen() {
             </Text>
             <TouchableOpacity
               style={styles.emptyAddBtn}
-              onPress={() => setAddModalVisible(true)}
+              onPress={openAddModal}
               activeOpacity={0.85}
             >
               <Plus size={18} color="#FFFFFF" />
@@ -206,7 +244,7 @@ export default function BankAccountsScreen() {
 
       {/* Add Bank Account Modal */}
       <Modal visible={addModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setAddModalVisible(false)} />
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
@@ -246,19 +284,24 @@ export default function BankAccountsScreen() {
             <Text style={styles.sectionLabel}>
               {selectedBank === 'dana' ? 'Nama Akun DANA' : 'Nama Pemilik Rekening'}
             </Text>
-            <TextInput
-              style={styles.fieldInput}
-              placeholder={selectedBank === 'dana' ? 'Nama terdaftar di DANA' : 'Nama sesuai rekening'}
-              placeholderTextColor={TEXT_MUTED}
-              value={accountName}
-              onChangeText={setAccountName}
-              autoCapitalize="words"
-            />
+            <View style={[styles.fieldInput, styles.fieldReadOnly]}>
+              <Text style={styles.fieldReadOnlyText}>{profile?.full_name || '-'}</Text>
+            </View>
+            <Text style={styles.fieldNote}>
+              Nama rekening akan menggunakan nama akun Anda. Hubungi admin jika perlu perubahan.
+            </Text>
+
+            <View style={styles.pinInfoBox}>
+              <Shield size={16} color={PURPLE} />
+              <Text style={styles.pinInfoText}>
+                Konfirmasi PIN transaksi diperlukan untuk menambahkan rekening baru.
+              </Text>
+            </View>
 
             <TouchableOpacity
-              style={[styles.saveBtn, (!accountNumber || !accountName || saving) && styles.saveBtnDisabled]}
-              onPress={handleAdd}
-              disabled={!accountNumber || !accountName || saving}
+              style={[styles.saveBtn, (!accountNumber || saving) && styles.saveBtnDisabled]}
+              onPress={handleSaveWithPin}
+              disabled={!accountNumber || saving}
               activeOpacity={0.85}
             >
               {saving ? (
@@ -268,8 +311,22 @@ export default function BankAccountsScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
+
+      {/* PIN Modal */}
+      <PinModal
+        visible={pinModalVisible}
+        loading={pinLoading}
+        error={pinError}
+        title="Konfirmasi PIN"
+        subtitle="Masukkan PIN transaksi untuk menambahkan rekening baru"
+        onVerify={handlePinVerified}
+        onClose={() => {
+          setPinModalVisible(false);
+          setPinError('');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -378,6 +435,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_DARK, borderWidth: 1, borderColor: BORDER,
+  },
+  fieldReadOnly: {
+    backgroundColor: `${PURPLE}06`,
+    borderColor: `${PURPLE}20`,
+    borderStyle: 'dashed',
+  },
+  fieldReadOnlyText: {
+    fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold',
+    color: TEXT_DARK,
+  },
+  fieldNote: {
+    fontSize: 11, fontFamily: 'PlusJakartaSans-Medium',
+    color: TEXT_MUTED, marginTop: 6, lineHeight: 16,
+  },
+  pinInfoBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: `${PURPLE}08`, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12, marginTop: 20,
+    borderWidth: 1, borderColor: `${PURPLE}15`,
+  },
+  pinInfoText: {
+    flex: 1, fontSize: 12, fontFamily: 'PlusJakartaSans-Medium',
+    color: TEXT_MUTED, lineHeight: 18,
   },
   saveBtn: {
     backgroundColor: PURPLE, paddingVertical: 16,

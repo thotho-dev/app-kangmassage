@@ -421,36 +421,48 @@ export default function WithdrawScreen() {
           )}
 
           <View style={{ marginTop: 20, paddingBottom: 60 }}>
-            <TouchableOpacity
-              onPress={handleWithdrawPress}
-              disabled={loading || !isFormValid || !profile?.transaction_pin}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={loading || !isFormValid
-                  ? ['#E2E8F0', '#E2E8F0']
-                  : !profile?.transaction_pin
+            {!profile?.transaction_pin ? (
+              <TouchableOpacity
+                onPress={() => router.push('/pin-setup')}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[PURPLE, PURPLE_DARK]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtn}
+                >
+                  <Shield size={18} color="#FFFFFF" />
+                  <Text style={styles.submitBtnText}>Atur PIN Transaksi</Text>
+                  <ArrowRight size={20} color="#FFFFFF" />
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleWithdrawPress}
+                disabled={loading || !isFormValid}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={loading || !isFormValid
                     ? ['#E2E8F0', '#E2E8F0']
                     : [PURPLE, PURPLE_DARK]
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.submitBtn}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : !profile?.transaction_pin ? (
-                  <Text style={styles.submitBtnMuted}>
-                    Atur PIN Transaksi Terlebih Dahulu
-                  </Text>
-                ) : (
-                  <>
-                    <Text style={styles.submitBtnText}>Ajukan Penarikan</Text>
-                    <ArrowRight size={20} color="#FFFFFF" />
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtn}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Text style={styles.submitBtnText}>Ajukan Penarikan</Text>
+                      <ArrowRight size={20} color="#FFFFFF" />
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

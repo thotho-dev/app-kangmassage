@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, StatusBar
+  ActivityIndicator, StatusBar, Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -255,7 +255,8 @@ const styles = StyleSheet.create({
     gap: 10, marginBottom: 24,
   },
   numpadKey: {
-    flex: 1, maxWidth: '30%', height: 52, borderRadius: 14,
+    width: (Dimensions.get('window').width - 40 - 20) / 3,
+    height: 52, borderRadius: 14,
     backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: BORDER,
   },
