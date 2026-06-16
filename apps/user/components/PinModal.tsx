@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
   Animated, Dimensions, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, KeyRound, AlertCircle } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -30,6 +31,7 @@ export default function PinModal({
   onVerify,
   onClose,
 }: PinModalProps) {
+  const insets = useSafeAreaInsets();
   const [pin, setPin] = useState('');
   const shakeAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -64,7 +66,7 @@ export default function PinModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { transform: [{ translateX: shakeAnim }] }]}>
+        <Animated.View style={[styles.sheet, { transform: [{ translateX: shakeAnim }], paddingBottom: Math.max(insets.bottom, 24) + 16 }]}>        
           <View style={styles.header}>
             <View style={styles.handle} />
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
