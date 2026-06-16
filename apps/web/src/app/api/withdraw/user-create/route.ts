@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
       metadata: { withdrawal_id: withdrawal.id }
     }]);
 
-    debugStep = 'CALL_XENDIT_DISBURSEMENT';
+    debugStep = 'VALIDATE_BANK_ACCOUNT';
     const bankMapping: Record<string, string> = {
       'bca': 'BCA', 'mandiri': 'MANDIRI', 'bni': 'BNI', 'bri': 'BRI',
       'cimb': 'CIMB', 'permata': 'PERMATA', 'danamon': 'DANAMON', 'bsi': 'BSI',
@@ -275,6 +275,24 @@ export async function POST(req: NextRequest) {
     }
     const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 
+    // Validate bank account before disbursement
+    const valRes = await fetch('https://api.xendit.co/bank_account_data_requests', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': authHeader },
+      body: JSON.stringify({ bank_code: bankCodeMapped, account_number: bankAccount.account_number }),
+    });
+    const valData = await valRes.json();
+    if (!valRes.ok) {
+      let message = 'Nomor rekening tidak valid';
+      if (valData.message) message = valData.message;
+      if (valData.error) message = valData.error;
+      debugStep = 'REVERT_ON_INVALID_ACCOUNT';
+      await supabase.from('users').update({ wallet_balance: userPrevBalance }).eq('id', user_id);
+      await supabase.from('user_withdrawals').update({ status: 'failed', payment_data: { reason: message } }).eq('id', withdrawal.id);
+      return NextResponse.json({ error: message, details: valData }, { status: 400 });
+    }
+
+    debugStep = 'CALL_XENDIT_DISBURSEMENT';
     const response = await fetch('https://api.xendit.co/disbursements', {
       method: 'POST',
       headers: {
