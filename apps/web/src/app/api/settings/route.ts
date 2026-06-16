@@ -55,6 +55,10 @@ export async function GET() {
         midtrans_is_production: false,
         maintenance_mode: false,
         maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+        withdrawal_otp_threshold: 500000,
+        withdrawal_daily_limit: 3000000,
+        withdrawal_max_count_per_day: 3,
+        withdrawal_admin_approval_threshold: 0,
       }, { headers: noCacheHeaders });
     }
 
@@ -91,6 +95,10 @@ export async function GET() {
       midtrans_is_production: data.midtrans_is_production ?? false,
       maintenance_mode: data.maintenance_mode ?? false,
       maintenance_message: data.maintenance_message ?? 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+      withdrawal_otp_threshold: Number(data.withdrawal_otp_threshold) ?? 500000,
+      withdrawal_daily_limit: Number(data.withdrawal_daily_limit) ?? 3000000,
+      withdrawal_max_count_per_day: Number(data.withdrawal_max_count_per_day) ?? 3,
+      withdrawal_admin_approval_threshold: Number(data.withdrawal_admin_approval_threshold) ?? 0,
     }, { headers: noCacheHeaders });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
@@ -136,6 +144,8 @@ export async function PUT(req: NextRequest) {
       'xendit_disbursement_secret_key',
       'midtrans_server_key', 'midtrans_client_key', 'midtrans_is_production',
       'maintenance_mode', 'maintenance_message',
+      'withdrawal_otp_threshold', 'withdrawal_daily_limit', 'withdrawal_max_count_per_day',
+      'withdrawal_admin_approval_threshold',
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -206,6 +216,10 @@ export async function PUT(req: NextRequest) {
       midtrans_is_production: data.midtrans_is_production ?? false,
       maintenance_mode: data.maintenance_mode ?? false,
       maintenance_message: data.maintenance_message ?? 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+      withdrawal_otp_threshold: Number(data.withdrawal_otp_threshold) ?? 500000,
+      withdrawal_daily_limit: Number(data.withdrawal_daily_limit) ?? 3000000,
+      withdrawal_max_count_per_day: Number(data.withdrawal_max_count_per_day) ?? 3,
+      withdrawal_admin_approval_threshold: Number(data.withdrawal_admin_approval_threshold) ?? 0,
     }, { headers: noCacheHeaders });
   } catch (err) {
     console.error(err);

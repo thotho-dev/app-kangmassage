@@ -41,6 +41,10 @@ type AppSettings = {
   midtrans_is_production: boolean;
   maintenance_mode: boolean;
   maintenance_message: string;
+  withdrawal_otp_threshold: number;
+  withdrawal_daily_limit: number;
+  withdrawal_max_count_per_day: number;
+  withdrawal_admin_approval_threshold: number;
 };
 
 const defaultSettings: AppSettings = {
@@ -76,6 +80,10 @@ const defaultSettings: AppSettings = {
   midtrans_is_production: false,
   maintenance_mode: false,
   maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+  withdrawal_otp_threshold: 500000,
+  withdrawal_daily_limit: 3000000,
+  withdrawal_max_count_per_day: 3,
+  withdrawal_admin_approval_threshold: 0,
 };
 
 type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
@@ -556,6 +564,65 @@ export default function SettingsPage() {
                         className="input-field pl-10"
                       />
                     </div>
+                  </div>
+                </div>
+
+                <hr className="border-ui-border my-2" />
+
+                <h3 className="text-sm font-semibold text-text-primary/80">Security & Limits</h3>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">OTP Threshold</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none z-10">Rp</span>
+                      <input
+                        type="text"
+                        value={Number(settings.withdrawal_otp_threshold).toLocaleString('id-ID')}
+                        onChange={e => updateField('withdrawal_otp_threshold', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                        className="input-field pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-text-muted/60 mt-1">Di atas nominal ini perlu verifikasi OTP</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Daily Limit</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none z-10">Rp</span>
+                      <input
+                        type="text"
+                        value={Number(settings.withdrawal_daily_limit).toLocaleString('id-ID')}
+                        onChange={e => updateField('withdrawal_daily_limit', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                        className="input-field pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-text-muted/60 mt-1">Maksimal total penarikan per hari</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Max Count / Day</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={settings.withdrawal_max_count_per_day}
+                      onChange={e => updateField('withdrawal_max_count_per_day', parseInt(e.target.value) || 1)}
+                      className="input-field"
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">Maksimal kali penarikan per hari</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Admin Approval Threshold</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none z-10">Rp</span>
+                      <input
+                        type="text"
+                        value={Number(settings.withdrawal_admin_approval_threshold).toLocaleString('id-ID')}
+                        onChange={e => updateField('withdrawal_admin_approval_threshold', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                        className="input-field pl-10"
+                      />
+                    </div>
+                    <p className="text-xs text-text-muted/60 mt-1">0 = auto-proses (tanpa admin). Isi nominal untuk pembatasan</p>
                   </div>
                 </div>
               </div>

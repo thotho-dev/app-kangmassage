@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
     const settings = await getAppSettings();
 
     // Check admin approval requirement
-    const requireAdminApproval = settings.withdrawal_admin_approval === true;
+    const approvalThreshold = Number(settings.withdrawal_admin_approval_threshold) || 0;
+    const requireAdminApproval = settings.withdrawal_admin_approval === true || (approvalThreshold > 0 && Number(withdrawal.amount) > approvalThreshold);
     if (requireAdminApproval) {
       await supabase.from('user_withdrawals').update({
         status: 'pending',

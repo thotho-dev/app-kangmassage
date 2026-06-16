@@ -58,6 +58,7 @@ export default function BankAccountsScreen() {
   const [accountNumber, setAccountNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
 
   // PIN Modal
   const [pinModalVisible, setPinModalVisible] = useState(false);
@@ -119,8 +120,25 @@ export default function BankAccountsScreen() {
       setPinModalVisible(false);
       setPinLoading(false);
 
-      // PIN valid — proceed to add
+      // PIN valid — validate with Xendit
       const bank = BANK_LIST.find(b => b.id === selectedBank);
+      setValidating(true);
+      let isVerified = false;
+      try {
+        const valRes = await fetch(`${API_URL}/api/bank-accounts/validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bank_code: bank?.code || selectedBank, account_number: accountNumber }),
+        });
+        const valData = await valRes.json();
+        if (valRes.ok && valData.success) {
+          isVerified = true;
+        }
+      } catch {
+        // Validation API not available — save without verification
+      }
+      setValidating(false);
+
       setSaving(true);
       const { error } = await supabase
         .from('saved_bank_accounts')
@@ -130,11 +148,12 @@ export default function BankAccountsScreen() {
           bank_name: bank?.name || selectedBank,
           account_number: accountNumber,
           account_name: profile?.full_name,
+          is_verified: isVerified,
         }]);
       if (error) throw error;
       setAddModalVisible(false);
       setAccountNumber('');
-      showAlert('Berhasil', 'Rekening berhasil ditambahkan');
+      showAlert('Berhasil', isVerified ? 'Rekening berhasil ditambahkan dan terverifikasi' : 'Rekening berhasil ditambahkan');
       fetchAccounts();
     } catch (err: any) {
       showAlert('Gagal', err.message);
@@ -299,12 +318,14 @@ export default function BankAccountsScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.saveBtn, (!accountNumber || saving) && styles.saveBtnDisabled]}
+              style={[styles.saveBtn, (!accountNumber || saving || validating) && styles.saveBtnDisabled]}
               onPress={handleSaveWithPin}
-              disabled={!accountNumber || saving}
+              disabled={!accountNumber || saving || validating}
               activeOpacity={0.85}
             >
-              {saving ? (
+              {validating ? (
+                <Text style={styles.saveBtnText}>Memvalidasi...</Text>
+              ) : saving ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.saveBtnText}>Simpan Rekening</Text>

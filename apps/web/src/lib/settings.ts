@@ -34,6 +34,7 @@ export type AppSettings = {
   withdrawal_daily_limit: number;
   withdrawal_max_count_per_day: number;
   withdrawal_admin_approval: boolean;
+  withdrawal_admin_approval_threshold: number;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -70,6 +71,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   withdrawal_daily_limit: 3000000,
   withdrawal_max_count_per_day: 3,
   withdrawal_admin_approval: false,
+  withdrawal_admin_approval_threshold: 0,
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -119,6 +121,7 @@ export async function getAppSettings(): Promise<AppSettings> {
       withdrawal_daily_limit: Number(data.withdrawal_daily_limit) ?? DEFAULT_SETTINGS.withdrawal_daily_limit,
       withdrawal_max_count_per_day: Number(data.withdrawal_max_count_per_day) ?? DEFAULT_SETTINGS.withdrawal_max_count_per_day,
       withdrawal_admin_approval: data.withdrawal_admin_approval ?? DEFAULT_SETTINGS.withdrawal_admin_approval,
+      withdrawal_admin_approval_threshold: Number(data.withdrawal_admin_approval_threshold) ?? DEFAULT_SETTINGS.withdrawal_admin_approval_threshold,
     };
   } catch {
     return DEFAULT_SETTINGS;

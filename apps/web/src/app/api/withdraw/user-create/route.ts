@@ -181,7 +181,8 @@ export async function POST(req: NextRequest) {
 
     // 7. Check if admin approval required
     debugStep = 'ADMIN_APPROVAL_CHECK';
-    const requireAdminApproval = settings.withdrawal_admin_approval === true;
+    const approvalThreshold = Number(settings.withdrawal_admin_approval_threshold) || 0;
+    const requireAdminApproval = settings.withdrawal_admin_approval === true || (approvalThreshold > 0 && amount > approvalThreshold);
 
     const external_id = `UWD-${Date.now()}-${user.id.slice(0, 8)}`;
 

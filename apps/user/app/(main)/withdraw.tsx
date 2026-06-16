@@ -445,30 +445,39 @@ export default function WithdrawScreen() {
                 </LinearGradient>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                onPress={handleWithdrawPress}
-                disabled={loading || !isFormValid}
-                activeOpacity={0.85}
-              >
-                <LinearGradient
-                  colors={loading || !isFormValid
-                    ? ['#E2E8F0', '#E2E8F0']
-                    : [PURPLE, PURPLE_DARK]
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.submitBtn}
+              <>
+                <TouchableOpacity
+                  onPress={handleWithdrawPress}
+                  disabled={loading || !isFormValid}
+                  activeOpacity={0.85}
                 >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <>
-                      <Text style={styles.submitBtnText}>Ajukan Penarikan</Text>
-                      <ArrowRight size={20} color="#FFFFFF" />
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                  <LinearGradient
+                    colors={loading || !isFormValid
+                      ? ['#E2E8F0', '#E2E8F0']
+                      : [PURPLE, PURPLE_DARK]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.submitBtn}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <>
+                        <Text style={styles.submitBtnText}>Ajukan Penarikan</Text>
+                        <ArrowRight size={20} color="#FFFFFF" />
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+                {!isFormValid && !loading && (
+                  <Text style={{ textAlign: 'center', color: TEXT_MUTED, fontSize: 12, marginTop: 8 }}>
+                    {!selectedAccountId ? 'Pilih rekening tujuan terlebih dahulu' :
+                     !isAmountValid ? `Minimal penarikan Rp ${minWithdraw.toLocaleString('id-ID')}` :
+                     !isBalanceSufficient ? 'Saldo tidak mencukupi' : ''}
+                  </Text>
+                )}
+              </>
             )}
           </View>
         </ScrollView>

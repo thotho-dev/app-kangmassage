@@ -1,7 +1,8 @@
 -- ============================================================
--- Migration: Add cancel_withdrawal RPC for atomic cancellation
--- Prevents double refund / race condition
+-- Migration: Add cancel_withdrawal RPC & approval threshold
 -- ============================================================
+
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS withdrawal_admin_approval_threshold NUMERIC(12,2) NOT NULL DEFAULT 0;
 
 CREATE OR REPLACE FUNCTION cancel_withdrawal(
   p_withdrawal_id UUID,
