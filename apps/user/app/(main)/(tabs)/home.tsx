@@ -7,7 +7,6 @@ import {
   Image,
   StyleSheet,
   StatusBar,
-  FlatList,
   Dimensions,
   Animated,
 } from 'react-native';
@@ -120,44 +119,44 @@ const WHY_US = [
 ];
 
 // ─── Banner Slideshow ──────────────────────────────────────────────────────────
-function BannerSlideshow({ banners, onBookNow }: { banners: any[]; onBookNow: () => void }) {
+function BannerSlideshow({ banners }: { banners: any[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<Animated.ScrollView>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const SLIDE_HEIGHT = 200;
 
   useEffect(() => {
     if (!banners.length) return;
     const interval = setInterval(() => {
       const nextIndex = (activeIndex + 1) % banners.length;
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+      scrollRef.current?.scrollTo({ y: nextIndex * (SLIDE_HEIGHT + 10), animated: true });
       setActiveIndex(nextIndex);
     }, 3500);
     return () => clearInterval(interval);
   }, [activeIndex, banners.length]);
 
   const onMomentumScrollEnd = (e: any) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
+    const index = Math.round(e.nativeEvent.contentOffset.y / (SLIDE_HEIGHT + 10));
     setActiveIndex(index);
   };
 
   return (
     <View style={bannerStyles.wrapper}>
-      <Animated.FlatList
-        ref={flatListRef}
-        data={banners}
-        horizontal
-        pagingEnabled
-        snapToInterval={SCREEN_WIDTH - 32}
+      <Animated.ScrollView
+        ref={scrollRef as any}
+        showsVerticalScrollIndicator={false}
         decelerationRate="fast"
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
+        snapToInterval={SLIDE_HEIGHT + 10}
+        snapToAlignment="start"
+        style={{ height: SLIDE_HEIGHT + 10 }}
         onMomentumScrollEnd={onMomentumScrollEnd}
         onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
         )}
-        renderItem={({ item }) => (
-          <View style={bannerStyles.slide}>
+      >
+        {banners.map((item) => (
+          <View key={item.id} style={[bannerStyles.slide, { height: SLIDE_HEIGHT, marginBottom: 10 }]}>
             <Image source={{ uri: item.image_url }} style={bannerStyles.image} />
             <View style={bannerStyles.overlay} />
             {item.badge ? (
@@ -171,16 +170,9 @@ function BannerSlideshow({ banners, onBookNow }: { banners: any[]; onBookNow: ()
                 <Text style={bannerStyles.slideSubtitle}>{item.subtitle}</Text>
               ) : null}
             </View>
-            <TouchableOpacity
-              style={bannerStyles.bookBtn}
-              activeOpacity={0.85}
-              onPress={onBookNow}
-            >
-              <Text style={bannerStyles.bookBtnText}>BOOK NOW</Text>
-            </TouchableOpacity>
           </View>
-        )}
-      />
+        ))}
+      </Animated.ScrollView>
       {banners.length > 1 && (
         <View style={bannerStyles.dots}>
           {banners.map((_, i) => (
@@ -523,10 +515,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* ── Banner Slideshow ── */}
-        <BannerSlideshow
-          banners={banners || []}
-          onBookNow={() => handleProtectedAction('/services')}
-        />
+        <BannerSlideshow banners={banners || []} />
 
         {/* ── Kategori Layanan ── */}
         <View style={styles.catSection}>
@@ -847,11 +836,9 @@ const bannerStyles = StyleSheet.create({
   },
   slide: {
     width: SCREEN_WIDTH - 32,
-    height: 200,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: '#000',
-    marginRight: 0,
   },
   image: {
     width: '100%',
@@ -860,65 +847,50 @@ const bannerStyles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.42)',
+    backgroundColor: 'rgba(36,0,128,0.35)',
   },
   badgePill: {
     position: 'absolute',
     top: 14,
     left: 14,
     backgroundColor: ORANGE,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   badgeText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontFamily: 'PlusJakartaSans-Bold',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   textBlock: {
     position: 'absolute',
-    bottom: 48,
+    bottom: 16,
     left: 16,
-    right: 80,
+    right: 16,
   },
   slideTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   slideSubtitle: {
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.9)',
     fontSize: 12,
     fontFamily: 'PlusJakartaSans-Regular',
-  },
-  bookBtn: {
-    position: 'absolute',
-    right: 14,
-    bottom: 14,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderWidth: 1,
-    borderColor: '#E0B65C',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  bookBtnText: {
-    color: '#FFE6B0',
-    fontSize: 11,
-    fontFamily: 'PlusJakartaSans-Bold',
-    letterSpacing: 1,
   },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 12,
     gap: 6,
   },
   dot: {
@@ -928,10 +900,10 @@ const bannerStyles = StyleSheet.create({
     backgroundColor: '#D1D5DB',
   },
   dotActive: {
-    width: 20,
+    width: 22,
     height: 6,
     borderRadius: 3,
-    backgroundColor: ORANGE,
+    backgroundColor: PURPLE,
   },
 });
 
@@ -1394,11 +1366,12 @@ const styles = StyleSheet.create({
   popularServiceImageWrapper: {
     position: 'relative',
     width: '100%',
-    height: 120,
+    aspectRatio: 1,
   },
   popularServiceImage: {
     width: '100%',
-    height: 120,
+    height: '100%',
+    borderRadius: 16,
     resizeMode: 'cover',
     backgroundColor: '#F0F0F0',
   },

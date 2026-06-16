@@ -739,6 +739,7 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
 
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>(initialData?.avatar_url || '');
+  const [avatarDeleted, setAvatarDeleted] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [loadingSkills, setLoadingSkills] = useState(true);
@@ -795,6 +796,7 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
       const compressed = await compressImage(file);
       if (compressed) {
         setAvatar(compressed);
+        setAvatarDeleted(false);
         const reader = new FileReader();
         reader.onloadend = () => {
           setAvatarPreview(reader.result as string);
@@ -802,6 +804,27 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
         reader.readAsDataURL(compressed);
       }
     }
+  };
+
+  const handleDeleteAvatar = async () => {
+    const url = initialData?.avatar_url || avatarPreview;
+    if (!url) {
+      setAvatarPreview('');
+      setAvatar(null);
+      return;
+    }
+    const parts = url.split('/');
+    const fileName = parts[parts.length - 1].split('?')[0];
+    try {
+      await fetch('/api/upload', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bucket: 'therapists', fileName }),
+      });
+    } catch { /* ignore */ }
+    setAvatarPreview('');
+    setAvatar(null);
+    setAvatarDeleted(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -824,9 +847,10 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
 
     try {
       let finalAvatarUrl = initialData?.avatar_url || '';
-      
-      // 1. Upload photo if exists
-      if (avatar) {
+
+      if (avatarDeleted) {
+        finalAvatarUrl = '';
+      } else if (avatar) {
         const formData = new FormData();
         formData.append('file', avatar);
         formData.append('bucket', 'therapists');
@@ -897,13 +921,21 @@ function TherapistModal({ onClose, onSubmit, submitting, initialData }: {
                     <Camera className="w-8 h-8 text-text-muted group-hover:text-primary transition-colors" />
                   )}
                 </div>
-                <label className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
-                  <Upload className="w-4 h-4 text-white" />
-                  <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
-                </label>
+                {avatarPreview ? (
+                  <button type="button" onClick={handleDeleteAvatar}
+                    className="absolute bottom-0 right-0 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-transform hover:scale-110">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <label className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
+                    <Upload className="w-4 h-4 text-white" />
+                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                  </label>
+                )}
               </div>
               <p className="text-[10px] text-text-muted mt-2 uppercase tracking-widest font-bold">Foto Profil Therapist</p>
             </div>
+            
 
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

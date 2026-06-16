@@ -69,6 +69,7 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(voucher?.image_url || '');
+  const [imageDeleted, setImageDeleted] = useState(false);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,11 +77,33 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
       const compressed = await compressImage(file);
       if (compressed) {
         setImageFile(compressed);
+        setImageDeleted(false);
         const reader = new FileReader();
         reader.onloadend = () => setImagePreview(reader.result as string);
         reader.readAsDataURL(compressed);
       }
     }
+  };
+
+  const handleDeleteImage = async () => {
+    const url = voucher?.image_url || imagePreview;
+    if (!url) {
+      setImagePreview('');
+      setImageFile(null);
+      return;
+    }
+    const parts = url.split('/');
+    const fileName = parts[parts.length - 1].split('?')[0];
+    try {
+      await fetch('/api/upload', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bucket: 'vouchers', fileName }),
+      });
+    } catch { /* ignore */ }
+    setImagePreview('');
+    setImageFile(null);
+    setImageDeleted(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,7 +125,9 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
       const method = voucher ? 'PUT' : 'POST';
       let finalImageUrl = voucher?.image_url || '';
 
-      if (imageFile) {
+      if (imageDeleted) {
+        finalImageUrl = '';
+      } else if (imageFile) {
         const formData = new FormData();
         formData.append('file', imageFile);
         formData.append('bucket', 'vouchers');
@@ -165,11 +190,18 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
                     </div>
                   )}
                 </div>
-                <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
-                  <Camera className="w-5 h-5" />
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
-                </label>
-              </div>
+                  {imagePreview ? (
+                    <button type="button" onClick={handleDeleteImage}
+                      className="absolute -bottom-2 -right-2 w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-transform hover:scale-110">
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
+                      <Camera className="w-5 h-5" />
+                      <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                    </label>
+                  )}
+                </div>
             </div>
 
             {/* 1. Basic Info Section */}

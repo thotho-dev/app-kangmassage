@@ -37,6 +37,28 @@ function BannerModal({ banner, onClose, onSave }: { banner?: any | null; onClose
     }
   };
 
+  const handleDeleteImage = async () => {
+    const url = form.image_url;
+    if (!url) {
+      setImagePreview('');
+      setImageFile(null);
+      return;
+    }
+    // Extract fileName from Supabase Storage URL
+    const parts = url.split('/');
+    const fileName = parts[parts.length - 1].split('?')[0];
+    try {
+      await fetch('/api/upload', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bucket: 'logos', fileName }),
+      });
+    } catch { /* file may not exist, ignore */ }
+    setImagePreview('');
+    setImageFile(null);
+    setForm((prev) => ({ ...prev, image_url: '' }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title) {
@@ -75,8 +97,8 @@ function BannerModal({ banner, onClose, onSave }: { banner?: any | null; onClose
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content !max-w-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onPointerDown={onClose}>
+      <div className="modal-content !max-w-2xl" onPointerDown={(e) => e.stopPropagation()}>
         <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full max-h-[90vh]">
           <div className="modal-header">
             <h2 className="text-xl font-bold text-text-primary">{banner ? 'Edit Banner' : 'Add Banner'}</h2>
@@ -96,10 +118,17 @@ function BannerModal({ banner, onClose, onSave }: { banner?: any | null; onClose
                     </div>
                   )}
                 </div>
-                <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
-                  <Camera className="w-5 h-5" />
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
-                </label>
+                {imagePreview ? (
+                  <button type="button" onClick={handleDeleteImage}
+                    className="absolute -bottom-2 -right-2 w-10 h-10 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-red-600 transition-transform hover:scale-110">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                ) : (
+                  <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
+                    <Camera className="w-5 h-5" />
+                    <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                  </label>
+                )}
               </div>
             </div>
 
