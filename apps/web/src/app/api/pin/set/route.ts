@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Semua field harus diisi' }, { status: 400 });
     }
 
-    if (pin.length < 4 || pin.length > 8 || !/^\d+$/.test(pin)) {
-      return NextResponse.json({ error: 'PIN harus 4-8 digit angka' }, { status: 400 });
+    if (pin.length !== 6 || !/^\d+$/.test(pin)) {
+      return NextResponse.json({ error: 'PIN harus 6 digit angka' }, { status: 400 });
     }
 
     if (pin !== confirm_pin) {

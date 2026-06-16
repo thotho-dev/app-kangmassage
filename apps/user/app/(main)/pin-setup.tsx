@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, StatusBar
+  ActivityIndicator, StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -30,12 +30,8 @@ export default function PinSetupScreen() {
 
   const handleNext = () => {
     setError('');
-    if (pin.length < 4 || pin.length > 8) {
-      setError('PIN harus 4-8 digit');
-      return;
-    }
-    if (!/^\d+$/.test(pin)) {
-      setError('PIN hanya boleh angka');
+    if (pin.length !== 6) {
+      setError('PIN harus 6 digit');
       return;
     }
     setStep('confirm');
@@ -67,7 +63,7 @@ export default function PinSetupScreen() {
 
   const renderDigitDots = (value: string) => (
     <View style={styles.dotsRow}>
-      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+      {[0, 1, 2, 3, 4, 5].map((i) => (
         <View key={i} style={[styles.dot, value.length > i && styles.dotFilled]} />
       ))}
     </View>
@@ -120,37 +116,15 @@ export default function PinSetupScreen() {
               <View style={styles.pinDisplay}>
                 {step === 'create' ? (
                   <>
-                    <Text style={styles.formLabel}>Buat PIN Baru</Text>
-                    <TextInput
-                      style={styles.hiddenInput}
-                      value={pin}
-                      onChangeText={(text) => {
-                        setError('');
-                        setPin(text.replace(/\D/g, '').slice(0, 8));
-                      }}
-                      keyboardType="number-pad"
-                      maxLength={8}
-                      autoFocus
-                    />
+                    <Text style={styles.formLabel}>Buat PIN 6 Digit</Text>
                     {renderDigitDots(pin)}
-                    <Text style={styles.pinHint}>{pin.length}/8 digit</Text>
+                    <Text style={styles.pinHint}>{pin.length}/6 digit</Text>
                   </>
                 ) : (
                   <>
                     <Text style={styles.formLabel}>Konfirmasi PIN</Text>
-                    <TextInput
-                      style={styles.hiddenInput}
-                      value={confirmPin}
-                      onChangeText={(text) => {
-                        setError('');
-                        setConfirmPin(text.replace(/\D/g, '').slice(0, 8));
-                      }}
-                      keyboardType="number-pad"
-                      maxLength={8}
-                      autoFocus
-                    />
                     {renderDigitDots(confirmPin)}
-                    <Text style={styles.pinHint}>{confirmPin.length}/8 digit</Text>
+                    <Text style={styles.pinHint}>{confirmPin.length}/6 digit</Text>
                   </>
                 )}
               </View>
@@ -176,8 +150,8 @@ export default function PinSetupScreen() {
                       if (step === 'create') setPin(p => p.slice(0, -1));
                       else setConfirmPin(p => p.slice(0, -1));
                     } else if (typeof key === 'number') {
-                      if (step === 'create' && pin.length < 8) setPin(p => p + key);
-                      else if (step === 'confirm' && confirmPin.length < 8) setConfirmPin(p => p + key);
+                      if (step === 'create' && pin.length < 6) setPin(p => p + key);
+                      else if (step === 'confirm' && confirmPin.length < 6) setConfirmPin(p => p + key);
                     }
                   }}
                   disabled={key === ''}
@@ -192,18 +166,18 @@ export default function PinSetupScreen() {
 
             {step === 'create' ? (
               <TouchableOpacity
-                style={[styles.primaryBtn, pin.length < 4 && styles.btnDisabled]}
+                style={[styles.primaryBtn, pin.length < 6 && styles.btnDisabled]}
                 onPress={handleNext}
-                disabled={pin.length < 4}
+                disabled={pin.length < 6}
                 activeOpacity={0.85}
               >
                 <Text style={[styles.primaryBtnText, pin.length < 4 && { color: TEXT_MUTED }]}>Lanjutkan</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.primaryBtn, (confirmPin.length < 4 || loading) && styles.btnDisabled]}
+                style={[styles.primaryBtn, (confirmPin.length < 6 || loading) && styles.btnDisabled]}
                 onPress={handleSave}
-                disabled={confirmPin.length < 4 || loading}
+                disabled={confirmPin.length < 6 || loading}
                 activeOpacity={0.85}
               >
                 {loading ? (
@@ -235,22 +209,22 @@ const styles = StyleSheet.create({
 
   infoCard: {
     backgroundColor: `${PURPLE}08`,
-    borderRadius: 20, padding: 20, marginTop: 24, marginBottom: 24,
+    borderRadius: 16, padding: 14, marginTop: 20, marginBottom: 20,
     borderWidth: 1, borderColor: `${PURPLE}20`,
     alignItems: 'center',
   },
   infoIconBox: {
-    width: 48, height: 48, borderRadius: 24,
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: `${PURPLE}15`,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   infoTitle: {
-    fontSize: 16, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK, marginBottom: 8,
+    fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK, marginBottom: 6,
   },
   infoDesc: {
-    fontSize: 13, fontFamily: 'PlusJakartaSans-Medium', color: TEXT_MUTED,
-    textAlign: 'center', lineHeight: 20,
+    fontSize: 12, fontFamily: 'PlusJakartaSans-Medium', color: TEXT_MUTED,
+    textAlign: 'center', lineHeight: 18,
   },
 
   formCard: {
@@ -263,7 +237,6 @@ const styles = StyleSheet.create({
     fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED, textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
   dotsRow: { flexDirection: 'row', gap: 10 },
   dot: {
     width: 14, height: 14, borderRadius: 7,
@@ -279,11 +252,10 @@ const styles = StyleSheet.create({
 
   numpadContainer: {
     flexDirection: 'row', flexWrap: 'wrap',
-    justifyContent: 'center', gap: 12,
-    marginBottom: 24,
+    gap: 10, marginBottom: 24,
   },
   numpadKey: {
-    width: 80, height: 56, borderRadius: 14,
+    flex: 1, maxWidth: '30%', height: 52, borderRadius: 14,
     backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: BORDER,
   },

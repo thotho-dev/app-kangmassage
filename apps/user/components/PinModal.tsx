@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, Modal, TouchableOpacity,
   Animated, Dimensions, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { X, KeyRound, AlertCircle } from 'lucide-react-native';
@@ -31,17 +31,15 @@ export default function PinModal({
   onClose,
 }: PinModalProps) {
   const [pin, setPin] = useState('');
-  const inputRef = useRef<TextInput>(null);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const shakeAnim = React.useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (visible) {
       setPin('');
-      setTimeout(() => inputRef.current?.focus(), 300);
     }
   }, [visible]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (error) {
       Animated.sequence([
         Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
@@ -53,11 +51,11 @@ export default function PinModal({
     }
   }, [error]);
 
-  const handleSubmit = () => {
-    if (pin.length >= 4 && !loading) {
+  React.useEffect(() => {
+    if (pin.length === 6 && !loading) {
       onVerify(pin);
     }
-  };
+  }, [pin]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -92,22 +90,6 @@ export default function PinModal({
             ))}
           </View>
 
-          <TextInput
-            ref={inputRef}
-            style={styles.hiddenInput}
-            value={pin}
-            onChangeText={(text) => {
-              const digits = text.replace(/\D/g, '').slice(0, 6);
-              setPin(digits);
-              if (digits.length === 6) {
-                setTimeout(() => onVerify(digits), 200);
-              }
-            }}
-            keyboardType="number-pad"
-            maxLength={6}
-            autoFocus
-          />
-
           {error ? (
             <View style={styles.errorRow}>
               <AlertCircle size={14} color={ERROR} />
@@ -129,11 +111,8 @@ export default function PinModal({
                 onPress={() => {
                   if (key === 'DEL') {
                     setPin(prev => prev.slice(0, -1));
-                  } else if (typeof key === 'number' && pin.length < 6) {
-                    setPin(prev => prev + key);
-                    if (pin.length === 5) {
-                      setTimeout(() => onVerify(pin + key), 200);
-                    }
+                  } else if (typeof key === 'number') {
+                    setPin(prev => prev.length < 6 ? prev + key : prev);
                   }
                 }}
                 disabled={key === ''}
@@ -208,9 +187,6 @@ const styles = StyleSheet.create({
   dotFilled: {
     backgroundColor: PURPLE,
     borderColor: PURPLE,
-  },
-  hiddenInput: {
-    position: 'absolute', width: 1, height: 1, opacity: 0,
   },
   errorRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
