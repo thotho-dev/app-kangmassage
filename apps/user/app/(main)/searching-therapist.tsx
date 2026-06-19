@@ -631,7 +631,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    zIndex: 100,
+    zIndex: 9999,
+    elevation: 10,
   },
   modalContent: {
     width: '100%',

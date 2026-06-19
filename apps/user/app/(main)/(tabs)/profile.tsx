@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, 
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
   StatusBar, Switch, Modal, TextInput, ActivityIndicator, Alert, Linking, Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { 
@@ -27,6 +27,7 @@ import {
   MessageSquare,
   KeyRound,
   Building2,
+  FileText,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
@@ -41,6 +42,7 @@ export default function ProfileScreen() {
   const { theme, isDark } = useTheme();
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { showAlert } = useAlert();
+  const insets = useSafeAreaInsets();
 
   // Modal visibility states
   const [personalModalVisible, setPersonalModalVisible] = useState(false);
@@ -48,7 +50,7 @@ export default function ProfileScreen() {
   const [securityModalVisible, setSecurityModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
-  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [syaratModalVisible, setSyaratModalVisible] = useState(false);
 
   // Form states for Personal Data
   const [editName, setEditName] = useState('');
@@ -56,25 +58,74 @@ export default function ProfileScreen() {
   const [editAvatar, setEditAvatar] = useState('');
   const [savingPersonal, setSavingPersonal] = useState(false);
 
+
+  // Support contact
+  const [supportWA, setSupportWA] = useState('6281234567890');
+  const [supportEmail, setSupportEmail] = useState('support@kangmassage.app');
+  const [playstoreUrl, setPlaystoreUrl] = useState('https://play.google.com/store/apps/details?id=com.thotho.kangmassage.user');
+
   // Notification toggles
   const [pushEnabled, setPushEnabled] = useState(true);
-  const [waEnabled, setWaEnabled] = useState(true);
   const [promoEnabled, setPromoEnabled] = useState(false);
-
-  // Review states
-  const [ratingStars, setRatingStars] = useState(5);
-  const [reviewText, setReviewText] = useState('');
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [notifPrefsLoaded, setNotifPrefsLoaded] = useState(false);
 
   // Security pass toggle
   const [biometricEnabled, setBiometricEnabled] = useState(false);
 
+
+
   useFocusEffect(
     React.useCallback(() => {
       refreshProfile();
+      loadNotifPrefs();
+      loadSupportContact();
     }, [])
   );
+
+  const loadSupportContact = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('support_whatsapp, support_email, playstore_url')
+        .limit(1)
+        .single();
+      if (data?.support_whatsapp) {
+        setSupportWA(data.support_whatsapp);
+      }
+      if (data?.support_email) {
+        setSupportEmail(data.support_email);
+      }
+      if (data?.playstore_url) {
+        setPlaystoreUrl(data.playstore_url);
+      }
+    } catch {}
+  };
+
+  const loadNotifPrefs = async () => {
+    if (!profile?.id) return;
+    try {
+      const { data } = await supabase
+        .from('user_notification_prefs')
+        .select('push_enabled, promo_enabled')
+        .eq('user_id', profile.id)
+        .single();
+      if (data) {
+        setPushEnabled(data.push_enabled);
+        setPromoEnabled(data.promo_enabled);
+      }
+      setNotifPrefsLoaded(true);
+    } catch {}
+  };
+
+  const saveNotifPrefs = async (field: string, value: boolean) => {
+    if (!profile?.id || !notifPrefsLoaded) return;
+    try {
+      await supabase.from('user_notification_prefs').upsert({
+        user_id: profile.id,
+        [field]: value,
+      }, { onConflict: 'user_id' });
+    } catch {}
+  };
 
   const handleLogout = async () => {
     showAlert(
@@ -230,35 +281,37 @@ export default function ProfileScreen() {
   };
 
   // Submit Ulasan Kami
-  const handleSubmitReview = () => {
-    setReviewSubmitting(true);
-    setTimeout(() => {
-      setReviewSubmitting(false);
-      setReviewSuccess(true);
-      setTimeout(() => {
-        setReviewSuccess(false);
-        setReviewModalVisible(false);
-        setReviewText('');
-        setRatingStars(5);
-      }, 1800);
-    }, 1500);
-  };
-
-  const MENU_ITEMS = [
-    { title: 'Data Pribadi', icon: User, color: COLORS.primary[400], onPress: handleOpenPersonal },
-    { title: 'Metode Pembayaran', icon: CreditCard, color: COLORS.gold[500], onPress: () => setPaymentModalVisible(true) },
-    { title: 'Riwayat Pesanan', icon: Smartphone, color: COLORS.primary[300], onPress: () => router.push('/history') },
-    { title: 'PIN Transaksi', icon: KeyRound, color: COLORS.gold[600], onPress: () => router.push('/pin-setup') },
-    { title: 'Rekening Tujuan', icon: Building2, color: COLORS.primary[400], onPress: () => router.push('/bank-accounts') },
-    { title: 'Keamanan', icon: Shield, color: COLORS.success, onPress: () => setSecurityModalVisible(true) },
-    { title: 'Notifikasi', icon: Bell, color: COLORS.gold[600], onPress: () => setNotificationModalVisible(true) },
-    { title: 'Bantuan & Dukungan', icon: HelpCircle, color: COLORS.primary[300], onPress: () => setSupportModalVisible(true) },
+  const MENU_GROUPS = [
+    {
+      label: 'Akun Saya',
+      items: [
+        { title: 'Data Pribadi', icon: User, color: COLORS.primary[400], onPress: handleOpenPersonal },
+        { title: 'PIN Transaksi', icon: KeyRound, color: COLORS.gold[600], onPress: () => router.push('/pin-setup') },
+        { title: 'Rekening Tujuan', icon: Building2, color: COLORS.primary[400], onPress: () => router.push('/bank-accounts') },
+      ],
+    },
+    {
+      label: 'Pengaturan',
+      items: [
+        { title: 'Metode Pembayaran', icon: CreditCard, color: COLORS.gold[500], onPress: () => setPaymentModalVisible(true) },
+        { title: 'Keamanan', icon: Shield, color: COLORS.success, onPress: () => setSecurityModalVisible(true) },
+        { title: 'Notifikasi', icon: Bell, color: COLORS.gold[600], onPress: () => setNotificationModalVisible(true) },
+      ],
+    },
+    {
+      label: 'Informasi',
+      items: [
+        { title: 'Ulas Aplikasi', icon: Star, color: COLORS.gold[500], onPress: () => Linking.openURL(playstoreUrl) },
+        { title: 'Bantuan & Dukungan', icon: HelpCircle, color: COLORS.primary[300], onPress: () => setSupportModalVisible(true) },
+        { title: 'Syarat & Ketentuan', icon: FileText, color: COLORS.primary[400], onPress: () => setSyaratModalVisible(true) },
+      ],
+    },
   ];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}>
         
         {/* Profile Header */}
         <View style={styles.header}>
@@ -278,7 +331,7 @@ export default function ProfileScreen() {
                   />
                 ) : (
                   <View style={[styles.avatar, { backgroundColor: theme.surfaceVariant, alignItems: 'center', justifyContent: 'center' }]}>
-                    <Text style={{ fontSize: 26, fontWeight: 'bold', color: COLORS.primary[500] }}>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: COLORS.primary[500] }}>
                       {getInitials(profile?.full_name || user?.email || 'User')}
                     </Text>
                   </View>
@@ -318,52 +371,41 @@ export default function ProfileScreen() {
         </View>
 
         {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          {MENU_ITEMS.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <TouchableOpacity 
-                key={index} 
-                style={[styles.menuItem, { borderBottomColor: theme.border }]}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.iconWrapper, { backgroundColor: `${item.color}15`, borderColor: `${item.color}30` }]}>
-                  <Icon size={20} color={item.color} />
-                </View>
-                <Text style={[styles.menuTitle, { color: theme.text }]}>{item.title}</Text>
-                <ChevronRight size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Rate Us Section */}
-        <View style={styles.menuContainer}>
-          <TouchableOpacity 
-            style={[styles.menuItem, { borderBottomColor: theme.border }]}
-            activeOpacity={0.7}
-            onPress={() => setReviewModalVisible(true)}
-          >
-            <View style={[styles.iconWrapper, { backgroundColor: 'rgba(253, 185, 39, 0.1)', borderColor: 'rgba(253, 185, 39, 0.2)' }]}>
-              <Star size={20} color={COLORS.gold[500]} fill={COLORS.gold[500]} />
-            </View>
-            <Text style={[styles.menuTitle, { color: theme.text }]}>Ulas Aplikasi</Text>
-            <ChevronRight size={18} color={theme.textSecondary} />
-          </TouchableOpacity>
-        </View>
+        {MENU_GROUPS.map((group, gi) => (
+          <View key={gi} style={styles.menuContainer}>
+            {gi > 0 && <View style={[styles.sectionLine, { backgroundColor: theme.border }]} />}
+            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>{group.label}</Text>
+            {group.items.map((item, ii) => {
+              const Icon = item.icon;
+              return (
+                <TouchableOpacity 
+                  key={ii} 
+                  style={[styles.menuItem, { borderBottomColor: theme.border }]}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.iconWrapper, { backgroundColor: `${item.color}15`, borderColor: `${item.color}30` }]}>
+                    <Icon size={18} color={item.color} />
+                  </View>
+                  <Text style={[styles.menuTitle, { color: theme.text }]}>{item.title}</Text>
+                  <ChevronRight size={16} color={theme.textSecondary} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
           <View style={[styles.logoutIconWrapper, { backgroundColor: isDark ? 'rgba(231, 76, 60, 0.1)' : 'rgba(231, 76, 60, 0.05)', borderColor: 'rgba(231, 76, 60, 0.2)' }]}>
-            <LogOut size={20} color={COLORS.error} />
+            <LogOut size={18} color={COLORS.error} />
           </View>
           <Text style={styles.logoutText}>Keluar Akun</Text>
         </TouchableOpacity>
 
         <View style={styles.footer}>
           <Text style={[styles.versionText, { color: theme.textSecondary }]}>Kang Massage v1.0.0</Text>
-          <Text style={[styles.copyrightText, { color: theme.textSecondary, opacity: 0.5 }]}>© 2026 Kang Massage</Text>
+          <Text style={[styles.copyrightText, { color: theme.textSecondary, opacity: 0.5 }]}>© {new Date().getFullYear()} Kang Massage</Text>
         </View>
 
       </ScrollView>
@@ -371,7 +413,7 @@ export default function ProfileScreen() {
       {/* 1. Modal Data Pribadi */}
       <Modal visible={personalModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
+          <View style={[styles.modalBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Data Pribadi</Text>
               <TouchableOpacity onPress={() => setPersonalModalVisible(false)}>
@@ -385,7 +427,7 @@ export default function ProfileScreen() {
                     <Image source={{ uri: editAvatar }} style={styles.formAvatar} />
                   ) : (
                     <View style={[styles.formAvatar, { backgroundColor: theme.surfaceVariant, alignItems: 'center', justifyContent: 'center' }]}>
-                      <User size={40} color={COLORS.primary[500]} />
+                      <User size={32} color={COLORS.primary[500]} />
                     </View>
                   )}
                   <View style={styles.cameraIconBadge}>
@@ -416,16 +458,6 @@ export default function ProfileScreen() {
                 placeholderTextColor={theme.textSecondary}
               />
 
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>URL Foto Profil</Text>
-              <TextInput
-                style={[styles.textInput, { color: theme.text, borderColor: theme.border }]}
-                value={editAvatar}
-                onChangeText={setEditAvatar}
-                placeholder="https://image-url-anda.com/foto.jpg"
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="none"
-              />
-
               <TouchableOpacity 
                 style={[styles.saveBtn, { backgroundColor: COLORS.primary[500] }]}
                 onPress={handleSavePersonal}
@@ -446,7 +478,7 @@ export default function ProfileScreen() {
       <Modal visible={paymentModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.backdropButton} activeOpacity={1} onPress={() => setPaymentModalVisible(false)} />
-          <View style={[styles.bottomSheetBox, { backgroundColor: theme.surface }]}>
+          <View style={[styles.bottomSheetBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Metode Pembayaran Saya</Text>
               <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
@@ -473,16 +505,37 @@ export default function ProfileScreen() {
             {/* Payment List */}
             <View style={styles.payList}>
               <View style={[styles.payItem, { borderBottomColor: theme.border }]}>
-                <CreditCard size={20} color={COLORS.primary[500]} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.payTitle, { color: theme.text }]}>Saldo Kang Massage</Text>
-                  <Text style={[styles.paySub, { color: theme.textSecondary }]}>Default (Direkomendasikan)</Text>
+                <View style={[styles.iconWrapper, { backgroundColor: '#EBF5FF', borderColor: '#DBEAFE' }]}>
+                  <CreditCard size={18} color={COLORS.primary[500]} />
                 </View>
-                <CheckCircle2 size={20} color={COLORS.success} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.payTitle}>Kartu Kredit/Debit</Text>
+                  <Text style={styles.paySub}>Visa, Mastercard, dll.</Text>
+                </View>
+              </View>
+              <View style={[styles.payItem, { borderBottomColor: theme.border }]}>
+                <View style={[styles.iconWrapper, { backgroundColor: '#F0FFF4', borderColor: '#E8F5E9' }]}>
+                  <Smartphone size={18} color="#10B981" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.payTitle}>E-Wallet</Text>
+                  <Text style={styles.paySub}>GoPay, OVO, DANA, dll.</Text>
+                </View>
+              </View>
+              <View style={[styles.payItem, { borderBottomColor: theme.border }]}>
+                <View style={[styles.iconWrapper, { backgroundColor: '#FFF7E6', borderColor: '#FFE0B2' }]}>
+                  <CheckCircle2 size={18} color={COLORS.success} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.payTitle}>Saldo Kang Massage</Text>
+                  <Text style={styles.paySub}>Default (Direkomendasikan)</Text>
+                </View>
               </View>
               <View style={[styles.payItem, { borderBottomColor: theme.border, opacity: 0.7 }]}>
-                <Smartphone size={20} color="#10B981" />
-                <View style={{ flex: 1, marginLeft: 12 }}>
+                <View style={[styles.iconWrapper, { backgroundColor: '#FEF2F2', borderColor: '#FEE2E2' }]}>
+                  <Smartphone size={16} color="#EF4444" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={[styles.payTitle, { color: theme.text }]}>Tunai (Cash)</Text>
                   <Text style={[styles.paySub, { color: theme.textSecondary }]}>Bayar langsung di tempat</Text>
                 </View>
@@ -496,7 +549,7 @@ export default function ProfileScreen() {
       <Modal visible={securityModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.backdropButton} activeOpacity={1} onPress={() => setSecurityModalVisible(false)} />
-          <View style={[styles.bottomSheetBox, { backgroundColor: theme.surface }]}>
+          <View style={[styles.bottomSheetBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Keamanan Akun</Text>
               <TouchableOpacity onPress={() => setSecurityModalVisible(false)}>
@@ -506,27 +559,34 @@ export default function ProfileScreen() {
             
             <View style={styles.secDetails}>
               <View style={[styles.secRow, { borderBottomColor: theme.border }]}>
-                <Mail size={18} color={theme.textSecondary} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.secLabel, { color: theme.textSecondary }]}>Email Terdaftar</Text>
-                  <Text style={[styles.secValue, { color: theme.text }]}>{user?.email || '-'}</Text>
+                <View style={[styles.iconWrapper, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+                  <Mail size={16} color={theme.textSecondary} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.secLabel}>Email</Text>
+                  <Text style={styles.secValue}>{user?.email || '-'}</Text>
                 </View>
               </View>
-
               <View style={[styles.secRow, { borderBottomColor: theme.border }]}>
-                <Lock size={18} color={theme.textSecondary} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.secLabel, { color: theme.textSecondary }]}>Keamanan Akses</Text>
-                  <Text style={[styles.secValue, { color: theme.text }]}>Biometrik / PIN Sidik Jari</Text>
+                <View style={[styles.iconWrapper, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+                  <Lock size={16} color={theme.textSecondary} />
                 </View>
-                <Switch
-                  value={biometricEnabled}
-                  onValueChange={setBiometricEnabled}
-                  trackColor={{ false: theme.border, true: COLORS.primary[500] }}
-                  thumbColor="#white"
-                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.secLabel}>Kata Sandi</Text>
+                  <Text style={styles.secValue}>********</Text>
+                </View>
               </View>
-              
+              <TouchableOpacity style={[styles.secRow, { borderBottomColor: theme.border }]}>
+                <View style={[styles.iconWrapper, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+                  <KeyRound size={16} color={theme.textSecondary} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.secLabel, { color: theme.textSecondary }]}>Ganti Password</Text>
+                  <Text style={[styles.secValue, { color: theme.text }]}>Ubah password akun Anda</Text>
+                </View>
+                <ChevronRight size={16} color={theme.textSecondary} />
+              </TouchableOpacity>
+
               <Text style={[styles.secNotice, { color: theme.textSecondary }]}>
                 Aplikasi Kang Massage dilindungi enkripsi end-to-end standar Supabase Auth yang terjamin aman untuk melindungi privasi transaksi Anda.
               </Text>
@@ -539,15 +599,14 @@ export default function ProfileScreen() {
       <Modal visible={notificationModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.backdropButton} activeOpacity={1} onPress={() => setNotificationModalVisible(false)} />
-          <View style={[styles.bottomSheetBox, { backgroundColor: theme.surface }]}>
+          <View style={[styles.bottomSheetBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Pengaturan Notifikasi</Text>
               <TouchableOpacity onPress={() => setNotificationModalVisible(false)}>
                 <X size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
-
-            <View style={styles.notifContainer}>
+            <View style={{ paddingHorizontal: 16 }}>
               <View style={[styles.notifRow, { borderBottomColor: theme.border }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.notifLabel, { color: theme.text }]}>Notifikasi Push (Aplikasi)</Text>
@@ -555,23 +614,10 @@ export default function ProfileScreen() {
                 </View>
                 <Switch
                   value={pushEnabled}
-                  onValueChange={setPushEnabled}
+                  onValueChange={(v) => { setPushEnabled(v); saveNotifPrefs('push_enabled', v); }}
                   trackColor={{ false: theme.border, true: COLORS.primary[500] }}
                 />
               </View>
-
-              <View style={[styles.notifRow, { borderBottomColor: theme.border }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.notifLabel, { color: theme.text }]}>Notifikasi WhatsApp</Text>
-                  <Text style={[styles.notifSub, { color: theme.textSecondary }]}>Terima struk digital dan status kedatangan via WA</Text>
-                </View>
-                <Switch
-                  value={waEnabled}
-                  onValueChange={setWaEnabled}
-                  trackColor={{ false: theme.border, true: COLORS.primary[500] }}
-                />
-              </View>
-
               <View style={[styles.notifRow, { borderBottomColor: theme.border }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.notifLabel, { color: theme.text }]}>Promo & Diskon Voucher</Text>
@@ -579,7 +625,7 @@ export default function ProfileScreen() {
                 </View>
                 <Switch
                   value={promoEnabled}
-                  onValueChange={setPromoEnabled}
+                  onValueChange={(v) => { setPromoEnabled(v); saveNotifPrefs('promo_enabled', v); }}
                   trackColor={{ false: theme.border, true: COLORS.primary[500] }}
                 />
               </View>
@@ -591,7 +637,7 @@ export default function ProfileScreen() {
       {/* 5. Modal Bantuan & Dukungan */}
       <Modal visible={supportModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
+          <View style={[styles.modalBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Bantuan & Layanan FAQ</Text>
               <TouchableOpacity onPress={() => setSupportModalVisible(false)}>
@@ -600,35 +646,49 @@ export default function ProfileScreen() {
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.faqContent}>
               
-              <Text style={[styles.faqHeader, { color: theme.text }]}>Pertanyaan Sering Diajukan (FAQ)</Text>
+              <Text style={[styles.faqHeader, { color: theme.text }]}>Informasi untuk Pelanggan</Text>
               
               <View style={[styles.faqCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <Text style={[styles.faqQuestion, { color: theme.text }]}>Bagaimana cara memesan pijat?</Text>
+                <Text style={[styles.faqQuestion, { color: theme.text }]}>Bagaimana cara memesan layanan?</Text>
                 <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
-                  Pilih layanan massage favorit di halaman beranda, tentukan gender terapis dan lokasi jemput Anda, lalu selesaikan pembayaran. Terapis terdekat akan segera meluncur ke lokasi Anda.
+                  Pilih layanan di halaman beranda, atur lokasi penjemputan, pilih gender terapis, dan lakukan pembayaran. Sistem akan mencari terapis terdekat yang sesuai secara otomatis.
                 </Text>
               </View>
 
               <View style={[styles.faqCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <Text style={[styles.faqQuestion, { color: theme.text }]}>Bagaimana membatalkan pesanan?</Text>
+                <Text style={[styles.faqQuestion, { color: theme.text }]}>Bagaimana kebijakan pembatalan?</Text>
                 <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
-                  Anda dapat membatalkan pesanan saat terapis sedang dicari. Apabila terapis telah menerima dan dalam perjalanan, silakan hubungi admin untuk konfirmasi penyesuaian.
+                  Pembatalan dapat dilakukan sebelum terapis sampai di lokasi. Jika terapis sudah dalam perjalanan, akan dikenakan biaya pembatalan sebesar 50% dari total pesanan. Pembatalan setelah terapis tiba tidak dapat dilakukan.
                 </Text>
               </View>
 
               <View style={[styles.faqCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-                <Text style={[styles.faqQuestion, { color: theme.text }]}>Bagaimana bagi hasil/fee platform?</Text>
+                <Text style={[styles.faqQuestion, { color: theme.text }]}>Bagaimana metode pembayarannya?</Text>
                 <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
-                  Sistem kami memotong platform fee 20% otomatis dari dompet terapis, menjamin transparansi 100% tanpa biaya tersembunyi untuk Anda.
+                  Kami menerima pembayaran melalui saldo Kang Massage, kartu kredit/debit, dan e-wallet (GoPay, OVO, DANA). Pembayaran tunai langsung ke terapis juga tersedia.
+                </Text>
+              </View>
+
+              <View style={[styles.faqCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+                <Text style={[styles.faqQuestion, { color: theme.text }]}>Bagaimana data privasi saya dilindungi?</Text>
+                <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
+                  Data pribadi Anda dienkripsi dan dilindungi oleh sistem keamanan Supabase Auth. Alamat dan kontak Anda hanya dibagikan ke terapis saat pesanan aktif, dan otomatis disembunyikan setelah selesai.
+                </Text>
+              </View>
+
+              <View style={[styles.faqCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+                <Text style={[styles.faqQuestion, { color: theme.text }]}>Berapa lama waktu pengiriman terapis?</Text>
+                <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
+                  Terapis akan dikirimkan dalam waktu 15-30 menit setelah pesanan dikonfirmasi, tergantung jarak dan ketersediaan terapis di sekitar lokasi Anda.
                 </Text>
               </View>
 
               <TouchableOpacity 
-                style={[styles.saveBtn, { backgroundColor: '#25D366', flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }]}
-                onPress={() => Linking.openURL('https://wa.me/6281234567890')}
+                style={[styles.saveBtn, { backgroundColor: COLORS.primary[500], flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }]}
+                onPress={() => Linking.openURL(`mailto:${supportEmail}`)}
               >
-                <Phone size={18} color="white" />
-                <Text style={styles.saveBtnText}>Hubungi Customer Service WA</Text>
+                <Mail size={18} color="white" />
+                <Text style={styles.saveBtnText}>Hubungi via Email</Text>
               </TouchableOpacity>
 
             </ScrollView>
@@ -636,65 +696,55 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* 6. Modal Ulas Aplikasi */}
-      <Modal visible={reviewModalVisible} transparent animationType="fade">
+      {/* 6. Modal Syarat & Ketentuan */}
+      <Modal visible={syaratModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.reviewBox, { backgroundColor: theme.surface }]}>
-            {reviewSuccess ? (
-              <View style={styles.successReview}>
-                <CheckCircle2 size={64} color={COLORS.success} />
-                <Text style={[styles.successTitle, { color: theme.text }]}>Terima Kasih Banyak!</Text>
-                <Text style={[styles.successSub, { color: theme.textSecondary }]}>Ulasan bintang {ratingStars} Anda sangat berharga bagi kami.</Text>
-              </View>
-            ) : (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: theme.text }]}>Ulas Aplikasi Kang Massage</Text>
-                  <TouchableOpacity onPress={() => setReviewModalVisible(false)}>
-                    <X size={24} color={theme.text} />
-                  </TouchableOpacity>
-                </View>
-                
-                <Text style={[styles.reviewSubtitle, { color: theme.textSecondary }]}>
-                  Berikan bintang kepuasan Anda untuk membantu kami menjadi lebih baik!
-                </Text>
+          <View style={[styles.modalBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Syarat & Ketentuan</Text>
+              <TouchableOpacity onPress={() => setSyaratModalVisible(false)}>
+                <X size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.faqContent}>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 16, lineHeight: 22 }]}>
+                Dengan menggunakan aplikasi Kang Massage, Anda menyetujui syarat dan ketentuan berikut:
+              </Text>
 
-                {/* Rating Stars Selection */}
-                <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity key={star} onPress={() => setRatingStars(star)}>
-                      <Star 
-                        size={40} 
-                        color={star <= ratingStars ? COLORS.gold[500] : theme.border} 
-                        fill={star <= ratingStars ? COLORS.gold[500] : 'transparent'} 
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>1. Layanan</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Kang Massage menyediakan platform penghubung antara pengguna (customer) dengan penyedia jasa pijat dan terapi (terapis). Kami bukan penyedia jasa terapi medis. Seluruh layanan bersifat relaksasi dan kebugaran non-medis.
+              </Text>
 
-                {/* Review Text */}
-                <TextInput
-                  style={[styles.reviewInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surfaceVariant }]}
-                  multiline
-                  placeholder="Ceritakan pengalaman Anda menggunakan Kang Massage..."
-                  placeholderTextColor={theme.textSecondary}
-                  value={reviewText}
-                  onChangeText={setReviewText}
-                />
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>2. Pendaftaran & Akun</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Anda wajib mendaftar dengan data yang benar dan akurat. Akun bersifat pribadi dan tidak dapat dialihkan. Anda bertanggung jawab penuh atas keamanan akun dan kata sandi.
+              </Text>
 
-                <TouchableOpacity 
-                  style={[styles.saveBtn, { backgroundColor: COLORS.primary[500], marginTop: 12 }]}
-                  onPress={handleSubmitReview}
-                  disabled={reviewSubmitting}
-                >
-                  {reviewSubmitting ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Kirim Ulasan</Text>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>3. Pembayaran</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Pembayaran dilakukan melalui metode yang tersedia di aplikasi. Seluruh transaksi dicatat dan dapat diakses di riwayat pembayaran. Harga yang tertera sudah termasuk pajak yang berlaku.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>4. Pembatalan & Refund</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Pembatalan sebelum terapis berangkat: refund penuh (via saldo). Pembatalan saat terapis dalam perjalanan: refund 50%. Pembatalan setelah terapis tiba: tidak ada refund. Refund dikembalikan ke saldo dompet Kang Massage.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>5. Privasi & Data</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Data pribadi Anda dilindungi dan tidak akan dibagikan kepada pihak ketiga tanpa persetujuan. Alamat lokasi hanya dibagikan ke terapis saat pesanan aktif. Data lokasi tidak disimpan setelah pesanan selesai.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>6. Tanggung Jawab</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Kang Massage tidak bertanggung jawab atas cedera, kerusakan properti, atau kerugian yang timbul selama sesi terapi. Terapis adalah penyedia jasa independen, bukan karyawan Kang Massage.
+              </Text>
+
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 16, lineHeight: 22 }]}>
+                Dengan melanjutkan penggunaan aplikasi, Anda dianggap telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan di atas. Kebijakan ini dapat diperbarui sewaktu-waktu dan akan diinformasikan melalui aplikasi.
+              </Text>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -708,35 +758,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   header: {
-    paddingTop: 16,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     width: '100%',
   },
   avatarContainer: {
     position: 'relative',
   },
   avatarGradient: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     padding: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 4,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
     borderColor: 'transparent',
   },
   editButton: {
@@ -744,49 +794,49 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: COLORS.primary[600],
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
   },
   userInfo: {
     flex: 1,
-    marginLeft: 18,
+    marginLeft: 14,
     justifyContent: 'center',
   },
   welcomeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '500',
     opacity: 0.6,
   },
   name: {
     ...TYPOGRAPHY.h2,
-    fontSize: 22,
-    marginTop: 2,
+    fontSize: 18,
+    marginTop: 1,
     marginBottom: 0,
   },
   emailText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '400',
     opacity: 0.5,
-    marginTop: 2,
+    marginTop: 1,
   },
   membershipBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 28,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginBottom: 20,
     borderWidth: 1,
   },
   membershipText: {
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -794,9 +844,9 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    borderRadius: 24,
-    paddingVertical: 20,
-    paddingHorizontal: 40,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     alignItems: 'center',
     borderWidth: 1,
   },
@@ -806,84 +856,98 @@ const styles = StyleSheet.create({
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   statValue: {
     fontWeight: '900',
-    fontSize: 20,
+    fontSize: 17,
     fontFamily: TYPOGRAPHY.h1.fontFamily,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginTop: 4,
+    marginTop: 2,
   },
   statDivider: {
-    width: 1.5,
-    height: 30,
-    marginHorizontal: 40,
+    width: 1,
+    height: 24,
+    marginHorizontal: 24,
   },
   menuContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  sectionLine: {
+    height: 1,
+    marginBottom: 18,
+    marginLeft: -20,
+    marginRight: -20,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.body.fontFamily,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
+    paddingVertical: 14,
     borderBottomWidth: 1,
   },
   iconWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 18,
+    marginRight: 14,
     borderWidth: 1,
   },
   menuTitle: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '600',
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 40,
-    marginTop: 10,
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    marginTop: 8,
   },
   logoutIconWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 18,
+    marginRight: 14,
     borderWidth: 1,
   },
   logoutText: {
     color: COLORS.error,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '700',
   },
   footer: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   versionText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   copyrightText: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '500',
   },
@@ -901,8 +965,8 @@ const styles = StyleSheet.create({
   modalBox: {
     width: '90%',
     maxHeight: '85%',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 20,
+    padding: 20,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
@@ -913,23 +977,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: {
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 20,
+    fontSize: 17,
   },
   formContainer: {
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   avatarPreviewContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   formAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 2,
     borderColor: COLORS.primary[500],
   },
@@ -941,56 +1005,56 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: COLORS.primary[500],
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'white',
   },
   changePhotoBtn: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   changePhotoText: {
     fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.primary[500],
   },
   inputLabel: {
     fontFamily: 'PlusJakartaSans-Medium',
-    fontSize: 13,
-    marginBottom: 6,
+    fontSize: 12,
+    marginBottom: 4,
   },
   textInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 14,
+    fontSize: 13,
   },
   saveBtn: {
-    padding: 16,
-    borderRadius: 14,
+    padding: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
   saveBtnText: {
     color: 'white',
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 15,
+    fontSize: 14,
   },
 
   /* Bottom Sheet Modal Styles */
   bottomSheetBox: {
     width: '100%',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
     position: 'absolute',
     bottom: 0,
     elevation: 20,
@@ -1002,132 +1066,130 @@ const styles = StyleSheet.create({
 
   /* Wallet Card in Payment Sheet */
   walletCard: {
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   walletLabel: {
     color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Regular',
   },
   walletValue: {
     color: 'white',
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: 'PlusJakartaSans-Bold',
-    marginTop: 4,
+    marginTop: 2,
   },
   topupBtn: {
     backgroundColor: 'white',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
   },
   topupText: {
     color: COLORS.primary[600],
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 13,
+    fontSize: 12,
   },
   payList: {
-    gap: 8,
+    gap: 6,
   },
   payItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   payTitle: {
     fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: 15,
+    fontSize: 13,
   },
   paySub: {
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 12,
+    fontSize: 11,
   },
 
   /* Security Modal Custom Styles */
   secDetails: {
-    gap: 16,
+    gap: 12,
   },
   secRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
   secLabel: {
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 12,
+    fontSize: 11,
   },
   secValue: {
     fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: 15,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 1,
   },
   secNotice: {
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 10,
+    lineHeight: 14,
     opacity: 0.6,
-    marginTop: 10,
+    marginTop: 8,
   },
 
   /* Notifications Sheet Styles */
-  notifContainer: {
-    gap: 16,
-  },
+
   notifRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
   notifLabel: {
     fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: 15,
+    fontSize: 13,
   },
   notifSub: {
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
     maxWidth: '90%',
   },
 
   /* FAQ Support Custom Styles */
   faqContent: {
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   faqHeader: {
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 14,
-    marginBottom: 16,
+    fontSize: 13,
+    marginBottom: 12,
   },
   faqCard: {
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
   },
   faqQuestion: {
     fontFamily: 'PlusJakartaSans-SemiBold',
-    fontSize: 14,
-    marginBottom: 6,
+    fontSize: 13,
+    marginBottom: 4,
   },
   faqAnswer: {
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
   },
 
   /* Review Box Custom Styles */
   reviewBox: {
     width: '85%',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 20,
+    padding: 20,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
@@ -1136,41 +1198,41 @@ const styles = StyleSheet.create({
   },
   reviewSubtitle: {
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 20,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 16,
   },
   starsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
-    marginVertical: 16,
+    gap: 10,
+    marginVertical: 12,
   },
   reviewInput: {
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    height: 100,
+    borderRadius: 12,
+    padding: 12,
+    height: 80,
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 14,
+    fontSize: 13,
     textAlignVertical: 'top',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   successReview: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
+    paddingVertical: 24,
   },
   successTitle: {
     fontFamily: 'PlusJakartaSans-Bold',
-    fontSize: 20,
-    marginTop: 16,
+    fontSize: 17,
+    marginTop: 12,
   },
   successSub: {
     fontFamily: 'PlusJakartaSans-Regular',
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
+    marginTop: 4,
+    lineHeight: 16,
   },
 });

@@ -20,7 +20,10 @@ supabase/schema.sql Full DB schema, RLS, triggers, seed data
 | Therapist app | `npm run mobile:therapist` |
 | Lint (web only) | `cd apps/web && npm run lint` |
 
-No typecheck, test, or formatter scripts configured. No pre-commit hooks.
+| Test (user app) | `cd apps/user && npm test` |
+| Test watch (user app) | `cd apps/user && npm run test:watch` |
+
+No typecheck or formatter scripts configured. No pre-commit hooks.
 
 ## Key architecture
 

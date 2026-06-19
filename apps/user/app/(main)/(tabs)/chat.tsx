@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, RefreshControl, TextInput, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, RefreshControl, TextInput, Animated, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
@@ -181,8 +181,16 @@ export default function ChatScreen() {
         }
       >
         {loading && !refreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={PURPLE} />
+          <View style={styles.skeletonContainer}>
+            {[1,2,3,4,5,6].map((i) => (
+              <View key={i} style={[styles.skeletonCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.skeletonAvatar, { backgroundColor: theme.textSecondary + '30' }]} />
+                <View style={styles.skeletonContent}>
+                  <View style={[styles.skeletonLine, styles.skeletonName, { backgroundColor: theme.textSecondary + '30' }]} />
+                  <View style={[styles.skeletonLine, styles.skeletonMsg, { backgroundColor: theme.textSecondary + '30' }]} />
+                </View>
+              </View>
+            ))}
           </View>
         ) : filteredChats.length === 0 ? (
           <View style={styles.emptyState}>
@@ -340,9 +348,37 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: 16,
   },
-  loadingContainer: {
-    marginTop: 100,
+  skeletonContainer: {
+    gap: 12,
+    paddingTop: 4,
+  },
+  skeletonCard: {
+    flexDirection: 'row',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
     alignItems: 'center',
+  },
+  skeletonAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  skeletonContent: {
+    flex: 1,
+    gap: 8,
+  },
+  skeletonLine: {
+    borderRadius: 6,
+  },
+  skeletonName: {
+    width: '55%',
+    height: 14,
+  },
+  skeletonMsg: {
+    width: '85%',
+    height: 11,
   },
   chatCard: {
     flexDirection: 'row',

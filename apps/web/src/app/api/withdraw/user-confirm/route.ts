@@ -116,12 +116,17 @@ export async function POST(req: NextRequest) {
       });
       const valData = await valRes.json();
       if (!valRes.ok) {
-        const xenditMsg = valData.message || valData.error || '';
+        const xenditMsg = valData.message || valData.error || JSON.stringify(valData);
+        console.error('[Withdraw Confirm] Xendit validation error:', xenditMsg);
         const msgMap: Record<string, string> = {
           'is not a valid bank account': 'Nomor rekening tidak valid',
           'account number': 'Nomor rekening tidak valid',
           'is not supported': 'Bank belum didukung',
           'bank code': 'Kode bank tidak dikenal',
+          'unauthenticated': 'Konfigurasi pembayaran belum lengkap, periksa API key Xendit di dashboard',
+          'api key is inactive': 'Konfigurasi pembayaran belum lengkap, periksa API key Xendit di dashboard',
+          'api_key_inactive': 'Konfigurasi pembayaran belum lengkap, periksa API key Xendit di dashboard',
+          'forbidden': 'Konfigurasi pembayaran belum lengkap, API key tidak memiliki akses',
           'resource was not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
           'not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
           'internal error': 'Terjadi kesalahan sistem, coba lagi nanti',

@@ -45,12 +45,17 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
-      const xenditMsg = data.message || data.error || '';
+      const xenditMsg = data.message || data.error || JSON.stringify(data);
+      console.error('[Bank Validate] Xendit error:', xenditMsg);
       const msgMap: Record<string, string> = {
         'is not a valid bank account': 'Nomor rekening tidak valid',
         'account number': 'Nomor rekening tidak valid',
         'is not supported': 'Bank belum didukung',
         'bank code': 'Kode bank tidak dikenal',
+        'unauthenticated': 'Konfigurasi pembayaran belum lengkap, periksa API key Xendit di dashboard',
+        'api key is inactive': 'Konfigurasi pembayaran belum lengkap, periksa API key Xendit di dashboard',
+        'api_key_inactive': 'Konfigurasi pembayaran belum lengkap, periksa API key Xendit di dashboard',
+        'forbidden': 'Konfigurasi pembayaran belum lengkap, API key tidak memiliki akses',
         'resource was not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
         'not found': 'Konfigurasi pembayaran belum lengkap, hubungi admin',
         'internal error': 'Terjadi kesalahan sistem, coba lagi nanti',

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, StatusBar, Modal, Alert, KeyboardAvoidingView, Platform
+  TextInput, ActivityIndicator, StatusBar, Modal, Alert, KeyboardAvoidingView, Platform, FlatList, Animated
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Plus, Building2, Trash2, AlertCircle, CheckCircle2, Shield, Info } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, Plus, Building2, Trash2, AlertCircle, CheckCircle2, Shield, Info } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
@@ -49,16 +49,19 @@ export default function BankAccountsScreen() {
   const router = useRouter();
   const { profile } = useAuth();
   const { showAlert } = useAlert();
+  const insets = useSafeAreaInsets();
 
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [addModalVisible, setAddModalVisible] = useState(false);
 
   const [selectedBank, setSelectedBank] = useState('bca');
+  const [showBankPicker, setShowBankPicker] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [validating, setValidating] = useState(false);
+
+  const backdropOpacity = useRef(new Animated.Value(1)).current;
 
   // PIN Modal
   const [pinModalVisible, setPinModalVisible] = useState(false);
@@ -129,51 +132,8 @@ export default function BankAccountsScreen() {
       setPinModalVisible(false);
       setPinLoading(false);
 
-      // PIN valid — validate with Xendit (skip DANA, not supported)
+      // PIN valid — save directly (validation skipped)
       const bank = BANK_LIST.find(b => b.id === selectedBank);
-      if (selectedBank === 'dana') {
-        // DANA is e-wallet — skip Xendit validation, save directly
-        setValidating(false);
-        setSaving(true);
-        const { error } = await supabase
-          .from('saved_bank_accounts')
-          .insert([{
-            user_id: profile?.id,
-            bank_code: bank?.code || '',
-            bank_name: bank?.name || selectedBank,
-            account_number: accountNumber,
-            account_name: profile?.full_name,
-            is_verified: true,
-          }]);
-        if (error) throw error;
-        setAddModalVisible(false);
-        setAccountNumber('');
-        showAlert('Berhasil', 'Rekening berhasil ditambahkan');
-        fetchAccounts();
-        setSaving(false);
-        return;
-      }
-      setValidating(true);
-      try {
-        const valRes = await fetch(`${API_URL}/api/bank-accounts/validate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bank_code: bank?.code || selectedBank, account_number: accountNumber }),
-        });
-        const valData = await valRes.json();
-        if (!valRes.ok) {
-          const errMsg = valData.error || (valRes.status === 0 ? 'Koneksi terputus' : 'Gagal memvalidasi rekening');
-          if (valRes.status !== 0) {
-            setValidating(false);
-            showAlert('Rekening Tidak Valid', errMsg);
-            return;
-          }
-        }
-      } catch {
-        // Validation API not available — save without verification
-      }
-      setValidating(false);
-
       setSaving(true);
       const { error } = await supabase
         .from('saved_bank_accounts')
@@ -188,7 +148,7 @@ export default function BankAccountsScreen() {
       if (error) throw error;
       setAddModalVisible(false);
       setAccountNumber('');
-      showAlert('Berhasil', 'Rekening berhasil ditambahkan dan terverifikasi');
+      showAlert('Berhasil', 'Rekening berhasil ditambahkan');
       fetchAccounts();
     } catch (err: any) {
       showAlert('Gagal', err.message);
@@ -299,8 +259,10 @@ export default function BankAccountsScreen() {
       {/* Add Bank Account Modal */}
       <Modal visible={addModalVisible} transparent animationType="slide">
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setAddModalVisible(false)} />
-          <View style={styles.modalSheet}>
+          <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => { Animated.timing(backdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setAddModalVisible(false)); }} />
+          </Animated.View>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Tambah Rekening</Text>
               <TouchableOpacity onPress={() => setAddModalVisible(false)}>
@@ -309,19 +271,16 @@ export default function BankAccountsScreen() {
             </View>
 
             <Text style={styles.sectionLabel}>Pilih Bank</Text>
-            <View style={styles.bankGrid}>
-              {BANK_LIST.map(bank => (
-                <TouchableOpacity
-                  key={bank.id}
-                  style={[styles.bankChip, selectedBank === bank.id && styles.bankChipActive]}
-                  onPress={() => setSelectedBank(bank.id)}
-                >
-                  <Text style={[styles.bankChipText, selectedBank === bank.id && styles.bankChipTextActive]}>
-                    {bank.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              style={styles.dropdownTrigger}
+              onPress={() => setShowBankPicker(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dropdownTriggerText, !selectedBank && { color: TEXT_MUTED }]}>
+                {BANK_LIST.find(b => b.id === selectedBank)?.name || 'Pilih Bank'}
+              </Text>
+              <ChevronDown size={18} color={TEXT_MUTED} />
+            </TouchableOpacity>
 
             <Text style={styles.sectionLabel}>
               {selectedBank === 'dana' ? 'Nomor HP DANA' : 'Nomor Rekening'}
@@ -353,14 +312,12 @@ export default function BankAccountsScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.saveBtn, (!accountNumber || saving || validating) && styles.saveBtnDisabled]}
+              style={[styles.saveBtn, (!accountNumber || saving) && styles.saveBtnDisabled]}
               onPress={handleSaveWithPin}
-              disabled={!accountNumber || saving || validating}
+              disabled={!accountNumber || saving}
               activeOpacity={0.85}
             >
-              {validating ? (
-                <Text style={styles.saveBtnText}>Memvalidasi...</Text>
-              ) : saving ? (
+              {saving ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.saveBtnText}>Simpan Rekening</Text>
@@ -368,6 +325,39 @@ export default function BankAccountsScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Bank Picker Modal */}
+      <Modal transparent visible={showBankPicker} animationType="slide">
+        <View style={styles.pickerOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowBankPicker(false)} />
+          <View style={styles.pickerSheet}>
+            <View style={styles.pickerHandle} />
+            <Text style={styles.pickerTitle}>Pilih Bank</Text>
+            <FlatList
+              data={BANK_LIST}
+              keyExtractor={(item) => item.id}
+              style={{ maxHeight: 320 }}
+              renderItem={({ item }) => {
+                const isSelected = selectedBank === item.id;
+                return (
+                  <TouchableOpacity
+                    style={[styles.pickerItem, isSelected && styles.pickerItemActive]}
+                    onPress={() => {
+                      setSelectedBank(item.id);
+                      setShowBankPicker(false);
+                    }}
+                  >
+                    <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextActive]}>
+                      {item.name}
+                    </Text>
+                    {isSelected && <CheckCircle2 size={18} color={PURPLE} />}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
       </Modal>
 
       {/* PIN Modal */}
@@ -456,8 +446,8 @@ const styles = StyleSheet.create({
   deleteBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-  backdrop: { flex: 1 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   modalSheet: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
@@ -476,15 +466,43 @@ const styles = StyleSheet.create({
     color: TEXT_MUTED, marginBottom: 8, marginTop: 16,
     textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  bankGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  bankChip: {
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 14, backgroundColor: '#F5F5F7',
+  dropdownTrigger: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F5F5F7', borderRadius: 14,
+    paddingHorizontal: 16, paddingVertical: 14,
     borderWidth: 1, borderColor: BORDER,
   },
-  bankChipActive: { borderColor: PURPLE, backgroundColor: `${PURPLE}10` },
-  bankChipText: { fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_MUTED },
-  bankChipTextActive: { color: PURPLE },
+  dropdownTriggerText: {
+    fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_DARK,
+  },
+  pickerOverlay: { flex: 1, justifyContent: 'flex-end' },
+  pickerSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16,
+    maxHeight: 420,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  pickerHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: '#E2E8F0', alignSelf: 'center', marginBottom: 16,
+  },
+  pickerTitle: {
+    fontSize: 16, fontFamily: 'PlusJakartaSans-Bold', color: TEXT_DARK,
+    marginBottom: 12,
+  },
+  pickerItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, paddingHorizontal: 12,
+    borderRadius: 12, marginBottom: 2,
+  },
+  pickerItemActive: { backgroundColor: `${PURPLE}10` },
+  pickerItemText: { fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold', color: TEXT_DARK },
+  pickerItemTextActive: { color: PURPLE },
 
   fieldInput: {
     backgroundColor: '#F5F5F7', borderRadius: 14,

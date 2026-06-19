@@ -4,7 +4,7 @@ import {
   Platform, ScrollView, Dimensions, StatusBar, Image, TextInput, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -129,7 +129,16 @@ export default function LoginScreen() {
       }
       router.replace('/home');
     } catch (error: any) {
-      showAlert('Login Gagal', error.message || 'Nomor atau kata sandi salah');
+      const message = error.message || '';
+      const indonesianErrors: Record<string, string> = {
+        'Invalid login credentials': 'Nomor atau kata sandi salah',
+        'Akun tidak ditemukan': 'Nomor telepon belum terdaftar',
+        'Akun tidak memiliki autentikasi': 'Akun bermasalah, hubungi admin',
+        'Email not confirmed': 'Email belum dikonfirmasi',
+        'Phone and password required': 'Nomor telepon dan kata sandi wajib diisi',
+        'Internal server error': 'Terjadi kesalahan server, coba lagi',
+      };
+      showAlert('Login Gagal', indonesianErrors[message] || message || 'Nomor atau kata sandi salah');
     } finally {
       setLoading(false);
     }
@@ -146,7 +155,7 @@ export default function LoginScreen() {
       <View style={[styles.circle2, { backgroundColor: isDark ? 'rgba(253, 185, 39, 0.05)' : 'rgba(253, 185, 39, 0.03)' }]} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <Image source={require('../../assets/logo-kang-massage.png')} style={styles.logoImage} />
@@ -170,7 +179,6 @@ export default function LoginScreen() {
                 onChangeText={setPhone}
                 onFocus={() => setFocused('phone')}
                 onBlur={() => setFocused(null)}
-                autoFocus
               />
             </View>
 
@@ -229,6 +237,7 @@ export default function LoginScreen() {
 
             <TouchableOpacity 
               activeOpacity={0.85} 
+              style={styles.registerBtn}
               onPress={() => {
                 try {
                   router.push('/register');
@@ -239,7 +248,7 @@ export default function LoginScreen() {
             >
               <LinearGradient
                 colors={[COLORS.gold[500], '#D97706']}
-                style={styles.registerBtn}
+                style={styles.registerGradient}
               >
                 <Text style={styles.registerBtnText}>Daftar Akun Baru</Text>
               </LinearGradient>
@@ -261,12 +270,12 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: height * 0.1, left: -width * 0.2,
     width: width * 0.6, height: width * 0.6, borderRadius: width * 0.3,
   },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 40, paddingBottom: 40 },
-  header: { marginBottom: 40, alignItems: 'center' },
-  logoContainer: { width: 90, height: 90, marginBottom: 16, alignItems: 'center', justifyContent: 'center' },
-  logoImage: { width: 80, height: 80, resizeMode: 'contain' },
-  title: { ...TYPOGRAPHY.h1, fontSize: 28, marginBottom: 8, textAlign: 'center' },
-  subtitle: { ...TYPOGRAPHY.body, textAlign: 'center', paddingHorizontal: 20, lineHeight: 22, fontSize: 14 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 32, paddingTop: 32, paddingBottom: 32 },
+  header: { marginBottom: 32, alignItems: 'center' },
+  logoContainer: { width: 72, height: 72, marginBottom: 12, alignItems: 'center', justifyContent: 'center' },
+  logoImage: { width: 64, height: 64, resizeMode: 'contain' },
+  title: { ...TYPOGRAPHY.h1, fontSize: 22, marginBottom: 6, textAlign: 'center' },
+  subtitle: { ...TYPOGRAPHY.body, textAlign: 'center', paddingHorizontal: 20, lineHeight: 18, fontSize: 12 },
   form: {},
   label: { ...TYPOGRAPHY.body, fontFamily: 'PlusJakartaSans-SemiBold', marginBottom: 8 },
   inputWrap: {
@@ -276,26 +285,29 @@ const styles = StyleSheet.create({
   },
   inputFocused: { borderColor: COLORS.primary[500] },
   inputLast: { marginBottom: 24 },
-  input: { flex: 1, fontSize: 14, fontFamily: 'PlusJakartaSans-Medium' },
+  input: { flex: 1, fontSize: 13, fontFamily: 'PlusJakartaSans-Medium' },
   loginBtn: {
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 28, marginBottom: 16,
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 24, marginBottom: 12,
     elevation: 6, shadowColor: COLORS.primary[500],
     shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10,
   },
-  loginBtnText: { fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF' },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
+  loginBtnText: { fontSize: 13, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF' },
+  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
   divider: { flex: 1, height: 1 },
   dividerText: { fontSize: 11, fontFamily: 'PlusJakartaSans-Bold', marginHorizontal: 12, letterSpacing: 1 },
   registerBtn: {
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 28,
+    width: '100%', borderRadius: 28, overflow: 'hidden',
     elevation: 6, shadowColor: COLORS.gold[500],
     shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10,
   },
-  registerBtnText: { fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF' },
+  registerGradient: {
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 16,
+  },
+  registerBtnText: { fontSize: 13, fontFamily: 'PlusJakartaSans-Bold', color: '#FFFFFF' },
   googleButton: {
-    height: 52, borderRadius: 16, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+    height: 48, borderRadius: 14, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
   },
   googleContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  googleText: { fontSize: 15, fontFamily: 'PlusJakartaSans-SemiBold' },
+  googleText: { fontSize: 13, fontFamily: 'PlusJakartaSans-SemiBold' },
 });

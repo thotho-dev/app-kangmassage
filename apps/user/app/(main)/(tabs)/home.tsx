@@ -611,12 +611,12 @@ export default function HomeScreen() {
         {/* ── Rekomendasi section ── */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <View style={[styles.sectionIconBox, { backgroundColor: '#059669' }]}>
+            <View style={[styles.sectionIconBox, { backgroundColor: '#3B82F6' }]}>
               <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
             <Text style={styles.sectionTitle}>Rekomendasi</Text>
-              <View style={[styles.sectionBadge, { backgroundColor: '#059669' }]}>
-                <Text style={styles.sectionBadgeText}>Pilihan Top</Text>
+              <View style={[styles.sectionBadge, { backgroundColor: '#3B82F6' }]}>
+                <Text style={styles.sectionBadgeText}>Rekomendasi</Text>
               </View>
             </View>
           <TouchableOpacity onPress={() => router.push('/services')}>
@@ -660,10 +660,10 @@ export default function HomeScreen() {
                     style={styles.gridCardImage}
                   />
                   <View style={styles.gridCardBody}>
-                    <Text style={[styles.gridCardName, { color: '#065F46' }]} numberOfLines={1}>
+                    <Text style={[styles.gridCardName, { color: '#1E40AF' }]} numberOfLines={1}>
                       {service.name}
                     </Text>
-                    <Text style={[styles.gridCardPrice, { color: '#059669' }]}>
+                    <Text style={[styles.gridCardPrice, { color: '#3B82F6' }]}>
                       Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
                     </Text>
                     <Text style={[styles.gridCardDesc, { color: '#6B7280' }]} numberOfLines={1}>
@@ -970,7 +970,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginHorizontal: -16,
     paddingHorizontal: 16,
-    zIndex: 10,
+    zIndex: 9999,
+    elevation: 2,
   },
   userRow: {
     flexDirection: 'row',
@@ -988,11 +989,6 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: BORDER,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
   avatar: {
     width: 42,
@@ -1417,14 +1413,14 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Bold',
   },
 
-  // Rekomendasi — green cards
+  // Rekomendasi — blue cards
   recCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#D1FAE5',
-    shadowColor: '#065F46',
+    borderColor: '#DBEAFE',
+    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 14,
@@ -1432,7 +1428,7 @@ const styles = StyleSheet.create({
   },
   recCardBtn: {
     marginTop: 6,
-    backgroundColor: '#10B981',
+    backgroundColor: '#3B82F6',
     borderRadius: 14,
     paddingVertical: 6,
     paddingHorizontal: 14,

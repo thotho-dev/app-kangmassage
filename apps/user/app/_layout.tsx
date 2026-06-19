@@ -12,11 +12,14 @@ import { Platform, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../context/ThemeContext';
 import { AuthProvider } from '../context/AuthContext';
 import { AlertProvider } from '../context/AlertContext';
+import { supabase } from '../lib/supabase';
+import * as Application from 'expo-application';
+import UpdateModal from '../components/UpdateModal';
 
 if (Platform.OS === 'android') {
   Notifications.setNotificationChannelAsync('default', {
@@ -76,6 +79,45 @@ function handleNotifNav(data: any, router: ReturnType<typeof useRouter>) {
   }
 }
 
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+function VersionCheck() {
+  const [showUpdate, setShowUpdate] = useState(false);
+  const [storeUrl, setStoreUrl] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const currentVersion = Application.nativeApplicationVersion;
+        if (!currentVersion) return;
+
+        const { data } = await supabase
+          .from('app_settings')
+          .select('min_app_version, playstore_url')
+          .limit(1)
+          .single();
+
+        if (data?.min_app_version && compareVersions(currentVersion, data.min_app_version) < 0) {
+          setStoreUrl(data.playstore_url || 'https://play.google.com/store/apps/details?id=com.thotho.kangmassage.user');
+          setShowUpdate(true);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  return <UpdateModal visible={showUpdate} storeUrl={storeUrl} />;
+}
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     'PlusJakartaSans-Regular': PlusJakartaSans_400Regular,
@@ -104,6 +146,7 @@ export default function RootLayout() {
           <AlertProvider>
             <AuthProvider>
               <NotificationInit />
+              <VersionCheck />
               <Stack screenOptions={{ 
                 headerShown: false,
                 animation: 'slide_from_right'

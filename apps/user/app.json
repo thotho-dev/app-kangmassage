@@ -4,6 +4,11 @@
     "slug": "kang-massage-customer",
     "version": "1.0.0",
     "icon": "./assets/icon-app-user.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0F172A"
+    },
     "android": {
       "package": "com.thotho.kangmassage.user",
       "googleServicesFile": "./google-services.json",
@@ -22,7 +27,12 @@
     "plugins": [
       "expo-router",
       "@react-native-community/datetimepicker",
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon-notif.png"
+        }
+      ]
     ],
     "scheme": "kangmassage",
     "experiments": {
