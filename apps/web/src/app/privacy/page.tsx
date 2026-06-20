@@ -100,7 +100,7 @@ export default function PrivacyPage() {
             <p>
               Jika Anda memiliki pertanyaan tentang kebijakan privasi ini, hubungi kami di:
               <br />
-              Email: <a href="mailto:support@kangmassage.app" className="text-indigo-400 hover:underline">support@kangmassage.app</a>
+              Email: <a href="mailto:admin@kangmassage.com" className="text-indigo-400 hover:underline">admin@kangmassage.com</a>
             </p>
           </section>
         </div>
