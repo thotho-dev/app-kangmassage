@@ -34,22 +34,54 @@ export async function POST(req: NextRequest) {
     }
 
     const mockEmail = email || `${normalizedPhone.replace(/[^0-9]/g, '')}@therapist.pijat.app`;
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      phone: normalizedPhone,
-      email: mockEmail,
-      password,
-      email_confirm: true,
-      phone_confirm: true,
-    });
 
-    if (authError) {
-      if (authError.message.toLowerCase().includes('already exist')) {
-        return NextResponse.json({ error: 'Nomor sudah terdaftar. Silakan login.' }, { status: 409 });
+    // Create Supabase auth user (with retry if orphaned auth user exists)
+    async function createAuthUser() {
+      const result = await supabase.auth.admin.createUser({
+        phone: normalizedPhone,
+        email: mockEmail,
+        password,
+        email_confirm: true,
+        phone_confirm: true,
+      });
+
+      if (result.error?.message.toLowerCase().includes('already exist')) {
+        const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const filter = encodeURIComponent(`email=eq.${mockEmail}`);
+        const listRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?filter=${filter}`, {
+          headers: { Authorization: `Bearer ${svcKey}`, apikey: svcKey! },
+        });
+        const listJson = await listRes.json();
+        const existingId = listJson?.users?.[0]?.id;
+
+        if (existingId) {
+          await supabase.auth.admin.deleteUser(existingId);
+          await supabase.from('therapists').delete().eq('phone', normalizedPhone);
+        }
+
+        const retry = await supabase.auth.admin.createUser({
+          phone: normalizedPhone,
+          email: mockEmail,
+          password,
+          email_confirm: true,
+          phone_confirm: true,
+        });
+        if (retry.error) throw retry.error;
+        return retry.data;
       }
-      return NextResponse.json({ error: authError.message }, { status: 500 });
+
+      if (result.error) throw result.error;
+      return result.data;
     }
 
+    const authData = await createAuthUser();
+
     const supabaseUid = authData.user.id;
+
+    // Clean up any orphaned rows to prevent duplicate key conflicts
+    await supabase.from('therapists').delete().eq('supabase_uid', supabaseUid);
+    await supabase.from('therapists').delete().eq('phone', normalizedPhone);
 
     const settings = await getAppSettings();
     const bronzeCut = settings.bronze_platform_cut ?? DEFAULT_SETTINGS.bronze_platform_cut;
