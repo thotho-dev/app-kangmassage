@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { COLORS } from '@/constants/Theme';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { titleCase } from '@/lib/utils';
 
 const PURPLE = '#240080';
@@ -184,10 +185,10 @@ export default function ChatScreen() {
           <View style={styles.skeletonContainer}>
             {[1,2,3,4,5,6].map((i) => (
               <View key={i} style={[styles.skeletonCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={[styles.skeletonAvatar, { backgroundColor: theme.textSecondary + '30' }]} />
+                <Skeleton width={48} height={48} borderRadius={24} />
                 <View style={styles.skeletonContent}>
-                  <View style={[styles.skeletonLine, styles.skeletonName, { backgroundColor: theme.textSecondary + '30' }]} />
-                  <View style={[styles.skeletonLine, styles.skeletonMsg, { backgroundColor: theme.textSecondary + '30' }]} />
+                  <Skeleton width="65%" height={14} borderRadius={4} style={{ marginBottom: 8 }} />
+                  <Skeleton width="45%" height={12} borderRadius={4} />
                 </View>
               </View>
             ))}
@@ -349,8 +350,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   skeletonContainer: {
-    gap: 12,
-    paddingTop: 4,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginBottom: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  skeletonContent: {
+    flex: 1,
+    marginLeft: 12,
   },
   skeletonCard: {
     flexDirection: 'row',

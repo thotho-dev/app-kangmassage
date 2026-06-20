@@ -6,7 +6,8 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   Dimensions, 
-  Pressable
+  Pressable,
+  Image,
 } from 'react-native';
 import { useTheme } from './ThemeContext';
 import { COLORS } from '../constants/Theme';
@@ -20,7 +21,7 @@ interface AlertButton {
 }
 
 interface AlertContextType {
-  showAlert: (title: string, message: string, buttons?: AlertButton[]) => void;
+  showAlert: (title: string, message: string, buttons?: AlertButton[], icon?: boolean | 'horizontal') => void;
 }
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
@@ -31,15 +32,21 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [buttons, setButtons] = useState<AlertButton[]>([]);
+  const [showIcon, setShowIcon] = useState(false);
+
+  const [iconLayout, setIconLayout] = useState<'vertical' | 'horizontal'>('vertical');
 
   const showAlert = (
     alertTitle: string,
     alertMessage: string,
-    alertButtons?: AlertButton[]
+    alertButtons?: AlertButton[],
+    icon?: boolean | 'horizontal'
   ) => {
     setTitle(alertTitle);
     setMessage(alertMessage);
     setButtons(alertButtons || [{ text: 'OK', style: 'default' }]);
+    setShowIcon(!!icon);
+    setIconLayout(icon === 'horizontal' ? 'horizontal' : 'vertical');
     setVisible(true);
   };
 
@@ -82,10 +89,29 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
               }
             ]} />
             
-            <View style={styles.alertContent}>
-              <Text style={[styles.alertTitle, { color: theme.text }]}>{title}</Text>
-              <Text style={[styles.alertMessage, { color: theme.textSecondary }]}>{message}</Text>
-            </View>
+            {showIcon && iconLayout === 'horizontal' ? (
+              <View style={styles.alertContentHorizontal}>
+                <Image
+                  source={require('../assets/logo-kang-massage.png')}
+                  style={styles.alertIconHorizontal}
+                />
+                <View style={styles.alertTextWrap}>
+                  <Text style={[styles.alertTitleHorizontal, { color: theme.text }]}>{title}</Text>
+                  <Text style={[styles.alertMessageHorizontal, { color: theme.textSecondary }]}>{message}</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.alertContent}>
+                {showIcon && (
+                  <Image
+                    source={require('../assets/logo-kang-massage.png')}
+                    style={styles.alertIcon}
+                  />
+                )}
+                <Text style={[styles.alertTitle, { color: theme.text }]}>{title}</Text>
+                <Text style={[styles.alertMessage, { color: theme.textSecondary }]}>{message}</Text>
+              </View>
+            )}
 
             <View style={styles.alertButtonsRow}>
               {buttons.map((btn, idx) => {
@@ -153,6 +179,29 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
   },
+  alertIcon: {
+    width: 60,
+    height: 60,
+    marginBottom: 12,
+    resizeMode: 'contain',
+  },
+  alertContentHorizontal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 8,
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  alertIconHorizontal: {
+    width: 64,
+    height: 64,
+    resizeMode: 'contain',
+    flexShrink: 0,
+  },
+  alertTextWrap: {
+    flex: 1,
+  },
   alertContent: {
     marginTop: 8,
     marginBottom: 24,
@@ -164,11 +213,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: 'center',
   },
+  alertTitleHorizontal: {
+    fontSize: 15,
+    fontFamily: 'PlusJakartaSans-Bold',
+    marginBottom: 4,
+    textAlign: 'left',
+  },
   alertMessage: {
     fontSize: 14,
     fontFamily: 'PlusJakartaSans-Medium',
     lineHeight: 20,
     textAlign: 'center',
+  },
+  alertMessageHorizontal: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Medium',
+    lineHeight: 17,
+    textAlign: 'left',
   },
   alertButtonsRow: {
     flexDirection: 'row',

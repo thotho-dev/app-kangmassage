@@ -297,28 +297,6 @@ export default function SettingsPage() {
                       placeholder="https://tawk.to/chat/..."
                     />
                   </div>
-                  <div>
-                    <label className="text-sm text-text-primary/60 mb-2 block">Min App Version (Force Update)</label>
-                    <input
-                      type="text"
-                      value={settings.min_app_version}
-                      onChange={e => updateField('min_app_version', e.target.value)}
-                      className="input-field font-mono"
-                      placeholder="1.0.0"
-                    />
-                    <p className="text-xs text-text-muted/60 mt-1">Versi minimum aplikasi Android. User dengan versi di bawah ini akan dipaksa update.</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-text-primary/60 mb-2 block">Play Store URL</label>
-                    <input
-                      type="text"
-                      value={settings.playstore_url}
-                      onChange={e => updateField('playstore_url', e.target.value)}
-                      className="input-field"
-                      placeholder="https://play.google.com/store/apps/details?id=com.kangmassage.customer"
-                    />
-                    <p className="text-xs text-text-muted/60 mt-1">URL aplikasi di Play Store untuk tombol update.</p>
-                  </div>
                 </div>
               </div>
 
@@ -353,6 +331,33 @@ export default function SettingsPage() {
                       rows={4}
                     />
                     <p className="text-xs text-text-muted/60 mt-1">Pesan yang ditampilkan ke terapis saat mode pemeliharaan aktif.</p>
+                  </div>
+
+                  <hr className="border-ui-border" />
+
+                  <h3 className="text-sm font-semibold text-text-primary/80">Force Update</h3>
+
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Min App Version</label>
+                    <input
+                      type="text"
+                      value={settings.min_app_version}
+                      onChange={e => updateField('min_app_version', e.target.value)}
+                      className="input-field font-mono"
+                      placeholder="1.0.0"
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">Versi minimum aplikasi Android. User dengan versi di bawah ini akan dipaksa update.</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Play Store URL</label>
+                    <input
+                      type="text"
+                      value={settings.playstore_url}
+                      onChange={e => updateField('playstore_url', e.target.value)}
+                      className="input-field"
+                      placeholder="https://play.google.com/store/apps/details?id=com.kangmassage.customer"
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">URL aplikasi di Play Store untuk tombol update.</p>
                   </div>
                 </div>
               </div>

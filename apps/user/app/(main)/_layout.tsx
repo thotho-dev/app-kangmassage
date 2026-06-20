@@ -1,27 +1,38 @@
 import { useEffect } from 'react';
+import { BackHandler } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { LocationProvider } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 
 export default function MainLayout() {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
-
+  const { showAlert } = useAlert();
+  // Confirm before exit on tab screens (prevent going back to auth)
   useEffect(() => {
-    if (loading) return;
+    if (!isAuthenticated || loading) return;
 
-    const lastSegment = segments[segments.length - 1];
-    const isAllowedGuestRoute =
-      !lastSegment ||
-      lastSegment === '(main)' ||
-      lastSegment === '(tabs)' ||
-      lastSegment === 'home';
+    const onBackPress = () => {
+      if (!segments.includes('(tabs)')) return false;
 
-    if (!isAuthenticated && !isAllowedGuestRoute) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated, loading, segments, router]);
+      showAlert(
+        'Konfirmasi',
+        'Yakin ingin keluar dari aplikasi?',
+        [
+          { text: 'Batal', style: 'cancel' },
+          { text: 'Keluar', style: 'destructive', onPress: () => BackHandler.exitApp() },
+        ],
+        'horizontal',
+      );
+
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [isAuthenticated, loading, segments]);
 
   return (
     <LocationProvider>

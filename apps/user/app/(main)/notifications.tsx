@@ -136,12 +136,10 @@ export default function NotificationsScreen() {
                   await supabase.from('notifications').update({ is_read: true }).eq('id', item.id).maybeSingle();
                   setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, is_read: true } : n));
                 }
-                if (d.order_id) router.push(`/order/${d.order_id}`);
+                if (d.order_id) router.push({ pathname: '/tracking', params: { id: d.order_id } });
                 else if (d.conversation_id) router.push(`/chats/${d.conversation_id}`);
-                else if (d.topup_id) router.push(`/topup-detail?id=${d.topup_id}`);
-                else if (d.withdrawal_id) router.push(`/withdraw-detail?id=${d.withdrawal_id}`);
-                else if (item.type === 'support_chat') router.push('/support');
-                else if (item.type === 'chat_message') router.push(`/chats/${d.conversation_id}`);
+                else if (d.topup_id) router.push('/topup-history');
+                else if (d.withdrawal_id) router.push('/withdraw-history');
               };
               return (
               <TouchableOpacity key={item.id} onPress={handlePress} style={[styles.card, !item.is_read && styles.unreadCard]}>

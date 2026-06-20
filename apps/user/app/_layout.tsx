@@ -70,12 +70,11 @@ function handleNotifNav(data: any, router: ReturnType<typeof useRouter>) {
     if (id) router.push(`/chats/${id}`);
   } else if (type?.startsWith('order_')) {
     const id = data?.order_id || data?.orderId;
-    if (id) router.push(`/order/${id}`);
+    if (id) router.push({ pathname: '/tracking', params: { id } });
   } else if (type?.startsWith('topup_')) {
-    const id = data?.topup_id || data?.topupId;
-    if (id) router.push(`/topup-detail?id=${id}`);
-  } else if (type === 'support_chat') {
-    router.push('/support');
+    router.push('/topup-history');
+  } else if (type?.startsWith('withdrawal_')) {
+    router.push('/withdraw-history');
   }
 }
 

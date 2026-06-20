@@ -123,7 +123,7 @@ const getStyles = () => StyleSheet.create({
   title: {
     ...TYPOGRAPHY.h1,
     color: COLORS.dark[900],
-    fontSize: 36,
+    fontSize: 28,
   },
   subtitle: {
     ...TYPOGRAPHY.body,
