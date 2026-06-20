@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kang Massage",
     "slug": "kang-massage-customer",
-    "version": "1.0.0",
+    "version": "1.1.1",
     "icon": "./assets/icon-app-user.png",
     "splash": {
       "image": "./assets/splash.png",

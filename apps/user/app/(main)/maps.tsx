@@ -8,6 +8,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useLocation } from '@/context/LocationContext';
 import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -122,7 +123,10 @@ export default function MapsScreen() {
     (async () => {
       const asset = Asset.fromModule(require('@/assets/icon-app-user.png'));
       await asset.downloadAsync();
-      setPinUri(asset.uri);
+      const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      setPinUri(`data:image/png;base64,${b64}`);
     })();
   }, []);
 

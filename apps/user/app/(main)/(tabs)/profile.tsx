@@ -6,6 +6,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { 
   User, 
   Settings, 
@@ -404,7 +405,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={[styles.versionText, { color: theme.textSecondary }]}>Kang Massage v1.0.0</Text>
+          <Text style={[styles.versionText, { color: theme.textSecondary }]}>Kang Massage v{Constants.expoConfig?.version || '1.0.0'}</Text>
           <Text style={[styles.copyrightText, { color: theme.textSecondary, opacity: 0.5 }]}>© {new Date().getFullYear()} Kang Massage</Text>
         </View>
 
