@@ -56,6 +56,7 @@ export default function MainLayout() {
         <Stack.Screen name="topup-payment" />
         <Stack.Screen name="withdraw" />
         <Stack.Screen name="payment-details" />
+        <Stack.Screen name="change-password" />
       </Stack>
     </LocationProvider>
   );

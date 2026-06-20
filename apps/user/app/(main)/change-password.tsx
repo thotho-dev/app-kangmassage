@@ -37,6 +37,22 @@ export default function ChangePasswordScreen() {
 
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const email = user?.email || '';
+      const phone = user?.phone || '';
+
+      // Re-authenticate to ensure fresh session
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        phone,
+        password: currentPassword,
+      });
+      if (signInError) {
+        showAlert('Eror', 'Password saat ini salah.');
+        setSaving(false);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       setSuccess(true);

@@ -576,7 +576,7 @@ export default function ProfileScreen() {
                   <Text style={styles.secValue}>********</Text>
                 </View>
               </View>
-              <TouchableOpacity style={[styles.secRow, { borderBottomColor: theme.border }]}>
+              <TouchableOpacity style={[styles.secRow, { borderBottomColor: theme.border }]} onPress={() => router.push('/change-password')}>
                 <View style={[styles.iconWrapper, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
                   <KeyRound size={16} color={theme.textSecondary} />
                 </View>
