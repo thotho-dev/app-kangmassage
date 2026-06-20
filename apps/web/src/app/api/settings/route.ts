@@ -59,6 +59,8 @@ export async function GET() {
         withdrawal_daily_limit: 3000000,
         withdrawal_max_count_per_day: 3,
         withdrawal_admin_approval_threshold: 0,
+        min_app_version: '1.0.0',
+        playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
       }, { headers: noCacheHeaders });
     }
 
@@ -99,6 +101,8 @@ export async function GET() {
       withdrawal_daily_limit: Number(data.withdrawal_daily_limit) ?? 3000000,
       withdrawal_max_count_per_day: Number(data.withdrawal_max_count_per_day) ?? 3,
       withdrawal_admin_approval_threshold: Number(data.withdrawal_admin_approval_threshold) ?? 0,
+      min_app_version: data.min_app_version ?? '1.0.0',
+      playstore_url: data.playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
     }, { headers: noCacheHeaders });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
@@ -146,6 +150,8 @@ export async function PUT(req: NextRequest) {
       'maintenance_mode', 'maintenance_message',
       'withdrawal_otp_threshold', 'withdrawal_daily_limit', 'withdrawal_max_count_per_day',
       'withdrawal_admin_approval_threshold',
+      'min_app_version',
+      'playstore_url',
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -220,6 +226,8 @@ export async function PUT(req: NextRequest) {
       withdrawal_daily_limit: Number(data.withdrawal_daily_limit) ?? 3000000,
       withdrawal_max_count_per_day: Number(data.withdrawal_max_count_per_day) ?? 3,
       withdrawal_admin_approval_threshold: Number(data.withdrawal_admin_approval_threshold) ?? 0,
+      min_app_version: data.min_app_version ?? '1.0.0',
+      playstore_url: data.playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
     }, { headers: noCacheHeaders });
   } catch (err) {
     console.error(err);

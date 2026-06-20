@@ -45,6 +45,8 @@ type AppSettings = {
   withdrawal_daily_limit: number;
   withdrawal_max_count_per_day: number;
   withdrawal_admin_approval_threshold: number;
+  min_app_version: string;
+  playstore_url: string;
 };
 
 const defaultSettings: AppSettings = {
@@ -84,6 +86,8 @@ const defaultSettings: AppSettings = {
   withdrawal_daily_limit: 3000000,
   withdrawal_max_count_per_day: 3,
   withdrawal_admin_approval_threshold: 0,
+  min_app_version: '1.0.0',
+  playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
 };
 
 type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
@@ -292,6 +296,28 @@ export default function SettingsPage() {
                       className="input-field"
                       placeholder="https://tawk.to/chat/..."
                     />
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Min App Version (Force Update)</label>
+                    <input
+                      type="text"
+                      value={settings.min_app_version}
+                      onChange={e => updateField('min_app_version', e.target.value)}
+                      className="input-field font-mono"
+                      placeholder="1.0.0"
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">Versi minimum aplikasi Android. User dengan versi di bawah ini akan dipaksa update.</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Play Store URL</label>
+                    <input
+                      type="text"
+                      value={settings.playstore_url}
+                      onChange={e => updateField('playstore_url', e.target.value)}
+                      className="input-field"
+                      placeholder="https://play.google.com/store/apps/details?id=com.kangmassage.customer"
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">URL aplikasi di Play Store untuk tombol update.</p>
                   </div>
                 </div>
               </div>
