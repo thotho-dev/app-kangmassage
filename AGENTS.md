@@ -296,3 +296,43 @@ C:\Android\
 - Jalankan migration `20260617_add_cancel_withdrawal_rpc.sql` di Supabase SQL Editor
 - Test end-to-end: setup PIN → tambah rekening (validasi Xendit) → withdraw → sukses/gagal
 - Admin isi saldo Xendit jika menipis (pantau dari dashboard)
+
+---
+
+## Session 5 (Unit test setup for apps/user — UI refinements)
+
+### Problems addressed
+1. No testing infrastructure in the project — zero test files, no jest config, no test scripts.
+2. Auth layout didn't have slide transition animation.
+3. Font sizes on login/register pages too large (title 28px, inputs 14-18px, etc.).
+4. Login error messages from server (Supabase English) not translated to Indonesian.
+5. Monorepo React version conflict (root hoisted `react@19.1.0` vs `react-test-renderer`).
+
+### Changes made
+| File | Change |
+|---|---|
+| `apps/user/app/(auth)/_layout.tsx` | Added `animation: 'slide_from_right'` to Stack screenOptions. |
+| `apps/user/app/(auth)/login.tsx` | Font sizes reduced: title 28→22, subtitle 14→12, input 14→13, button 14→13, google 15→13. Logo/padding/header margin reduced. |
+| `apps/user/app/(auth)/login.tsx` | Added Indonesian error message map — Supabase `Invalid login credentials` → `'Nomor atau kata sandi salah'`, dll. |
+| `apps/user/app/(auth)/register.tsx` | Font sizes reduced: title 26→22, subtitle 14→12, field label 14→12, input 14→13, button 14→13, phone input 18→15. Input height 56→48, gender 15→13, OTP box 44x56→40x48 (fontSize 22→18). |
+| `apps/user/jest.config.js` | **NEW** — Jest config with `jest-expo` preset, `transformIgnorePatterns` for RN/Expo modules, `moduleNameMapper` for `@/` alias. |
+| `apps/user/lib/__tests__/utils.test.ts` | **NEW** — Example unit test for `titleCase` function (8 tests). |
+| `apps/user/package.json` | Added `test` and `test:watch` scripts. Added deps: `jest@29.7.0`, `jest-expo@56.0.5`, `@types/jest`, `react-test-renderer`. |
+
+### Key decisions
+- Use `jest@29.7.0` (not v30) to avoid `clearMocksOnScope` bug in `jest-runtime` v30.
+- Use `jest-expo` preset for Expo compatibility.
+- Component testing with `react-test-renderer` requires native module mocking — skipped for now. Pure function tests work out of the box.
+- Error message translation done client-side in UI, not on the server.
+
+### Next steps
+- Add component tests using `@testing-library/react-native` with proper native module mocking.
+- Setup test for `apps/therapist` app.
+- Add CI test runner configuration.
+
+### Relevant files
+- `apps/user/jest.config.js` — test configuration
+- `apps/user/lib/__tests__/utils.test.ts` — example test
+- `apps/user/app/(auth)/_layout.tsx` — slide animation
+- `apps/user/app/(auth)/login.tsx` — font sizes, error translation
+- `apps/user/app/(auth)/register.tsx` — font sizes
