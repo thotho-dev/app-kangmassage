@@ -82,7 +82,7 @@ export default function AuthScreen() {
 
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '448632334958-lft4ic2n4n61ibsm86qtfrkjg6g1jmt1.apps.googleusercontent.com',
+      webClientId: '448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com',
     });
   }, []);
 
