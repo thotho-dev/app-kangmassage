@@ -415,7 +415,7 @@ FOR EACH ROW EXECUTE FUNCTION enforce_therapist_verified_for_online();
 CREATE OR REPLACE FUNCTION generate_order_number()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.order_number := 'PJT-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(CAST(FLOOR(RANDOM() * 10000) AS TEXT), 4, '0');
+  NEW.order_number := 'KMSG' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || LPAD(CAST(FLOOR(RANDOM() * 10000) AS TEXT), 4, '0');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
