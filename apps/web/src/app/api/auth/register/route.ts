@@ -108,10 +108,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Gagal membuat profil' }, { status: 500 });
     }
 
+    // Sign in to get session (use anon key, not service_role)
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const signInRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: anonKey },
+      body: JSON.stringify({ email: mockEmail, password }),
+    });
+    const sessionData = await signInRes.json();
+
     return NextResponse.json({
       data: {
         user: profile,
         role,
+        session: sessionData?.access_token ? {
+          access_token: sessionData.access_token,
+          refresh_token: sessionData.refresh_token,
+        } : null,
       },
     });
   } catch (err: any) {

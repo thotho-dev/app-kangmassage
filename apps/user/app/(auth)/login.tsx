@@ -236,14 +236,7 @@ export default function AuthScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      const loginResult = await fetchJSON(`${API_BASE}/api/auth/phone-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone(regPhone), password: regPassword, role: 'user' }),
-      });
-      if (loginResult.error) throw new Error(loginResult.error);
-
-      const { session } = loginResult.data;
+      const { session } = result.data;
       if (session?.access_token) {
         const { error } = await supabase.auth.setSession({
           access_token: session.access_token,
