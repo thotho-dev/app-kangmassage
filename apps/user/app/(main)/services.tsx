@@ -254,7 +254,7 @@ export default function ServicesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* Decorative circles */}
       <View style={styles.decoSection} pointerEvents="none">

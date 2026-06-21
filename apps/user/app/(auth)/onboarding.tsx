@@ -138,7 +138,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F0F0F5" />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Animated floating background ── */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">

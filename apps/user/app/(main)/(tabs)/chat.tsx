@@ -129,7 +129,7 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.background} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
