@@ -642,11 +642,11 @@ export default function HomeScreen() {
         {/* ── Rekomendasi section ── */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <View style={[styles.sectionIconBox, { backgroundColor: '#3B82F6' }]}>
+            <View style={[styles.sectionIconBox, { backgroundColor: '#240080' }]}>
               <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
             <Text style={styles.sectionTitle}>Rekomendasi</Text>
-              <View style={[styles.sectionBadge, { backgroundColor: '#3B82F6' }]}>
+              <View style={[styles.sectionBadge, { backgroundColor: '#240080' }]}>
                 <Text style={styles.sectionBadgeText}>Rekomendasi</Text>
               </View>
             </View>
@@ -691,10 +691,10 @@ export default function HomeScreen() {
                     style={styles.gridCardImage}
                   />
                   <View style={styles.gridCardBody}>
-                    <Text style={[styles.gridCardName, { color: '#1E40AF' }]} numberOfLines={1}>
+                    <Text style={[styles.gridCardName, { color: '#1E1B4B' }]} numberOfLines={1}>
                       {service.name}
                     </Text>
-                    <Text style={[styles.gridCardPrice, { color: '#3B82F6' }]}>
+                    <Text style={[styles.gridCardPrice, { color: '#240080' }]}>
                       Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
                     </Text>
                     <Text style={[styles.gridCardDesc, { color: '#6B7280' }]} numberOfLines={1}>
@@ -712,11 +712,11 @@ export default function HomeScreen() {
         {/* ── Banyak Dipesan section ── */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
-            <View style={[styles.sectionIconBox, { backgroundColor: '#3B82F6' }]}>
+            <View style={[styles.sectionIconBox, { backgroundColor: '#240080' }]}>
               <Flame size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
             <Text style={styles.sectionTitle}>Banyak Dipesan</Text>
-              <View style={[styles.sectionBadge, { backgroundColor: '#3B82F6' }]}>
+              <View style={[styles.sectionBadge, { backgroundColor: '#240080' }]}>
                 <Text style={styles.sectionBadgeText}>Populer</Text>
               </View>
             </View>
@@ -1415,10 +1415,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     marginBottom: 24,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: '#F5F0FF',
     borderWidth: 1,
-    borderColor: '#D4E6FF',
-    shadowColor: '#3B82F6',
+    borderColor: '#D4D0EB',
+    shadowColor: '#240080',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 20,
@@ -1427,7 +1427,7 @@ const styles = StyleSheet.create({
   popularCardAccent: {
     height: 3,
     width: '100%',
-    backgroundColor: '#60A5FA',
+    backgroundColor: '#240080',
   },
   popularCard: {
     padding: 14,
@@ -1439,7 +1439,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E8F0FE',
+    borderColor: '#E0DCF0',
   },
   popularServiceImageWrapper: {
     position: 'relative',
@@ -1460,7 +1460,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#240080',
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,
@@ -1472,12 +1472,12 @@ const styles = StyleSheet.create({
   },
   popularServiceBtn: {
     marginTop: 6,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#240080',
     borderRadius: 14,
     paddingVertical: 6,
     paddingHorizontal: 14,
     alignItems: 'center',
-    shadowColor: '#3B82F6',
+    shadowColor: '#240080',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -1495,8 +1495,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#DBEAFE',
-    shadowColor: '#3B82F6',
+    borderColor: '#D4D0EB',
+    shadowColor: '#240080',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 14,
@@ -1504,7 +1504,7 @@ const styles = StyleSheet.create({
   },
   recCardBtn: {
     marginTop: 6,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#240080',
     borderRadius: 14,
     paddingVertical: 6,
     paddingHorizontal: 14,

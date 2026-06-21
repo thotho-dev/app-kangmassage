@@ -30,6 +30,7 @@ interface Profile {
   total_orders?: number;
   transaction_pin?: string | null;
   pin_enabled?: boolean;
+  created_at?: string;
 }
 
 interface AuthContextType {

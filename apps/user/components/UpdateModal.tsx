@@ -3,9 +3,10 @@ import { View, Text, TouchableOpacity, Modal, Linking } from 'react-native';
 interface Props {
   visible: boolean;
   storeUrl: string;
+  onClose?: () => void;
 }
 
-export default function UpdateModal({ visible, storeUrl }: Props) {
+export default function UpdateModal({ visible, storeUrl, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <View style={{
@@ -19,10 +20,28 @@ export default function UpdateModal({ visible, storeUrl }: Props) {
           backgroundColor: '#FFFFFF',
           borderRadius: 24,
           padding: 28,
+          paddingTop: 24,
           width: '100%',
           maxWidth: 340,
           alignItems: 'center',
         }}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              backgroundColor: '#F3F4F6',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 16, color: '#6B7280', lineHeight: 18 }}>✕</Text>
+          </TouchableOpacity>
           <View style={{
             width: 64,
             height: 64,

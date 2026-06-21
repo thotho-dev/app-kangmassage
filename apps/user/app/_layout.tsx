@@ -114,7 +114,7 @@ function VersionCheck() {
     })();
   }, []);
 
-  return <UpdateModal visible={showUpdate} storeUrl={storeUrl} />;
+  return <UpdateModal visible={showUpdate} storeUrl={storeUrl} onClose={() => setShowUpdate(false)} />;
 }
 
 export default function RootLayout() {

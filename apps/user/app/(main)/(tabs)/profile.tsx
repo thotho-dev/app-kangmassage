@@ -9,7 +9,6 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { 
   User, 
-  Settings, 
   CreditCard, 
   Shield, 
   Bell, 
@@ -18,7 +17,6 @@ import {
   ChevronRight,
   Smartphone,
   Star,
-  Award,
   Edit2,
   X,
   CheckCircle2,
@@ -29,6 +27,8 @@ import {
   KeyRound,
   Building2,
   FileText,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, TYPOGRAPHY } from '@/constants/Theme';
@@ -56,8 +56,11 @@ export default function ProfileScreen() {
   // Form states for Personal Data
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editGender, setEditGender] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
   const [savingPersonal, setSavingPersonal] = useState(false);
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+  const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
 
 
   // Support contact
@@ -223,22 +226,16 @@ export default function ProfileScreen() {
 
   // Trigger avatar change menu
   const handleChangeAvatar = () => {
-    showAlert(
-      'Ganti Foto Profil',
-      'Pilih metode untuk mengubah foto profil Anda:',
-      [
-        { text: '📸 Ambil Foto', onPress: handleTakeWithCamera },
-        { text: '🖼️ Pilih dari Galeri', onPress: handlePickFromGallery },
-        { text: 'Batal', style: 'cancel' }
-      ]
-    );
+    setAvatarSheetVisible(true);
   };
 
   // Open Personal Data Modal and fill with current data
   const handleOpenPersonal = () => {
     setEditName(profile?.full_name || '');
     setEditPhone(profile?.phone || '');
+    setEditGender(profile?.gender || '');
     setEditAvatar(profile?.avatar_url || '');
+    setIsEditingPersonal(false);
     setPersonalModalVisible(true);
   };
 
@@ -264,6 +261,7 @@ export default function ProfileScreen() {
         .update({
           full_name: editName.trim(),
           phone: editPhone.trim(),
+          gender: editGender || null,
           avatar_url: finalAvatarUrl,
         })
         .eq('supabase_uid', user.id);
@@ -307,6 +305,11 @@ export default function ProfileScreen() {
         { title: 'Syarat & Ketentuan', icon: FileText, color: COLORS.primary[400], onPress: () => setSyaratModalVisible(true) },
       ],
     },
+    {
+      items: [
+        { title: 'Keluar', icon: LogOut, color: COLORS.error, onPress: () => handleLogout() },
+      ],
+    },
   ];
 
   return (
@@ -338,9 +341,6 @@ export default function ProfileScreen() {
                   </View>
                 )}
               </LinearGradient>
-              <TouchableOpacity style={[styles.editButton, { borderColor: theme.background }]} onPress={handleOpenPersonal}>
-                <Settings size={12} color="white" />
-              </TouchableOpacity>
             </View>
 
             {/* Right: User Info Column */}
@@ -350,32 +350,16 @@ export default function ProfileScreen() {
                 {profile?.full_name || 'User'}
               </Text>
               <Text style={[styles.emailText, { color: theme.textSecondary }]} numberOfLines={1}>
-                {user?.phone || ''}
+                {user?.email || user?.phone || ''}
               </Text>
-            </View>
-          </View>
-          
-          <View style={[styles.statsContainer, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>{profile?.total_orders || 0}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Pesanan</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-            <View style={styles.statItem}>
-              <View style={styles.ratingRow}>
-                <Star size={16} color={COLORS.gold[500]} fill={COLORS.gold[500]} />
-                <Text style={[styles.statValue, { color: theme.text }]}>{profile?.points || 0}</Text>
-              </View>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Poin</Text>
             </View>
           </View>
         </View>
 
-        {/* Menu Items */}
         {MENU_GROUPS.map((group, gi) => (
           <View key={gi} style={styles.menuContainer}>
-            {gi > 0 && <View style={[styles.sectionLine, { backgroundColor: theme.border }]} />}
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>{group.label}</Text>
+            {group.label && gi > 0 ? <View style={[styles.sectionLine, { backgroundColor: theme.border }]} /> : null}
+            {group.label ? <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>{group.label}</Text> : null}
             {group.items.map((item, ii) => {
               const Icon = item.icon;
               return (
@@ -396,16 +380,8 @@ export default function ProfileScreen() {
           </View>
         ))}
 
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
-          <View style={[styles.logoutIconWrapper, { backgroundColor: isDark ? 'rgba(231, 76, 60, 0.1)' : 'rgba(231, 76, 60, 0.05)', borderColor: 'rgba(231, 76, 60, 0.2)' }]}>
-            <LogOut size={18} color={COLORS.error} />
-          </View>
-          <Text style={styles.logoutText}>Keluar Akun</Text>
-        </TouchableOpacity>
-
         <View style={styles.footer}>
-          <Text style={[styles.versionText, { color: theme.textSecondary }]}>Kang Massage v{Constants.expoConfig?.version || '1.0.0'}</Text>
+          <Text style={[styles.versionText, { color: theme.textSecondary }]}>Kang Massage v{Constants.expoConfig?.version || '1.1.2'}</Text>
           <Text style={[styles.copyrightText, { color: theme.textSecondary, opacity: 0.5 }]}>© {new Date().getFullYear()} Kang Massage</Text>
         </View>
 
@@ -416,61 +392,195 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Data Pribadi</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Data Pribadi</Text>
               <TouchableOpacity onPress={() => setPersonalModalVisible(false)}>
                 <X size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formContainer}>
-              <View style={styles.avatarPreviewContainer}>
-                <TouchableOpacity onPress={handleChangeAvatar} activeOpacity={0.8} style={styles.avatarPickerWrapper}>
-                  {editAvatar ? (
-                    <Image source={{ uri: editAvatar }} style={styles.formAvatar} />
-                  ) : (
-                    <View style={[styles.formAvatar, { backgroundColor: theme.surfaceVariant, alignItems: 'center', justifyContent: 'center' }]}>
-                      <User size={32} color={COLORS.primary[500]} />
-                    </View>
-                  )}
-                  <View style={styles.cameraIconBadge}>
-                    <Edit2 size={12} color="white" />
+              {!isEditingPersonal ? (
+                <>
+
+                  <View style={styles.readonlyRow}>
+                    <Text style={[styles.readonlyLabel, { color: theme.textSecondary }]}>Nama Lengkap</Text>
+                    <Text style={[styles.readonlyValue, { color: theme.text }]}>{profile?.full_name || '-'}</Text>
                   </View>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleChangeAvatar} style={styles.changePhotoBtn}>
-                  <Text style={styles.changePhotoText}>Pilih dari Kamera / Galeri</Text>
-                </TouchableOpacity>
-              </View>
 
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Nama Lengkap</Text>
-              <TextInput
-                style={[styles.textInput, { color: theme.text, borderColor: theme.border }]}
-                value={editName}
-                onChangeText={setEditName}
-                placeholder="Masukkan nama lengkap"
-                placeholderTextColor={theme.textSecondary}
-              />
+                  <View style={styles.readonlyRow}>
+                    <Text style={[styles.readonlyLabel, { color: theme.textSecondary }]}>Nomor Telepon</Text>
+                    <Text style={[styles.readonlyValue, { color: theme.text }]}>{profile?.phone || '-'}</Text>
+                  </View>
 
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Nomor Telepon</Text>
-              <TextInput
-                style={[styles.textInput, { color: theme.text, borderColor: theme.border }]}
-                value={editPhone}
-                onChangeText={setEditPhone}
-                keyboardType="phone-pad"
-                placeholder="Contoh: 08123456789"
-                placeholderTextColor={theme.textSecondary}
-              />
+                  <View style={styles.readonlyRow}>
+                    <Text style={[styles.readonlyLabel, { color: theme.textSecondary }]}>Jenis Kelamin</Text>
+                    <Text style={[styles.readonlyValue, { color: theme.text }]}>
+                      {profile?.gender === 'L' ? 'Laki-laki' : profile?.gender === 'P' ? 'Perempuan' : '-'}
+                    </Text>
+                  </View>
 
-              <TouchableOpacity 
-                style={[styles.saveBtn, { backgroundColor: COLORS.primary[500] }]}
-                onPress={handleSavePersonal}
-                disabled={savingPersonal}
-              >
-                {savingPersonal ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Simpan Perubahan</Text>
-                )}
-              </TouchableOpacity>
+                  <View style={styles.readonlyRow}>
+                    <Text style={[styles.readonlyLabel, { color: theme.textSecondary }]}>Tanggal Terdaftar</Text>
+                    <Text style={[styles.readonlyValue, { color: theme.text }]}>
+                      {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { backgroundColor: COLORS.primary[500], marginTop: 24 }]}
+                    onPress={() => {
+                      setEditName(profile?.full_name || '');
+                      setEditPhone(profile?.phone || '');
+                      setEditGender(profile?.gender || '');
+                      setEditAvatar(profile?.avatar_url || '');
+                      setIsEditingPersonal(true);
+                    }}
+                  >
+                    <Text style={styles.saveBtnText}>Edit</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.avatarPreviewContainer}>
+                    <TouchableOpacity onPress={handleChangeAvatar} activeOpacity={0.8} style={styles.avatarPickerWrapper}>
+                      {editAvatar ? (
+                        <Image source={{ uri: editAvatar }} style={styles.formAvatar} />
+                      ) : (
+                        <View style={[styles.formAvatar, { backgroundColor: theme.surfaceVariant, alignItems: 'center', justifyContent: 'center' }]}>
+                          <User size={32} color={COLORS.primary[500]} />
+                        </View>
+                      )}
+                      <View style={styles.cameraIconBadge}>
+                        <Edit2 size={12} color="white" />
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleChangeAvatar} style={styles.changePhotoBtn}>
+                      <Text style={styles.changePhotoText}>Pilih dari Kamera / Galeri</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Nama Lengkap</Text>
+                  <TextInput
+                    style={[styles.textInput, { color: theme.text, borderColor: theme.border }]}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="Masukkan nama lengkap"
+                    placeholderTextColor={theme.textSecondary}
+                  />
+
+                  <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Nomor Telepon</Text>
+                  <TextInput
+                    style={[styles.textInput, { color: theme.text, borderColor: theme.border }]}
+                    value={editPhone}
+                    onChangeText={setEditPhone}
+                    keyboardType="phone-pad"
+                    placeholder="Contoh: 08123456789"
+                    placeholderTextColor={theme.textSecondary}
+                  />
+
+                  <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 4 }]}>Jenis Kelamin</Text>
+                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                    {['L', 'P'].map((val) => {
+                      const label = val === 'L' ? 'Laki-laki' : 'Perempuan';
+                      const selected = editGender === val;
+                      return (
+                        <TouchableOpacity
+                          key={val}
+                          onPress={() => setEditGender(val)}
+                          style={[
+                            {
+                              flex: 1,
+                              paddingVertical: 10,
+                              borderRadius: 10,
+                              borderWidth: 1.5,
+                              alignItems: 'center',
+                              borderColor: selected ? COLORS.primary[500] : theme.border,
+                              backgroundColor: selected ? COLORS.primary[500] + '15' : 'transparent',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              fontFamily: 'PlusJakartaSans-SemiBold',
+                              fontSize: 13,
+                              color: selected ? COLORS.primary[500] : theme.textSecondary,
+                            }}
+                          >
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { backgroundColor: theme.surfaceVariant, flex: 1 }]}
+                      onPress={() => setIsEditingPersonal(false)}
+                    >
+                      <Text style={[styles.saveBtnText, { color: theme.text }]}>Batal</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { backgroundColor: COLORS.primary[500], flex: 1 }]}
+                      onPress={handleSavePersonal}
+                      disabled={savingPersonal}
+                    >
+                      {savingPersonal ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <Text style={styles.saveBtnText}>Simpan</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Avatar Action Sheet */}
+      <Modal visible={avatarSheetVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.backdropButton} activeOpacity={1} onPress={() => setAvatarSheetVisible(false)} />
+          <View style={[styles.bottomSheetBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.modalTitle, { color: theme.text, textAlign: 'center', marginBottom: 20 }]}>Ganti Foto Profil</Text>
+
+            <TouchableOpacity
+              style={[styles.avatarOption, { borderColor: theme.border }]}
+              onPress={() => { setAvatarSheetVisible(false); setTimeout(handleTakeWithCamera, 150); }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.avatarOptionIcon, { backgroundColor: COLORS.primary[500] + '20' }]}>
+                <Camera size={22} color={COLORS.primary[500]} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.avatarOptionTitle, { color: theme.text }]}>Ambil Foto</Text>
+                <Text style={[styles.avatarOptionDesc, { color: theme.textSecondary }]}>Gunakan kamera untuk mengambil foto</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.avatarOption, { borderColor: theme.border }]}
+              onPress={() => { setAvatarSheetVisible(false); setTimeout(handlePickFromGallery, 150); }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.avatarOptionIcon, { backgroundColor: COLORS.success + '20' }]}>
+                <ImageIcon size={22} color={COLORS.success} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.avatarOptionTitle, { color: theme.text }]}>Pilih dari Galeri</Text>
+                <Text style={[styles.avatarOptionDesc, { color: theme.textSecondary }]}>Ambil foto dari galeri ponsel Anda</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.avatarCancelBtn, { borderColor: theme.border }]}
+              onPress={() => setAvatarSheetVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.avatarCancelText, { color: theme.textSecondary }]}>Batal</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -790,6 +900,66 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'transparent',
   },
+  readonlyRow: {
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128,128,128,0.15)',
+    paddingBottom: 12,
+  },
+  readonlyLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  readonlyValue: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  avatarOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  avatarOptionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOptionTitle: {
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  avatarOptionDesc: {
+    fontFamily: 'PlusJakartaSans-Regular',
+    fontSize: 12,
+  },
+  avatarCancelBtn: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  avatarCancelText: {
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    fontSize: 14,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(128,128,128,0.3)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
   editButton: {
     position: 'absolute',
     bottom: 0,
@@ -843,39 +1013,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statValue: {
-    fontWeight: '900',
-    fontSize: 17,
-    fontFamily: TYPOGRAPHY.h1.fontFamily,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 24,
-    marginHorizontal: 24,
-  },
   menuContainer: {
     paddingHorizontal: 20,
     marginBottom: 8,
@@ -914,28 +1051,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: TYPOGRAPHY.body.fontFamily,
     fontWeight: '600',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 24,
-    marginTop: 8,
-  },
-  logoutIconWrapper: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-    borderWidth: 1,
-  },
-  logoutText: {
-    color: COLORS.error,
-    fontSize: 13,
-    fontFamily: TYPOGRAPHY.body.fontFamily,
-    fontWeight: '700',
   },
   footer: {
     alignItems: 'center',

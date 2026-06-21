@@ -16,6 +16,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/config';
+import Constants from 'expo-constants';
 
 const API_BASE = API_URL;
 
@@ -543,7 +544,7 @@ export default function AuthScreen() {
 
       </KeyboardAvoidingView>
 
-      <Text style={[styles.footerVersion, { color: theme.textSecondary }]}>Kang Massage v1.1.1</Text>
+      <Text style={[styles.footerVersion, { color: theme.textSecondary }]}>Kang Massage v{Constants.expoConfig?.version || '1.1.2'}</Text>
     </SafeAreaView>
   );
 }
