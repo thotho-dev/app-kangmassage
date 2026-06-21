@@ -9,6 +9,8 @@ import {
   StatusBar,
   Dimensions,
   Animated,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -206,6 +208,19 @@ export default function HomeScreen() {
   const stepScrollRef = useRef<ScrollView>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [popularIds, setPopularIds] = useState<Set<string>>(new Set());
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [modalName, setModalName] = useState('');
+  const [modalGender, setModalGender] = useState<'L' | 'P' | ''>('');
+  const [modalSaving, setModalSaving] = useState(false);
+  const profileModalShownRef = useRef(false);
+
+  useEffect(() => {
+    if (profile && !profile.gender && !profileModalShownRef.current) {
+      profileModalShownRef.current = true;
+      setModalName(profile.full_name || '');
+      setShowProfileModal(true);
+    }
+  }, [profile]);
 
   useEffect(() => {
     let mounted = true;
@@ -430,7 +445,23 @@ export default function HomeScreen() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
+  const saveProfileModal = async () => {
+    if (!modalName.trim()) return;
+    if (!modalGender) return;
+    setModalSaving(true);
+    try {
+      await supabase.from('users').update({
+        full_name: modalName.trim(),
+        gender: modalGender,
+      }).eq('id', profile?.id);
+      setShowProfileModal(false);
+      await refreshProfile();
+    } catch {}
+    setModalSaving(false);
+  };
+
   return (
+    <>
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" />
       <ScrollView
@@ -832,6 +863,51 @@ export default function HomeScreen() {
         </View>
       )}
     </SafeAreaView>
+
+      {/* ── Profile completion modal ── */}
+      <Modal visible={showProfileModal} transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Lengkapi Profil</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>Isi nama dan jenis kelamin untuk melanjutkan</Text>
+
+            <Text style={[styles.modalLabel, { color: theme.text }]}>Nama Lengkap</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.surfaceVariant, color: theme.text, borderColor: theme.border }]}
+              value={modalName}
+              onChangeText={setModalName}
+              placeholder="Nama lengkap"
+              placeholderTextColor={theme.textSecondary}
+            />
+
+            <Text style={[styles.modalLabel, { color: theme.text }]}>Jenis Kelamin</Text>
+            <View style={styles.modalGenderRow}>
+              <TouchableOpacity
+                style={[styles.modalGenderBtn, { borderColor: theme.border }, modalGender === 'L' && styles.modalGenderActive]}
+                onPress={() => setModalGender('L')}
+              >
+                <Text style={[styles.modalGenderText, { color: theme.text }, modalGender === 'L' && styles.modalGenderTextActive]}>Laki-laki</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalGenderBtn, { borderColor: theme.border }, modalGender === 'P' && styles.modalGenderActive]}
+                onPress={() => setModalGender('P')}
+              >
+                <Text style={[styles.modalGenderText, { color: theme.text }, modalGender === 'P' && styles.modalGenderTextActive]}>Perempuan</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { opacity: (!modalName.trim() || !modalGender) ? 0.5 : 1 }]}
+              onPress={saveProfileModal}
+              disabled={!modalName.trim() || !modalGender || modalSaving}
+            >
+              <Text style={styles.modalSubmitText}>{modalSaving ? 'Menyimpan...' : 'Simpan'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+    </>
   );
 }
 
@@ -1548,5 +1624,80 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: '#EFEFEF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'PlusJakartaSans-Bold',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans-Regular',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalLabel: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    marginBottom: 8,
+  },
+  modalInput: {
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Regular',
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  modalGenderRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  modalGenderBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalGenderActive: {
+    backgroundColor: '#F97316',
+    borderColor: '#F97316',
+  },
+  modalGenderText: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+  },
+  modalGenderTextActive: {
+    color: '#FFFFFF',
+  },
+  modalSubmitBtn: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#240080',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSubmitText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
 });

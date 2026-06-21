@@ -21,6 +21,7 @@ interface Profile {
   supabase_uid?: string;
   full_name?: string;
   phone?: string;
+  gender?: string;
   avatar_url?: string;
   wallet_balance?: number;
   points?: number;
