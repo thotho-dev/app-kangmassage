@@ -236,11 +236,21 @@ export default function AuthScreen() {
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        phone: normalizedPhone(regPhone),
-        password: regPassword,
+      const loginResult = await fetchJSON(`${API_BASE}/api/auth/phone-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone(regPhone), password: regPassword, role: 'user' }),
       });
-      if (signInError) throw signInError;
+      if (loginResult.error) throw new Error(loginResult.error);
+
+      const { session } = loginResult.data;
+      if (session?.access_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (error) throw error;
+      }
 
       router.replace('/home');
     } catch (error: any) {
