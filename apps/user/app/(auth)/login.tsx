@@ -175,7 +175,7 @@ export default function AuthScreen() {
         body: JSON.stringify({ phone: normalizedPhone(regPhone), role: 'user' }),
       });
       const result = await response.json();
-      if (response.status === 409) { showAlert('Info', 'Nomor sudah terdaftar. Silakan login.'); return; }
+      if (response.status === 409) { showAlert('Info', 'Nomor ini sudah terdaftar, yuk masuk aja!', [{ text: 'Masuk', onPress: () => setTab('login') }, { text: 'Tutup', style: 'cancel' }]); return; }
       if (result.error) throw new Error(result.error);
       setRegStep('otp');
       startRegTimer();
@@ -247,7 +247,12 @@ export default function AuthScreen() {
 
       router.replace('/home');
     } catch (error: any) {
-      showAlert('Daftar Gagal', error.message);
+      const msg = error.message || '';
+      if (msg.includes('sudah terdaftar')) {
+        showAlert('Info', 'Nomor ini sudah terdaftar, yuk masuk aja!', [{ text: 'Masuk', onPress: () => setTab('login') }, { text: 'Tutup', style: 'cancel' }]);
+      } else {
+        showAlert('Daftar Gagal', msg);
+      }
     } finally {
       setRegLoading(false);
     }

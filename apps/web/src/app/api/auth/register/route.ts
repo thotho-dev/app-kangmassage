@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       log('4', 'Phone already registered');
-      return NextResponse.json({ error: 'Nomor sudah terdaftar. Silakan login.' }, { status: 409 });
+      return NextResponse.json({ error: 'Nomor ini sudah terdaftar, yuk masuk aja!' }, { status: 409 });
     }
 
     const mockEmail = `${normalizedPhone.replace(/[^0-9]/g, '')}@user.pijat.app`;

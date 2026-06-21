@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       if (existing) {
         console.log(`[${requestId}] Phone already registered`);
         return NextResponse.json({
-          error: 'Nomor sudah terdaftar. Silakan login.',
+          error: 'Nomor ini sudah terdaftar, yuk masuk aja!',
           is_new_user: false,
           request_id: requestId,
         }, { status: 409 });
