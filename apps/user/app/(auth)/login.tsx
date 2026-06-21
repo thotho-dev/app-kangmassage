@@ -91,9 +91,11 @@ export default function AuthScreen() {
     setLoginLoading(true);
     try {
       await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      const idToken = userInfo.data?.idToken ?? userInfo.idToken;
-      if (!idToken) throw new Error('No id token');
+      const signInResult = await GoogleSignin.signIn();
+      if (signInResult.type === 'cancelled') return;
+
+      const idToken = signInResult.data.idToken;
+      if (!idToken) throw new Error('Tidak dapat memperoleh token Google');
 
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
@@ -111,26 +113,27 @@ export default function AuthScreen() {
           .maybeSingle();
 
         if (!existingProfile) {
-          const fullName = userInfo.user?.name || data.user?.user_metadata?.full_name || data.user?.email?.split('@')[0] || 'User';
-          const email = data.user?.email || '';
-          const phone = data.user?.phone || '';
+          const gu = signInResult.data.user;
+          const fullName = gu.name || data.user?.user_metadata?.full_name || data.user?.email?.split('@')[0] || 'User';
+          const email = data.user?.email || gu.email || '';
 
           const { error: insertError } = await supabase.from('users').insert({
             supabase_uid: supabaseUid,
             full_name: fullName,
             email,
-            phone,
+            phone: '',
             role: 'user',
             wallet_balance: 0,
           });
-          if (insertError) throw insertError;
+          if (insertError) throw new Error('Gagal membuat profil: ' + insertError.message);
         }
       }
 
       router.replace('/home');
     } catch (error: any) {
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
-      showAlert('Google Login Gagal', error.message);
+      const code = error.code;
+      if (code === statusCodes.SIGN_IN_CANCELLED || code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) return;
+      showAlert('Google Login Gagal', error.message || 'Terjadi kesalahan');
     } finally {
       setLoginLoading(false);
     }
