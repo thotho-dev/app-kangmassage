@@ -103,27 +103,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: profileError.message }, { status: 500 });
     }
 
-    // Sign in to get session
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-    const signInResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnonKey },
-      body: JSON.stringify({ phone: normalizedPhone, password }),
-    });
-
-    const sessionData = await signInResponse.json();
-
     return NextResponse.json({
       data: {
         user: profile,
         role,
-        session: sessionData?.access_token ? {
-          access_token: sessionData.access_token,
-          refresh_token: sessionData.refresh_token,
-          user: sessionData.user,
-        } : null,
       },
     });
   } catch (err: any) {

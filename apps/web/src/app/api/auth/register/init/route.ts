@@ -109,13 +109,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: profileError.message }, { status: 500 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-    const signInResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnonKey },
-      body: JSON.stringify({ phone: normalizedPhone, password }),
+    return NextResponse.json({
+      data: {
+        user: profile,
+        role,
+      },
     });
 
     const sessionData = await signInResponse.json();
