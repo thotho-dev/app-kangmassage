@@ -8,7 +8,6 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useLocation } from '@/context/LocationContext';
 import { Asset } from 'expo-asset';
-import { readAsStringAsync } from 'expo-file-system/legacy';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -48,19 +47,20 @@ const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
     }
     @keyframes drop {
       0% { transform: translate(-50%, -130%); filter: drop-shadow(0 8px 16px rgba(36,0,128,0.4)); }
-      60% { transform: translate(-50%, -95%); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
-      80% { transform: translate(-50%, -105%); }
       100% { transform: translate(-50%, -100%); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
     }
     #centerPin img {
+      display: block;
       width: 48px;
       height: 48px;
       object-fit: contain;
     }
-    #centerPin .pin-leg {
-      width: 3px;
-      height: 14px;
-      background: #FF6B2C;
+    #centerPin svg { display: block; }
+    .pin-leg {
+      width: 6px;
+      height: 6px;
+      background: #240080;
+      border-radius: 50%;
       margin: -2px auto 0;
       border-radius: 2px;
     }
@@ -69,7 +69,10 @@ const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
 <body>
   <div id="map"></div>
   <div id="centerPin">
-    <img src="${pinUri}" alt="pin" />
+    ${pinUri
+      ? `<img src="${pinUri}" alt="pin" />`
+      : `<svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" fill="#240080"/><circle cx="24" cy="24" r="10" fill="white"/><path d="M24 4C15.16 4 8 11.16 8 20c0 12 16 24 16 24s16-12 16-24c0-8.84-7.16-16-16-16z" fill="#240080"/><circle cx="24" cy="20" r="8" fill="white"/></svg>`
+    }
     <div class="pin-leg"></div>
   </div>
   <script>
@@ -121,12 +124,28 @@ export default function MapsScreen() {
 
   useEffect(() => {
     (async () => {
-      const asset = Asset.fromModule(require('@/assets/icon-app-user.png'));
-      await asset.downloadAsync();
-      const b64 = await readAsStringAsync(asset.uri, {
-        encoding: 'base64',
-      });
-      setPinUri(`data:image/png;base64,${b64}`);
+      try {
+        const asset = Asset.fromModule(require('@/assets/icon-app-user.png'));
+        await asset.downloadAsync();
+        const uri = asset.localUri || asset.uri;
+
+        // Convert to base64 using fetch + blob (works with http:// and file:// URIs)
+        const resp = await fetch(uri);
+        const blob = await resp.blob();
+        const b64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        setPinUri(`data:image/png;base64,${b64}`);
+      } catch {
+        // Fallback: use a simple SVG pin
+        setPinUri('');
+      }
     })();
   }, []);
 
