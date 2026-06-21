@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     const bronzeCut = settings.bronze_platform_cut ?? DEFAULT_SETTINGS.bronze_platform_cut;
     const commissionRate = 100 - bronzeCut;
 
-    const { error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('therapists')
       .insert({
         supabase_uid: supabaseUid,
@@ -102,33 +102,27 @@ export async function POST(req: NextRequest) {
         wallet_balance: 0,
         is_verified: false,
         registration_step: 'pending',
-      });
+      })
+      .select()
+      .single();
 
     if (profileError) {
       await supabase.auth.admin.deleteUser(supabaseUid).catch(() => {});
       return NextResponse.json({ error: profileError.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      data: {
-        user: profile,
-        role,
-      },
-    });
-
-    const sessionData = await signInResponse.json();
+    if (!profile) {
+      await supabase.auth.admin.deleteUser(supabaseUid).catch(() => {});
+      return NextResponse.json({ error: 'Gagal membuat profil' }, { status: 500 });
+    }
 
     await supabase.from('therapists').update({ registration_step: 'otp_sent' }).eq('phone', normalizedPhone);
 
     return NextResponse.json({
       data: {
-        session: sessionData?.access_token ? {
-          access_token: sessionData.access_token,
-          refresh_token: sessionData.refresh_token,
-          user: sessionData.user,
-        } : null,
+        user: profile,
+        role: 'therapist',
       },
-      phone: normalizedPhone,
     });
   } catch (err: any) {
     console.error('Register Init Error:', err.message);

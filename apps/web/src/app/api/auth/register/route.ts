@@ -103,6 +103,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: profileError.message }, { status: 500 });
     }
 
+    if (!profile) {
+      await supabase.auth.admin.deleteUser(supabaseUid).catch(() => {});
+      return NextResponse.json({ error: 'Gagal membuat profil' }, { status: 500 });
+    }
+
     return NextResponse.json({
       data: {
         user: profile,

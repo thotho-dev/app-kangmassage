@@ -54,3 +54,5 @@ midtrans_settings.sql
 # Temporary
 tmp/
 scratch/
+
+kangmassageapp-*.json
