@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
   Platform, ScrollView, Dimensions, StatusBar, Image, TextInput, ActivityIndicator
@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Eye, EyeOff, Phone, User, Lock } from 'lucide-react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
@@ -79,41 +80,56 @@ export default function AuthScreen() {
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '864216508187-tgo3rd4ltgkf67oc158hpkq3pugq6kjd.apps.googleusercontent.com',
+    });
+  }, []);
+
   // ── Login handlers ──
   const signInWithGoogle = async () => {
     setLoginLoading(true);
     try {
-      const returnUrl = 'kangmassage://callback';
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken ?? userInfo.idToken;
+      if (!idToken) throw new Error('No id token');
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
-        options: {
-          redirectTo: `${API_BASE}/api/auth/callback`,
-          skipBrowserRedirect: true,
-        },
+        token: idToken,
       });
       if (error) throw error;
 
-      const res = await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
-      if (res.type === 'success') {
-        const { url } = res;
-        const parsed = Linking.parse(url);
-        const q = parsed.queryParams || {};
+      // Ensure profile exists in users table
+      const supabaseUid = data.user?.id;
+      if (supabaseUid) {
+        const { data: existingProfile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('supabase_uid', supabaseUid)
+          .maybeSingle();
 
-        if (q.code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(q.code as string);
-          if (!exchangeError) { router.replace('/home'); return; }
-        }
-        if (q.access_token) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: q.access_token as string,
-            refresh_token: (q.refresh_token as string) || '',
+        if (!existingProfile) {
+          const fullName = userInfo.user?.name || data.user?.user_metadata?.full_name || data.user?.email?.split('@')[0] || 'User';
+          const email = data.user?.email || '';
+          const phone = data.user?.phone || '';
+
+          const { error: insertError } = await supabase.from('users').insert({
+            supabase_uid: supabaseUid,
+            full_name: fullName,
+            email,
+            phone,
+            role: 'user',
+            wallet_balance: 0,
           });
-          if (!sessionError) { router.replace('/home'); return; }
+          if (insertError) throw insertError;
         }
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session) router.replace('/home');
       }
+
+      router.replace('/home');
     } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
       showAlert('Google Login Gagal', error.message);
     } finally {
       setLoginLoading(false);

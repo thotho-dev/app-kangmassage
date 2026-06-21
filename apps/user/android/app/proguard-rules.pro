@@ -76,6 +76,10 @@
     java.lang.Object readResolve();
 }
 
+# Google Sign-In
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.android.gms.**
+
 # Remove debug logs in release
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
