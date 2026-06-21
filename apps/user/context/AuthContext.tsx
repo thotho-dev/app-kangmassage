@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { registerForPushNotificationsAsync } from '../lib/notifications';
 import * as Notifications from 'expo-notifications';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -88,7 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com',
+    });
+  }, []);
+
   const signOut = async () => {
+    try { await GoogleSignin.signOut(); } catch {}
     await supabase.auth.signOut();
     router.replace('/login');
   };
