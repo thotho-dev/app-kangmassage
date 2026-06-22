@@ -392,6 +392,55 @@ C:\Android\
 
 ---
 
+## Session 6b (Wallet voucher, unit tests, privacy modal, Unsplash removal, layout screens)
+
+### Problems addressed
+1. Wallet payment (saldo) tidak punya voucher category khusus — voucher umum tidak bisa dibedakan.
+2. Voucher logic tercampur di komponen — tidak bisa di-unit-test.
+3. Profile tidak ada menu Kebijakan Privasi.
+4. Chat UI header font terlalu besar.
+5. Beberapa screen tidak terdaftar di Stack.Screen — navigasi error.
+6. WhatsApp support button tidak ada di profile.
+7. Gambar Unsplash masih dipakai sebagai fallback — tidak konsisten.
+8. Mock data (HISTORY_DATA, FAV_DATA, SERVICES) masih ada — dead code.
+9. `order.tsx` TS error — `expo-application` API berubah.
+
+### Changes made
+| File | Change |
+|---|---|
+| `supabase/schema.sql` | Added `wallet_payment` to `voucher_category` enum. |
+| `supabase/migrations/20260622_add_wallet_payment_voucher_category.sql` | **NEW** — Migration for enum value. |
+| `apps/web/src/app/dashboard/vouchers/page.tsx` | Updated with `wallet_payment` category option. |
+| `apps/web/src/types/index.ts` | VoucherCategory type updated. |
+| `apps/user/app/(main)/order.tsx` | Voucher `wallet_payment` hanya aktif jika `paymentMethod === 'saldo'`. `useEffect` reaktif switching payment method. Fixed `expo-application` import. |
+| `apps/user/lib/voucher.ts` | **NEW** — Pure functions: `calculateDiscount`, `checkHappyHour`, `checkAreaCoverage`, `validateVoucher`, `findBestVoucher`. |
+| `apps/user/lib/__tests__/voucher.test.ts` | **NEW** — 48 unit tests. |
+| `apps/user/app.json` | Version 1.1.2→1.1.3. |
+| `apps/user/android/app/build.gradle` | versionCode 4→5. |
+| `apps/user/app/(main)/(tabs)/profile.tsx` | Added `Kebijakan Privasi` menu item + modal with 6 sections. Added WhatsApp support button using `supportWA` from DB. |
+| `apps/user/app/(main)/(tabs)/chat.tsx` | Header title font 26→20, emptyTitle 18→16, emptySubtitle 14→12. |
+| `apps/user/app/(auth)/_layout.tsx` | Added `register` screen declaration. |
+| `apps/user/app/(main)/_layout.tsx` | Added `bank-accounts`, `pin-setup`, `topup-history`, `withdraw-history`. |
+| `apps/user/app/_layout.tsx` | Added `callback`, `chats/[id]` screens. |
+| `apps/user/app/(main)/services.tsx` | Removed Unsplash fallback (`|| undefined`). No longer imports SERVICES constant (only type). |
+| `apps/user/app/(main)/tracking.tsx` | Removed Unsplash fallback. |
+| `apps/user/app/(main)/voucher-detail/[id].tsx` | Removed Unsplash fallback. Added `wallet_payment` requirement row. |
+| `apps/user/app/(main)/vouchers.tsx` | Voucher list filter by device usage. |
+| `apps/user/app/(main)/(tabs)/home.tsx` | Removed Unsplash fallback, removed HOME_SERVICES image fields. |
+| `apps/user/app/(main)/(tabs)/history.tsx` | Removed Unsplash fallback. Deleted `HISTORY_DATA` and `FAV_DATA` mock arrays. |
+| `apps/user/constants/Services.ts` | Only `Service` type remains — SERVICES data constant no longer imported. |
+
+### Key decisions
+- `validateVoucher(voucher, context)` pure function pattern for testability.
+- `servicesData ?? []` instead of `servicesData || SERVICES` to remove hardcoded fallback.
+- Voucher device tracking via `expo-application` (getAndroidId / getIosIdForVendorAsync).
+
+### Next steps
+- Run migration files in Supabase SQL Editor.
+- Build/install app via EAS build.
+
+---
+
 ## Session 7 (UI refinement — fallback images, font sizes, tracking card group, splash fix)
 
 ### Problems addressed
