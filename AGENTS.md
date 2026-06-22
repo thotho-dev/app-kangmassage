@@ -389,3 +389,46 @@ C:\Android\
 - `apps/user/context/AuthContext.tsx` — Profile type with created_at
 - `apps/user/android/app/build.gradle` — versionName 1.1.2
 - `apps/user/app.json` — version 1.1.2
+
+---
+
+## Session 7 (UI refinement — fallback images, font sizes, tracking card group, splash fix)
+
+### Problems addressed
+1. Halaman services/history/chat/dll tidak punya gambar fallback — setelah hapus Unsplash, gambar jadi blank.
+2. Font size di history, voucher-detail, services, vouchers, chat terlalu besar.
+3. Halaman tracking tidak menampilkan jam order (created_at).
+4. Status card dan detail card terpisah — tidak dalam satu container putih.
+5. Maps Leaflet di tracking pakai unsplash fallback — tidak konsisten dengan logo KM.
+6. Gesture sheet masih bisa di-drag saat map sudah di-sembunyikan (arrived/in_progress/completed/cancelled).
+7. Status Pesanan section kosong saat status pending.
+8. Splash screen putih — window background default Android putih, hideAsync dipanggil sebelum fonts loaded.
+9. Input tips font too large.
+10. Syntax error saat hapus loading View.
+
+### Changes made
+| File | Change |
+|---|---|
+| `apps/user/app/(main)/services.tsx` | Card image fallback pakai `require('@/assets/icon-km.png')`. Font header 18→16, introTitle 18→16, cardName 14→13, cardPrice 13→12. |
+| `apps/user/app/(main)/voucher-detail/[id].tsx` | Fallback voucher image pakai `require('@/assets/icon-km.png')`. Header 18→16, value 26→22, code 16→14, sectionTitle/desc/reqValue 14→13, button 14→13. |
+| `apps/user/app/(main)/vouchers.tsx` | Font header 18→16, discount 15→14, empty 18→16, loading 14→13. |
+| `apps/user/app/(main)/(tabs)/history.tsx` | Font header 18→15, tab 13→12, orderId 13→12, name 15→13, service 13→12, price 14→12, dll. Fallback pakai `require()`. |
+| `apps/user/app/(main)/(tabs)/chat.tsx` | Font header 20→17, name 15→13, lastMessage 13→12, emptyTitle 16→14. Fallback pakai `require()`. |
+| `apps/user/app/(main)/(tabs)/home.tsx` | Service image fallback pakai `require('@/assets/icon-km.png')`. |
+| `apps/user/app/(main)/tracking.tsx` | Avatar fallback pakai `require('@/assets/icon-km.png')`, Leaflet fallback via `fallbackAvatarUri` (Image.resolveAssetSource). Added Jam Order row in detail card. Grouped status + detail cards into `combinedCardBg` (white container). StepsCard & detailCard dibuat transparent. Disable PanResponder saat map hidden via `mapHiddenRef`. Added `pending` step to STATUS_STEPS. Font tips label 14→12, tips input/currency 16→14. |
+| `apps/user/constants/Services.ts` | Hanya export type Service — SERVICES data constant tidak di-import siapapun. |
+| `apps/user/app/_layout.tsx` | `SplashScreen.hideAsync()` hanya dipanggil setelah fonts loaded (`[loaded, error]` deps). Loading View diganti `return null` (native splash tetap visible selama font loading). |
+| `apps/user/android/.../styles.xml` | Added `android:windowBackground` → `@color/splashscreen_background` (`#0F172A`) ke AppTheme. |
+
+### Key decisions
+- Fallback logo KM untuk Image source via `require()`, untuk Leaflet HTML via `Image.resolveAssetSource().uri`.
+- Container putih (`combinedCardBg`) membungkus status + detail — stepsCard & detailCard dibuat tanpa bg/border.
+- PanResponder dicek via `mapHiddenRef` yang di-sync via `useEffect` — bukan re-create PanResponder tiap render.
+- `pending` ditambahkan ke STATUS_STEPS index 0 agar status section tidak kosong saat pending.
+- Splash screen: hideAsync ditunda sampai fonts benar-benar loaded + windowBackground native di-set ke navy.
+- EAS production build submitted: build ID `18ffc114-3fcc-44f1-a587-6b11f04e7677`
+
+### Next steps
+- Monitor EAS build status.
+- Cek hasil build + install APK.
+- Verify splash screen tidak putih lagi di build production.
