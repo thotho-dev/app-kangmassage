@@ -11,7 +11,9 @@
   "scripts": {
     "web": "npm run dev --workspace=apps/web",
     "mobile:user": "npm run start --workspace=apps/user",
-    "mobile:therapist": "npm run start --workspace=apps/therapist"
+    "mobile:therapist": "npm run start --workspace=apps/therapist",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
@@ -37,5 +39,10 @@
     "expo-application": "7.0.8",
     "react-native-safe-area-context": "5.6.0",
     "react-native-webview": "13.15.0"
+  },
+  "dependencies": {
+    "expo": "~54.0.35",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }

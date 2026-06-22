@@ -222,7 +222,8 @@ function VoucherModal({ voucher, onClose, onSave }: { voucher?: Voucher | null; 
                       { value: 'new_user', label: t('new_user') },
                       { value: 'repeat_order', label: t('repeat_order') },
                       { value: 'happy_hour', label: t('happy_hour') },
-                      { value: 'service', label: t('based_on_service') }
+                      { value: 'service', label: t('based_on_service') },
+                      { value: 'wallet_payment', label: 'Wallet Payment' }
                     ]}
                   />
                 </div>

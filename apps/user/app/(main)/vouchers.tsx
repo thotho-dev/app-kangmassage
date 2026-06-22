@@ -3,7 +3,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { ChevronLeft, Ticket, Info, Timer } from 'lucide-react-native';
+import { Application } from 'expo-application';
 import { supabase } from '@/lib/supabase';
 import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
@@ -24,10 +26,22 @@ export default function VouchersScreen() {
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [deviceId, setDeviceId] = useState<string>('');
   const { address } = useLocation();
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   
+  useEffect(() => {
+    (async () => {
+      try {
+        const id = Platform.OS === 'android'
+          ? await Application.getAndroidId()
+          : await Application.getIosIdForVendorAsync();
+        if (id) setDeviceId(id);
+      } catch {}
+    })();
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       const backAction = () => {
@@ -79,17 +93,36 @@ export default function VouchersScreen() {
         console.error('Error fetching usage data:', uError);
       }
 
+      // 2.5. Fetch device usages to block new_user vouchers used on this device
+      const deviceUsedVoucherIds = new Set<string>();
+      if (deviceId) {
+        const { data: deviceUsage } = await supabase
+          .from('voucher_usages')
+          .select('voucher_id')
+          .eq('device_id', deviceId);
+        deviceUsage?.forEach((u: any) => deviceUsedVoucherIds.add(u.voucher_id));
+      }
+
       // Map usage counts
       const usageCounts: Record<string, number> = {};
       usageData?.forEach((u: any) => {
         usageCounts[u.voucher_id] = (usageCounts[u.voucher_id] || 0) + 1;
       });
 
-      // Combine data
-      const processedVouchers = (voucherData || []).map(v => ({
-        ...v,
-        user_usage_count: usageCounts[v.id] || 0
-      }));
+      // Combine data and filter out used/expired vouchers
+      const processedVouchers = (voucherData || [])
+        .filter(v => {
+          const userCount = usageCounts[v.id] || 0;
+          const userLimit = Number(v.user_limit) || 1;
+          if (userCount >= userLimit) return false;
+          if (v.usage_limit && Number(v.usage_count) >= Number(v.usage_limit)) return false;
+          if (v.category === 'new_user' && deviceUsedVoucherIds.has(v.id)) return false;
+          return true;
+        })
+        .map(v => ({
+          ...v,
+          user_usage_count: usageCounts[v.id] || 0
+        }));
 
       setVouchers(processedVouchers);
     } catch (error) {
@@ -304,8 +337,7 @@ export default function VouchersScreen() {
                     <TouchableOpacity 
                       style={[styles.useButton, !valid && { backgroundColor: '#E5E7EB' }]}
                       disabled={!valid}
-                      onPress={() => {
-                        if (from === 'order') {
+                      onPress={() => { if (from === 'order') {
                           router.replace({ 
                             pathname: '/order', 
                             params: { 

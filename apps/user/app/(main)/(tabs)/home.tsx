@@ -125,7 +125,7 @@ function BannerSlideshow({ banners }: { banners: any[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<Animated.ScrollView>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
-  const SLIDE_HEIGHT = 200;
+  const SLIDE_HEIGHT = 150;
 
   useEffect(() => {
     if (!banners.length) return;
@@ -959,13 +959,13 @@ const bannerStyles = StyleSheet.create({
   },
   slideTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 15,
     fontFamily: 'PlusJakartaSans-Bold',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   slideSubtitle: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Regular',
   },
   dots: {
@@ -1132,7 +1132,7 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   locationText: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_DARK,
   },
@@ -1235,8 +1235,42 @@ const styles = StyleSheet.create({
   stepCard: {
     width: SCREEN_WIDTH - 70,
     borderRadius: 24,
-    padding: 28,
+    padding: 20,
     alignItems: 'center',
+  },
+  stepNum: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    position: 'relative',
+    zIndex: 1,
+  },
+  stepOrb: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    top: -20,
+    left: -15,
+  },
+  stepTitle: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: TEXT_DARK,
+    marginBottom: 4,
+    textAlign: 'center',
+    zIndex: 1,
+  },
+  stepDesc: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-Regular',
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 15,
+    zIndex: 1,
   },
   stepNum: {
     width: 40,
@@ -1460,7 +1494,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#240080',
+    backgroundColor: '#F97316',
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,

@@ -37,7 +37,8 @@ CREATE TYPE voucher_category AS ENUM (
   'event',        -- Musiman
   'topup',        -- Bonus isi saldo
   'cashback',     -- Masuk ke wallet
-  'referral'      -- Ajak teman
+  'referral',      -- Ajak teman
+  'wallet_payment' -- Diskon saat bayar pakai saldo
 );
 
 -- ============================================================

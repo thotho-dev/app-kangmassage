@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useEffect } from 'react';
+import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,11 @@ import {
   Dimensions,
   Image,
   TextInput,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Search, Tag } from 'lucide-react-native';
+import { ChevronLeft, Search, Tag, X } from 'lucide-react-native';
 import { SERVICES } from '@/constants/Services';
 import { useServices } from '@/hooks/useServices';
 import { COLORS, FONTS } from '@/constants/Theme';
@@ -124,6 +125,17 @@ export default function ServicesScreen() {
   const [promoServiceIds, setPromoServiceIds] = useState<Set<string>>(new Set());
   const [popularIds, setPopularIds] = useState<Set<string>>(new Set());
   const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
+  const [showSearch, setShowSearch] = useState(false);
+  const searchAnim = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    Animated.timing(searchAnim, {
+      toValue: showSearch ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [showSearch]);
 
   useEffect(() => {
     let mounted = true;
@@ -217,27 +229,14 @@ export default function ServicesScreen() {
 
   const renderHeader = useCallback(
     () => (
-      <View>
-        <View style={styles.introSection}>
-          <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
-          <Text style={styles.introSubtitle}>
-            Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
-          </Text>
-        </View>
-        <View style={styles.searchWrap}>
-          <Search size={16} color="#9CA3AF" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cari layanan..."
-            placeholderTextColor="#9CA3AF"
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-          />
-        </View>
+      <View style={styles.introSection}>
+        <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
+        <Text style={styles.introSubtitle}>
+          Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
+        </Text>
       </View>
     ),
-    [search, setSearch]
+    []
   );
 
   const skeletonData = Array.from({ length: 6 }, (_, i) => i);
@@ -268,33 +267,57 @@ export default function ServicesScreen() {
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Layanan Kami</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => { if (showSearch) { setShowSearch(false); setSearch(''); } else { setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 300); } }} style={styles.iconBtn}>
+          {showSearch ? <X size={20} color={TEXT_DARK} /> : <Search size={20} color={TEXT_DARK} />}
+        </TouchableOpacity>
       </View>
 
-      {isLoading ? (
-        <FlatList
-          data={skeletonData}
-          keyExtractor={(item) => item.toString()}
-          renderItem={renderSkeletonItem}
-          ListHeaderComponent={renderHeader}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={false}
-        />
-      ) : (
-        <FlatList
-          data={filteredServices}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={renderHeader}
-          ListFooterComponent={<View style={{ height: 40 }} />}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={6}
-          maxToRenderPerBatch={6}
-          windowSize={5}
-        />
-      )}
+      <Animated.View style={{ transform: [{ translateY: searchAnim.interpolate({ inputRange: [0, 1], outputRange: [-65, 5] }) }], zIndex: 0 }} pointerEvents={showSearch ? 'auto' : 'none'}>
+        <View style={styles.searchWrap}>
+          <Search size={16} color="#9CA3AF" />
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Cari layanan..."
+            placeholderTextColor="#9CA3AF"
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} style={{ padding: 4 }}>
+              <X size={16} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </Animated.View>
+
+      <Animated.View style={{ flex: 1, transform: [{ translateY: searchAnim.interpolate({ inputRange: [0, 1], outputRange: [-42, 12] }) }] }}>
+        {isLoading ? (
+          <FlatList
+            data={skeletonData}
+            keyExtractor={(item) => item.toString()}
+            renderItem={renderSkeletonItem}
+            ListHeaderComponent={renderHeader}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+          />
+        ) : (
+          <FlatList
+            data={filteredServices}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListHeaderComponent={renderHeader}
+            ListFooterComponent={<View style={{ height: 40 }} />}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+          />
+        )}
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -316,8 +339,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#EFEFEF',
+    zIndex: 2,
   },
   backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -367,14 +398,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     height: 42,
+    marginHorizontal: HORIZONTAL_PAD,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
     gap: 8,
-    marginTop: 12,
-    marginBottom: 8,
   },
   searchInput: {
     flex: 1,

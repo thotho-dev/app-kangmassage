@@ -8,6 +8,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useLocation } from '@/context/LocationContext';
 import { Asset } from 'expo-asset';
+import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
 const TEXT_DARK = '#1A1A2E';
@@ -57,12 +58,43 @@ const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
     }
     #centerPin svg { display: block; }
     .pin-leg {
-      width: 6px;
-      height: 6px;
-      background: #240080;
-      border-radius: 50%;
+      width: 0;
+      height: 0;
       margin: -2px auto 0;
-      border-radius: 2px;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 14px solid #240080;
+      filter: drop-shadow(0 2px 3px rgba(36,0,128,0.4));
+    }
+    .therapist-popup .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      padding: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .therapist-popup .leaflet-popup-content {
+      margin: 8px 12px;
+      font-family: sans-serif;
+    }
+    .therapist-popup-name {
+      font-weight: 700;
+      font-size: 14px;
+      color: #1A1A2E;
+      margin-bottom: 2px;
+    }
+    .therapist-popup-rating {
+      font-size: 12px;
+      color: #6B7280;
+    }
+    .therapist-popup-dist {
+      font-size: 11px;
+      color: #10B981;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    @keyframes pulse-blue {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.4; }
+      100% { transform: scale(1); opacity: 1; }
     }
   </style>
 </head>
@@ -102,6 +134,51 @@ const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
         lng: center.lng
       }));
     });
+
+    var therapistLayer = L.layerGroup().addTo(map);
+
+    function updateTherapistMarkers(therapists) {
+      therapistLayer.clearLayers();
+      if (!therapists || therapists.length === 0) return;
+      therapists.forEach(function(t) {
+        var popupHtml = '<div class="therapist-popup-name">' + t.full_name + '</div>' +
+          '<div class="therapist-popup-rating">★ ' + parseFloat(t.rating).toFixed(1) + '</div>' +
+          '<div class="therapist-popup-dist">' + parseFloat(t.distance_km).toFixed(1) + ' km</div>';
+        var initial = t.full_name ? t.full_name.charAt(0).toUpperCase() : '?';
+        var icon = L.divIcon({
+          className: '',
+          html: '<div style="width:36px;height:36px;border-radius:50%;background:#1E1B4B;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-family:sans-serif;font-size:15px;font-weight:700;color:#fff;">' + initial + '</div>',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
+        });
+        var marker = L.marker([parseFloat(t.latitude), parseFloat(t.longitude)], { icon: icon })
+          .bindPopup(popupHtml, { className: 'therapist-popup', closeButton: false, offset: [0, -12] });
+        therapistLayer.addLayer(marker);
+      });
+    }
+
+    var userLayer = L.layerGroup().addTo(map);
+
+    function updateUserLocation(lat, lng) {
+      userLayer.clearLayers();
+      var icon = L.divIcon({
+        className: '',
+        html: '<div style="position:relative;width:24px;height:24px;"><div style="position:absolute;top:0;left:0;width:24px;height:24px;border-radius:50%;background:rgba(59,130,246,0.3);border:2px solid rgba(59,130,246,0.6);animation:pulse-blue 2s infinite;"></div><div style="position:absolute;top:6px;left:6px;width:12px;height:12px;border-radius:50%;background:#3B82F6;border:2px solid #fff;"></div></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      L.marker([lat, lng], { icon: icon, zIndexOffset: 10000 }).addTo(userLayer);
+    }
+
+    var msgHandler = function(e) {
+      try {
+        var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (d.type === 'therapists') updateTherapistMarkers(d.data);
+        if (d.type === 'userLocation') updateUserLocation(d.lat, d.lng);
+      } catch(err) { console.warn('[Map] msg err', err); }
+    };
+    window.addEventListener('message', msgHandler);
+    document.addEventListener('message', msgHandler);
 
     window.updatePosition = function(lat, lng) {
       map.setView([lat, lng], map.getZoom());
@@ -183,6 +260,38 @@ export default function MapsScreen() {
   });
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const therapistFetchRef = useRef<NodeJS.Timeout | null>(null);
+
+  const sendUserLocation = useCallback((lat: number, lng: number) => {
+    webViewRef.current?.injectJavaScript(
+      `updateUserLocation(${lat},${lng});true;`
+    );
+  }, []);
+
+  const fetchNearbyTherapists = useCallback(async (lat: number, lng: number) => {
+    try {
+      const { data, error } = await supabase.rpc('get_nearby_therapists', {
+        p_lat: lat,
+        p_lng: lng,
+        p_radius_km: 5,
+      });
+      if (error) {
+        console.warn('[Map RPC error]', error.message);
+        return;
+      }
+      if (data && data.length > 0) {
+        webViewRef.current?.injectJavaScript(
+          `updateTherapistMarkers(${JSON.stringify(data)});true;`
+        );
+      } else {
+        webViewRef.current?.injectJavaScript(
+          `updateTherapistMarkers([]);true;`
+        );
+      }
+    } catch (e) {
+      console.warn('[Map fetch error]', e);
+    }
+  }, []);
 
   const fetchSuggestions = (text: string) => {
     setLocalAddress(text);
@@ -232,6 +341,7 @@ export default function MapsScreen() {
     const lon = parseFloat(item.lon);
     setRegion(prev => ({ ...prev, latitude: lat, longitude: lon }));
     webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat, lng: lon }));
+    fetchNearbyTherapists(lat, lon);
     setLocalAddress(item.display_name);
     setShowSuggestions(false);
   };
@@ -245,6 +355,23 @@ export default function MapsScreen() {
       };
       setRegion(newRegion);
       webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat: coords.latitude, lng: coords.longitude }));
+      sendUserLocation(coords.latitude, coords.longitude);
+      fetchNearbyTherapists(coords.latitude, coords.longitude);
+    } else {
+      (async () => {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          let loc = await Location.getCurrentPositionAsync({});
+          const lat = loc.coords.latitude;
+          const lng = loc.coords.longitude;
+          setRegion(prev => ({ ...prev, latitude: lat, longitude: lng }));
+          webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat, lng }));
+          sendUserLocation(lat, lng);
+          fetchNearbyTherapists(lat, lng);
+        } else {
+          fetchNearbyTherapists(region.latitude, region.longitude);
+        }
+      })();
     }
   }, []);
 
@@ -260,6 +387,8 @@ export default function MapsScreen() {
     };
     setRegion(newRegion);
     webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat: location.coords.latitude, lng: location.coords.longitude }));
+    sendUserLocation(location.coords.latitude, location.coords.longitude);
+    fetchNearbyTherapists(location.coords.latitude, location.coords.longitude);
 
     const reverse = await Location.reverseGeocodeAsync({
       latitude: location.coords.latitude,
@@ -287,6 +416,7 @@ export default function MapsScreen() {
         const { latitude, longitude } = result[0];
         setRegion(prev => ({ ...prev, latitude, longitude }));
         webViewRef.current?.postMessage(JSON.stringify({ type: 'update', lat: latitude, lng: longitude }));
+        fetchNearbyTherapists(latitude, longitude);
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -300,6 +430,11 @@ export default function MapsScreen() {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'move') {
         setRegion(prev => ({ ...prev, latitude: data.lat, longitude: data.lng }));
+
+        if (therapistFetchRef.current) clearTimeout(therapistFetchRef.current);
+        therapistFetchRef.current = setTimeout(() => {
+          fetchNearbyTherapists(data.lat, data.lng);
+        }, 800);
 
         try {
           const reverse = await Location.reverseGeocodeAsync({
@@ -328,20 +463,18 @@ export default function MapsScreen() {
       <StatusBar barStyle="dark-content" />
       
       <View style={styles.mapContainer}>
-        {pinUri ? (
-          <WebView
-            ref={webViewRef}
-            source={{ html: LEAFLET_HTML(region.latitude, region.longitude, pinUri) }}
-            style={styles.map}
-            onMessage={onMessage}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-          />
-        ) : (
-          <View style={[styles.map, { backgroundColor: '#F5F5F7', alignItems: 'center', justifyContent: 'center' }]}>
-            <ActivityIndicator size="large" color={PURPLE} />
-          </View>
-        )}
+        <WebView
+          ref={webViewRef}
+          source={{ html: LEAFLET_HTML(region.latitude, region.longitude, pinUri) }}
+          style={styles.map}
+          onMessage={onMessage}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          onLoad={() => {
+            const r = region;
+            fetchNearbyTherapists(r.latitude, r.longitude);
+          }}
+        />
 
         {loading && (
           <View style={styles.loader}>
@@ -507,7 +640,7 @@ const styles = StyleSheet.create({
   },
   myLocationBtn: {
     position: 'absolute',
-    bottom: 300,
+    bottom: 340,
     right: 20,
     width: 50,
     height: 50,
@@ -515,7 +648,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
+    elevation: 6,
     zIndex: 20,
   },
   bottomSheet: {

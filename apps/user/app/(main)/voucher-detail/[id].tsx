@@ -311,6 +311,18 @@ export default function VoucherDetailScreen() {
               </View>
             </View>
           )}
+
+          {voucher.category === 'wallet_payment' && (
+            <View style={styles.requirementRow}>
+              <View style={styles.reqIcon}>
+                <MaterialCommunityIcons name="wallet-outline" size={20} color="#EA580C" />
+              </View>
+              <View style={styles.reqInfo}>
+                <Text style={styles.reqLabel}>Metode Pembayaran</Text>
+                <Text style={styles.reqValue}>Hanya berlaku saat bayar menggunakan saldo dompet</Text>
+              </View>
+            </View>
+          )}
         </View>
 
           <Ionicons name="information-circle-outline" size={16} color="#94a3b8" />

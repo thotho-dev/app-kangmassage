@@ -6,7 +6,7 @@ export type TherapistStatus = 'online' | 'offline' | 'busy';
 export type TherapistTier = 'bronze' | 'silver' | 'gold' | 'diamond';
 export type TransactionType = 'credit' | 'debit';
 export type VoucherType = 'percentage' | 'fixed';
-export type VoucherCategory = 'direct' | 'new_user' | 'repeat_order' | 'happy_hour' | 'location' | 'service' | 'therapist' | 'event' | 'topup' | 'cashback' | 'referral';
+export type VoucherCategory = 'direct' | 'new_user' | 'repeat_order' | 'happy_hour' | 'location' | 'service' | 'therapist' | 'event' | 'topup' | 'cashback' | 'referral' | 'wallet_payment';
 
 export interface User {
   id: string;

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { Application } from 'expo-application';
 import CustomDateTimePicker from '@/components/ui/CustomDateTimePicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -212,9 +213,21 @@ export default function OrderScreen() {
   }, [profile?.wallet_balance, finalPrice]);
 
   const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
+  const [deviceId, setDeviceId] = useState<string>('');
   const [locationNotes, setLocationNotes] = useState('');
   const [serviceNotes, setServiceNotes] = useState('');
   const lastCheckedCode = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const id = Platform.OS === 'android'
+          ? await Application.getAndroidId()
+          : await Application.getIosIdForVendorAsync();
+        if (id) setDeviceId(id);
+      } catch {}
+    })();
+  }, []);
 
   React.useEffect(() => {
     const fetchAddons = async () => {
@@ -359,6 +372,17 @@ export default function OrderScreen() {
           if (!silent) showAlert('Khusus Pengguna Baru', 'Voucher ini hanya berlaku untuk pesanan pertama Anda.');
           return;
         }
+        if (deviceId) {
+          const { data: deviceUsage } = await supabase
+            .from('voucher_usages')
+            .select('id')
+            .eq('voucher_id', data.id)
+            .eq('device_id', deviceId);
+          if (deviceUsage && deviceUsage.length > 0) {
+            if (!silent) showAlert('Khusus Pengguna Baru', 'Voucher ini sudah pernah digunakan di perangkat ini.');
+            return;
+          }
+        }
       }
 
       // Validasi Repeat Order
@@ -368,6 +392,12 @@ export default function OrderScreen() {
           if (!silent) showAlert('Syarat Tidak Terpenuhi', `Voucher ini hanya berlaku setelah Anda melakukan minimal ${data.min_order_count} pesanan.`);
           return;
         }
+      }
+
+      // Validasi Pembayaran via Saldo (Wallet Payment)
+      if (data.category === 'wallet_payment' && paymentMethod !== 'saldo') {
+        if (!silent) showAlert('Bayar Pakai Saldo', 'Voucher ini hanya berlaku jika Anda membayar menggunakan saldo dompet.');
+        return;
       }
 
       // Hitung Diskon
@@ -446,6 +476,14 @@ export default function OrderScreen() {
         if (v.category === 'new_user') {
           const orderCount = profile?.total_orders || 0;
           if (orderCount > 0) continue;
+          if (deviceId) {
+            const { data: deviceUsage } = await supabase
+              .from('voucher_usages')
+              .select('id')
+              .eq('voucher_id', v.id)
+              .eq('device_id', deviceId);
+            if (deviceUsage && deviceUsage.length > 0) continue;
+          }
         }
 
         // Validasi Repeat Order (Auto Apply)
@@ -453,6 +491,9 @@ export default function OrderScreen() {
           const orderCount = profile?.total_orders || 0;
           if (orderCount < (v.min_order_count || 0)) continue;
         }
+
+        // Validasi Pembayaran via Saldo (Auto Apply)
+        if (v.category === 'wallet_payment' && paymentMethod !== 'saldo') continue;
 
         // Calculate Discount
         let discount = 0;
@@ -528,6 +569,19 @@ export default function OrderScreen() {
       setDiscountAmount(discount);
     }
   }, [totalPrice, addonTotal]);
+
+  // Re-evaluate wallet_payment voucher when payment method changes
+  React.useEffect(() => {
+    if (totalPrice <= 0) return;
+    if (appliedVoucher?.category === 'wallet_payment' && paymentMethod !== 'saldo') {
+      setAppliedVoucher(null);
+      setDiscountAmount(0);
+      setVoucherCode('');
+      showAlert('Voucher Terlepas', 'Voucher wallet payment hanya berlaku saat bayar pakai saldo.');
+    } else if (paymentMethod === 'saldo' && !appliedVoucher) {
+      autoApplyBestVoucher();
+    }
+  }, [paymentMethod]);
 
   const showDatePickerModal = (mode: 'date' | 'time') => {
     setPickerMode(mode);
@@ -636,7 +690,8 @@ export default function OrderScreen() {
         const { error: vUseErr } = await supabase.from('voucher_usages').insert({
           user_id: profile.id,
           voucher_id: appliedVoucher.id,
-          order_id: order.id
+          order_id: order.id,
+          device_id: deviceId || null
         });
 
         if (vUseErr) {
@@ -1129,7 +1184,6 @@ export default function OrderScreen() {
                 <View style={styles.dropdownList}>
                   {PAYMENT_GROUPS.map((group) => (
                     <View key={group.id}>
-                      <Text style={[styles.groupTitle, { paddingHorizontal: 16, marginTop: 8, marginBottom: 4 }]}>{group.title}</Text>
                       {group.items.map((method) => {
                         const isSaldo = method.id === 'saldo';
                         const isInsufficient = isSaldo && (profile?.wallet_balance || 0) < finalPrice;
@@ -1222,60 +1276,71 @@ export default function OrderScreen() {
           </View>
         </View>
 
-        <View style={{ height: 140 }} />
+        {/* 6. Rincian Harga */}
+        <View style={styles.section}>
+          <View style={styles.combinedCard}>
+            <Text style={styles.sectionLabel}>Rincian Harga</Text>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Harga Layanan</Text>
+              <Text style={styles.breakdownValue}>Rp {totalPrice.toLocaleString('id-ID')}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Biaya Layanan</Text>
+              <Text style={styles.breakdownValue}>Rp {serviceFee.toLocaleString('id-ID')}</Text>
+            </View>
+
+            {addonTotal > 0 && additionalServices.filter(a => selectedAddons.includes(a.id)).map((addon) => (
+              <View key={addon.id} style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>+ {addon.name}</Text>
+                <Text style={styles.breakdownValue}>Rp {addon.price.toLocaleString('id-ID')}</Text>
+              </View>
+            ))}
+
+            {discountAmount > 0 && (
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.breakdownLabel, { color: '#10B981' }]}>{isCashback ? 'Potensi Cashback' : 'Diskon Voucher'}</Text>
+                <Text style={[styles.breakdownValue, { color: '#10B981' }]}>-Rp {discountAmount.toLocaleString('id-ID')}</Text>
+              </View>
+            )}
+
+            {cashbackToDeduct > 0 && (
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.breakdownLabel, { color: PURPLE }]}>Potongan Cashback (70%)</Text>
+                <Text style={[styles.breakdownValue, { color: PURPLE }]}>-Rp {cashbackToDeduct.toLocaleString('id-ID')}</Text>
+              </View>
+            )}
+
+            <View style={[styles.divider, { marginVertical: 10, backgroundColor: '#F1F5F9' }]} />
+
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Pembayaran</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                {(discountAmount > 0 && !isCashback) || cashbackToDeduct > 0 ? (
+                  <View>
+                    <Text style={[styles.totalPrice, { color: '#94A3B8', textDecorationLine: 'line-through', fontSize: 12 }]}>
+                      Rp {(subtotal + (serviceFee || 0)).toLocaleString('id-ID')}
+                    </Text>
+                    <Text style={[styles.totalPrice, { fontSize: 14 }]}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.totalPrice, { fontSize: 14 }]}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 90 }} />
       </ScrollView>
 
       {/* Footer / Summary */}
       <View style={styles.footer}>
         <View style={styles.priceSummary}>
-          {/* Breakdown Section */}
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Harga Layanan</Text>
-            <Text style={styles.breakdownValue}>Rp {totalPrice.toLocaleString('id-ID')}</Text>
-          </View>
-
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Biaya Layanan</Text>
-            <Text style={styles.breakdownValue}>Rp {serviceFee.toLocaleString('id-ID')}</Text>
-          </View>
-
-          {addonTotal > 0 && additionalServices.filter(a => selectedAddons.includes(a.id)).map((addon) => (
-            <View key={addon.id} style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>+ {addon.name}</Text>
-              <Text style={styles.breakdownValue}>Rp {addon.price.toLocaleString('id-ID')}</Text>
-            </View>
-          ))}
-
-          {discountAmount > 0 && (
-            <View style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, { color: '#10B981' }]}>{isCashback ? 'Potensi Cashback' : 'Diskon Voucher'}</Text>
-              <Text style={[styles.breakdownValue, { color: '#10B981' }]}>-Rp {discountAmount.toLocaleString('id-ID')}</Text>
-            </View>
-          )}
-
-          {cashbackToDeduct > 0 && (
-            <View style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, { color: PURPLE }]}>Potongan Cashback (70%)</Text>
-              <Text style={[styles.breakdownValue, { color: PURPLE }]}>-Rp {cashbackToDeduct.toLocaleString('id-ID')}</Text>
-            </View>
-          )}
-
-          <View style={[styles.divider, { marginVertical: 10, backgroundColor: '#F1F5F9' }]} />
-
-          {/* Total Section */}
           <View style={styles.totalRow}>
             <View>
               <Text style={styles.totalLabel}>Total Pembayaran</Text>
-              {(discountAmount > 0 && !isCashback) || cashbackToDeduct > 0 ? (
-                <View>
-                  <Text style={[styles.totalPrice, { color: '#94A3B8', textDecorationLine: 'line-through', fontSize: 13 }]}>
-                    Rp {(subtotal + (serviceFee || 0)).toLocaleString('id-ID')}
-                  </Text>
-                  <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
-                </View>
-              ) : (
-                <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
-              )}
+              <Text style={styles.totalPrice}>Rp {finalPrice.toLocaleString('id-ID')}</Text>
             </View>
             <TouchableOpacity
               style={[styles.orderButton, loading && { opacity: 0.8 }]}
