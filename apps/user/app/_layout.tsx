@@ -134,6 +134,7 @@ export default function RootLayout() {
 
   if (!loaded && !error) {
     return null;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
