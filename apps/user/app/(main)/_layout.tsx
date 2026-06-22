@@ -57,6 +57,10 @@ export default function MainLayout() {
         <Stack.Screen name="withdraw" />
         <Stack.Screen name="payment-details" />
         <Stack.Screen name="change-password" />
+        <Stack.Screen name="bank-accounts" />
+        <Stack.Screen name="pin-setup" />
+        <Stack.Screen name="topup-history" />
+        <Stack.Screen name="withdraw-history" />
       </Stack>
     </LocationProvider>
   );

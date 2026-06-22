@@ -27,57 +27,6 @@ const TEXT_MUTED = '#6B7280';
 const BORDER = '#F0F0F0';
 const BG = '#F5F5F7';
 
-const HISTORY_DATA = [
-  {
-    id: 'ORD-9821',
-    therapist: 'Maya Putri',
-    service: 'Swedish Massage',
-    date: 'Hari ini, 10:30',
-    price: 'Rp 165.000',
-    status: 'completed',
-    rating: 5,
-    image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400'
-  },
-  {
-    id: 'ORD-9715',
-    therapist: 'Budi Santoso',
-    service: 'Refleksi',
-    date: '28 Apr, 14:00',
-    price: 'Rp 120.000',
-    status: 'completed',
-    rating: 4,
-    image: 'https://images.unsplash.com/photo-1519824145371-296894a0daa9?w=400'
-  },
-  {
-    id: 'ORD-9642',
-    therapist: 'Siti Aminah',
-    service: 'Deep Tissue',
-    date: '25 Apr, 18:00',
-    price: 'Rp 185.000',
-    status: 'cancelled',
-    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecee?w=400'
-  }
-];
-
-const FAV_DATA = [
-  {
-    id: 'fav-1',
-    name: 'Maya Putri',
-    rating: 4.9,
-    orders: 124,
-    image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
-    specialty: 'Swedish & Deep Tissue'
-  },
-  {
-    id: 'fav-2',
-    name: 'Siti Aminah',
-    rating: 4.8,
-    orders: 89,
-    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecee?w=400',
-    specialty: 'Refleksi & Totok'
-  }
-];
-
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -408,7 +357,7 @@ export default function HistoryScreen() {
                   {/* Card Body */}
                   <View style={styles.cardBody}>
                     <Image 
-                      source={{ uri: item.therapists?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
+                      source={item.therapists?.avatar_url ? { uri: item.therapists?.avatar_url } : require('@/assets/icon-km.png')} 
                       style={styles.therapistImage} 
                     />
                     <View style={styles.infoBox}>
@@ -517,7 +466,7 @@ export default function HistoryScreen() {
                   <View style={styles.favCardTop}>
                     <View style={styles.favHeaderLeft}>
                       <View style={styles.favAvatarWrapper}>
-                        <Image source={{ uri: item.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} style={styles.favAvatar} />
+                        <Image source={{ uri: item.avatar_url || '' }} style={styles.favAvatar} />
                         <View style={styles.favStatusDot} />
                       </View>
                       <View style={styles.favMainInfo}>
@@ -599,7 +548,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
@@ -627,7 +576,7 @@ const styles = StyleSheet.create({
     borderColor: PURPLE,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
@@ -676,7 +625,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   orderId: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     letterSpacing: 0.3,
@@ -687,7 +636,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Bold',
     letterSpacing: 0.3,
   },
@@ -707,12 +656,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   therapistName: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   serviceName: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
@@ -723,7 +672,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dateText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
@@ -732,7 +681,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   priceText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
@@ -768,7 +717,7 @@ const styles = StyleSheet.create({
     backgroundColor: BORDER,
   },
   footerBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: TEXT_MUTED,
   },
@@ -780,7 +729,7 @@ const styles = StyleSheet.create({
     paddingVertical: 100,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
@@ -835,12 +784,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   favNameText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   favSpecialtyText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
     marginBottom: 4,
@@ -899,7 +848,7 @@ const styles = StyleSheet.create({
     borderColor: PURPLE + '20',
   },
   favChatBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
@@ -917,7 +866,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   favBookBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#FFFFFF',
   },

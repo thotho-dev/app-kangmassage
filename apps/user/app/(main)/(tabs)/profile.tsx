@@ -797,7 +797,15 @@ export default function ProfileScreen() {
               </View>
 
               <TouchableOpacity 
-                style={[styles.saveBtn, { backgroundColor: COLORS.primary[500], flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }]}
+                style={[styles.saveBtn, { backgroundColor: '#25D366', flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }]}
+                onPress={() => Linking.openURL(`https://wa.me/${supportWA}`)}
+              >
+                <MessageSquare size={18} color="white" />
+                <Text style={styles.saveBtnText}>Hubungi via WhatsApp</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.saveBtn, { backgroundColor: COLORS.primary[500], flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 8 }]}
                 onPress={() => Linking.openURL(`mailto:${supportEmail}`)}
               >
                 <Mail size={18} color="white" />

@@ -230,7 +230,7 @@ export default function ChatScreen() {
                 >
                   <View style={styles.avatarContainer}>
                     <Image 
-                      source={{ uri: chat.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }} 
+                      source={chat.therapist?.avatar_url ? { uri: chat.therapist?.avatar_url } : require('@/assets/icon-km.png')} 
                       style={styles.avatar} 
                     />
                     {isActive && <View style={styles.onlineDot} />}
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontFamily: 'PlusJakartaSans-Bold',
   },
   headerSubtitle: {
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-SemiBold',
     marginRight: 6,
   },
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   lastMessage: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Regular',
     flex: 1,
   },
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 8,
   },

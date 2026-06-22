@@ -14,7 +14,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Search, Tag, X } from 'lucide-react-native';
-import { SERVICES } from '@/constants/Services';
 import { useServices } from '@/hooks/useServices';
 import { COLORS, FONTS } from '@/constants/Theme';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -62,9 +61,7 @@ function ServiceCard({
       >
         <View style={styles.cardImageWrap}>
           <Image
-            source={{
-              uri: item.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
-            }}
+            source={item.image ? { uri: item.image } : require('@/assets/icon-km.png')}
             style={styles.cardImage}
           />
           {item.badge && (
@@ -190,7 +187,7 @@ export default function ServicesScreen() {
     return () => { mounted = false; };
   }, []);
 
-  const displayServices: Service[] = servicesData || SERVICES;
+  const displayServices: Service[] = servicesData ?? [];
 
   const filteredServices = useMemo(() => {
     const badgeRank: Record<string, number> = { Rekomendasi: 1, Populer: 2, Promo: 3 };
@@ -357,7 +354,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: FONTS.bold,
-    fontSize: 18,
+    fontSize: 16,
     color: TEXT_DARK,
   },
 
@@ -429,7 +426,7 @@ const styles = StyleSheet.create({
   },
   introTitle: {
     fontFamily: FONTS.extraBold,
-    fontSize: 18,
+    fontSize: 16,
     color: TEXT_DARK,
     marginBottom: 6,
   },
@@ -498,7 +495,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 13,
     color: '#1A1A2E',
   },
   cardDesc: {
@@ -516,7 +513,7 @@ const styles = StyleSheet.create({
   },
   cardPrice: {
     fontFamily: FONTS.bold,
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.primary[500],
   },
   selectBtn: {

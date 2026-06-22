@@ -151,6 +151,8 @@ export default function RootLayout() {
                 animation: 'slide_from_right'
               }}>
                 <Stack.Screen name="index" />
+                <Stack.Screen name="callback" />
+                <Stack.Screen name="chats/[id]" />
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="(main)" />
                 <Stack.Screen name="complete-profile" />

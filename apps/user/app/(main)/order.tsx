@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, StatusBar,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Application } from 'expo-application';
+import { getAndroidId, getIosIdForVendorAsync } from 'expo-application';
 import CustomDateTimePicker from '@/components/ui/CustomDateTimePicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -30,7 +30,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { COLORS, TYPOGRAPHY } from '@/constants/Theme';
 import { useTheme } from '@/context/ThemeContext';
-import { SERVICES, Service } from '@/constants/Services';
+import type { Service } from '@/constants/Services';
 import { useServices } from '@/hooks/useServices';
 import { useLocation } from '@/context/LocationContext';
 import { useAuth } from '@/context/AuthContext';
@@ -90,7 +90,7 @@ export default function OrderScreen() {
     }
   }, [therapist]);
 
-  const allServices = servicesData || SERVICES;
+  const allServices = servicesData ?? [];
   const initialService = allServices.find(s => s.id === serviceId) || allServices[0];
   const { address, setAddress, coords } = useLocation();
 
@@ -222,8 +222,8 @@ export default function OrderScreen() {
     (async () => {
       try {
         const id = Platform.OS === 'android'
-          ? await Application.getAndroidId()
-          : await Application.getIosIdForVendorAsync();
+          ? await getAndroidId()
+          : await getIosIdForVendorAsync();
         if (id) setDeviceId(id);
       } catch {}
     })();
@@ -597,7 +597,12 @@ export default function OrderScreen() {
     hideDatePicker();
   };
 
-  const PAYMENT_GROUPS = [
+  type PaymentItem = {
+    id: string; label: string; icon: any;
+    image?: any; disabled?: boolean; comingSoon?: string;
+  };
+
+  const PAYMENT_GROUPS: { id: string; title: string; items: PaymentItem[] }[] = [
     {
       id: 'internal',
       title: 'Metode Pembayaran',

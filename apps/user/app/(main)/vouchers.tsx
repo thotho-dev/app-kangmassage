@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   voucherDiscount: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#EA580C',
   },
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Medium',
     color: TEXT_MUTED,
   },
@@ -626,13 +626,13 @@ const styles = StyleSheet.create({
     borderColor: '#EFEFEF',
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
     textAlign: 'center',

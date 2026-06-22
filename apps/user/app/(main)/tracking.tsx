@@ -120,6 +120,7 @@ const getTrackingLeafletHTML = (
 };
 
 const STATUS_STEPS = [
+  { key: 'pending',     label: 'Menunggu Konfirmasi', icon: 'time'             },
   { key: 'accepted',    label: 'Pesanan Diterima',   icon: 'checkmark-circle' },
   { key: 'on_the_way',  label: 'Menuju Lokasi',       icon: 'navigate'         },
   { key: 'arrived',     label: 'Tiba di Lokasi',      icon: 'location'         },
@@ -148,6 +149,13 @@ export default function TrackingScreen() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [showAllStatuses, setShowAllStatuses] = useState(false);
+
+  const fallbackAvatarUri = Image.resolveAssetSource(require('@/assets/icon-km.png')).uri;
+  const mapHiddenRef = useRef(false);
+
+  useEffect(() => {
+    mapHiddenRef.current = !!(order?.status && ['arrived', 'in_progress', 'completed', 'cancelled'].includes(order.status));
+  }, [order?.status]);
 
   const QUICK_MESSAGES = [
     "Terapis ramah & sopan",
@@ -737,7 +745,10 @@ export default function TrackingScreen() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 10,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (mapHiddenRef.current) return false;
+        return Math.abs(gestureState.dy) > 10;
+      },
       onPanResponderGrant: () => {
         slideAnim.setOffset(lastOffset.current);
         slideAnim.setValue(0);
@@ -805,7 +816,7 @@ export default function TrackingScreen() {
               order?.longitude || 106.8250,
               order?.therapist?.latitude || (order?.latitude ? order.latitude + 0.005 : -6.1970),
               order?.therapist?.longitude || (order?.longitude ? order.longitude + 0.005 : 106.8300),
-              order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400',
+              order?.therapist?.avatar_url || fallbackAvatarUri,
               order?.therapist?.full_name || 'Terapis',
               order?.address || '',
               routeCoords
@@ -843,7 +854,7 @@ export default function TrackingScreen() {
           <View style={styles.therapistInfo}>
             <View style={styles.avatarWrapper}>
               <Image 
-                source={{ uri: order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
+                source={order?.therapist?.avatar_url ? { uri: order?.therapist?.avatar_url } : require('@/assets/icon-km.png')}
                 style={styles.avatar}
               />
               <View style={[styles.onlineDot, { backgroundColor: order?.therapist ? COLORS.success : '#CBD5E1' }]} />
@@ -960,8 +971,8 @@ export default function TrackingScreen() {
                  {order?.therapist && (
                    <View style={styles.completedTherapistRow}>
                      <Image 
-                       source={{ uri: order.therapist.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
-                       style={styles.completedTherapistAvatar}
+                     source={order.therapist.avatar_url ? { uri: order.therapist.avatar_url } : require('@/assets/icon-km.png')}
+                        style={styles.completedTherapistAvatar}
                      />
                      <View>
                        <Text style={styles.completedTherapistName}>{order.therapist.full_name}</Text>
@@ -1016,6 +1027,8 @@ export default function TrackingScreen() {
                   )}
                 </View>
               )}
+
+              <View style={styles.combinedCardBg}>
 
               {order?.status !== 'cancelled' && (
               <View style={styles.section}>
@@ -1080,7 +1093,7 @@ export default function TrackingScreen() {
 
             <View style={styles.detailSection}>
               <Text style={styles.detailTitle}>Detail Pesanan</Text>
-              <View style={[styles.detailCard, { backgroundColor: theme.surfaceVariant, borderColor: theme.border }]}>
+              <View style={styles.detailCard}>
                 {/* Service & Time */}
                 <View style={styles.detailRow}>
                   <View style={styles.detailInfo}>
@@ -1094,6 +1107,21 @@ export default function TrackingScreen() {
                       </Text>
                       <Text style={[styles.detailValueSmall, { color: PURPLE }]}>
                         {order?.service?.price_type === 'treatment' ? '1 Treatment' : `${order?.duration || 0} Menit`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={[styles.detailDivider, { backgroundColor: theme.border, marginVertical: 12 }]} />
+                <View style={styles.detailRow}>
+                  <View style={styles.detailInfo}>
+                    <View style={[styles.serviceIconWrapper, { backgroundColor: 'rgba(107,114,128,0.1)' }]}>
+                      <Clock size={16} color="#6B7280" />
+                    </View>
+                    <View>
+                      <Text style={styles.detailLabel}>Jam Order</Text>
+                      <Text style={styles.detailValue}>
+                        {order?.created_at ? new Date(order.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
                       </Text>
                     </View>
                   </View>
@@ -1287,8 +1315,10 @@ export default function TrackingScreen() {
                     )}
                   </View>
                 )}
+               </View>
+            </View>
+
               </View>
-          </View>
 
             {order?.status === 'completed' && !order?.rating && !hasRated && (
               <TouchableOpacity 
@@ -1342,7 +1372,7 @@ export default function TrackingScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.sheetHeader}>
                 <Image 
-                  source={{ uri: order?.therapist?.avatar_url || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400' }}
+                  source={order?.therapist?.avatar_url ? { uri: order?.therapist?.avatar_url } : require('@/assets/icon-km.png')}
                   style={styles.sheetAvatar}
                 />
                 <Text style={[styles.ratingTitle, { color: theme.text }]}>Beri Rating Layanan</Text>
@@ -1750,9 +1780,10 @@ const styles = StyleSheet.create({
   timerSub: { fontSize: 12, fontFamily: 'PlusJakartaSans-Medium' },
   treatmentStatusContainer: { alignItems: 'center', gap: 8, paddingVertical: 8 },
   treatmentStatusText: { fontSize: 20, fontFamily: 'PlusJakartaSans-Bold', marginTop: 4 },
-  section: { paddingHorizontal: 4, marginTop: 10, marginBottom: 20 },
+  combinedCardBg: { backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1, borderColor: '#F0F0F0', padding: 16, marginTop: 10, marginBottom: 20 },
+  section: { paddingHorizontal: 4 },
   sectionTitle: { fontSize: 14, fontFamily: 'PlusJakartaSans-Bold', color: '#1A1A2E', marginBottom: 12 },
-  stepsCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#F0F0F0' },
+   stepsCard: { borderRadius: 20, paddingVertical: 16, paddingHorizontal: 4 },
   step: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
   stepLeft: { alignItems: 'center', width: 32 },
@@ -1826,7 +1857,7 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-SemiBold',
   },
   detailSection: {
-    marginTop: 10,
+    marginTop: 8,
   },
   detailTitle: {
     fontSize: 14,
@@ -1836,7 +1867,6 @@ const styles = StyleSheet.create({
   },
   detailCard: {
     borderRadius: 20,
-    borderWidth: 1,
     padding: 16,
   },
   detailRow: {
@@ -2045,7 +2075,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   tipsLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-SemiBold',
     marginBottom: 10,
   },
@@ -2058,13 +2088,13 @@ const styles = StyleSheet.create({
     height: 56,
   },
   tipsCurrency: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
     marginRight: 8,
   },
   tipsInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
   },
   ratingSuccess: {

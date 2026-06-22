@@ -336,3 +336,56 @@ C:\Android\
 - `apps/user/app/(auth)/_layout.tsx` — slide animation
 - `apps/user/app/(auth)/login.tsx` — font sizes, error translation
 - `apps/user/app/(auth)/register.tsx` — font sizes
+
+---
+
+## Session 6 (Profile redesign — UI refinements — v1.1.2 release)
+
+### Problems addressed
+1. Data Pribadi modal always editable — no way to just view info without accidentally editing.
+2. Avatar change popup used `showAlert` with emoji buttons — layout berantakan.
+3. No gender or registration date shown on profile.
+4. Email info missing from profile header.
+5. Stats card (Pesanan + Poin) felt cluttered.
+6. Logout was a standalone styled button, inconsistent with other menu items.
+7. Update modal had no close button (force update couldn't be dismissed).
+8. Rekomendasi & Banyak Dipesan used blue theme instead of navy brand color.
+9. App version was hardcoded inconsistently (1.1.1 in some places, 1.1.2 in others).
+10. EAS submit failed: Service Account key "Invalid JWT Signature."
+
+### Changes made
+| File | Change |
+|---|---|
+| `apps/user/app/(main)/(tabs)/profile.tsx` | Data Pribadi modal redesigned: read-only view (name, phone, **gender**, **registration date**) + Edit button toggles to editable form with **gender picker**. Avatar bottom sheet with Camera/Gallery icons + descriptions. Gear icon removed from avatar. Stats card (Pesanan/Poin) removed. Logout moved to menu item (group without label). Email added under name (fallback to phone). |
+| `apps/user/context/AuthContext.tsx` | Added `created_at?: string` to `Profile` interface. |
+| `apps/user/components/UpdateModal.tsx` | Added close button (✕) + `onClose` prop. |
+| `apps/user/app/_layout.tsx` | Pass `onClose` to VersionCheck's UpdateModal. |
+| `apps/user/app/(main)/(tabs)/home.tsx` | Replaced `#3B82F6` (blue) with `#240080` (navy) in Rekomendasi & Banyak Dipesan sections: section icon boxes, badges, card borders, shadows, buttons, accent bar, price colors. |
+| `apps/user/app/(auth)/login.tsx` | Version footer changed from hardcoded `v1.1.1` to dynamic `Constants.expoConfig?.version` with fallback `1.1.2`. |
+| `apps/user/android/app/build.gradle` | Fixed `versionName` from `1.1.1` → `1.1.2`. |
+| `apps/user/app.json` | Version `1.1.2` (already correct). |
+
+### Key decisions
+- Avatar action sheet uses bottom sheet modal with proper icons, not `showAlert` hack.
+- Menu groups without `label` don't render the section label or section line (clean spacing).
+- Gender stored as `L` / `P` in DB, displayed as Laki-laki / Perempuan in UI.
+- Logout confirmation still uses `showAlert` (custom AlertContext modal) with cancel + destructive buttons.
+- `created_at` added to `Profile` type since `select(*)` already fetches it from `users` table.
+- Navy (`#240080`) used as primary accent color instead of blue (`#3B82F6`) across home cards.
+
+### Build info
+- **EAS Build production** (v1.1.2, versionCode 4): success — `578dd83a-865e-478b-8b5f-4fa5b334179f`
+- **EAS Submit**: failed with `Invalid JWT Signature` — Service Account key expired. Regenerate di Google Cloud Console + upload via `eas credentials --platform android`.
+
+### Next steps
+- Regenerate Google Service Account key → run `eas credentials --platform android` → retry `eas submit`.
+- Register release SHA-1 from Play Console in Google Cloud OAuth client for production Google Sign-In.
+- Set `min_app_version` after first production release published.
+- Update `supabase/migrations/20260620_add_app_update_config.sql` and `20260621_change_order_prefix_to_kmsg.sql` in Supabase SQL Editor.
+
+### Relevant files
+- `apps/user/components/UpdateModal.tsx` — close button for force-update popup
+- `apps/user/components/UpdateModal.tsx` — bottom sheet action modal for avatar source
+- `apps/user/context/AuthContext.tsx` — Profile type with created_at
+- `apps/user/android/app/build.gradle` — versionName 1.1.2
+- `apps/user/app.json` — version 1.1.2

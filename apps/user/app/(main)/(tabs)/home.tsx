@@ -66,7 +66,6 @@ const HOME_SERVICES = [
     price: 170000,
     description: 'Pijatan menyeluruh dari kepala hingga kaki untuk relaksasi total',
     badge: { label: 'Populer', type: 'popular' as const },
-    image: 'https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=300&q=80',
   },
   {
     id: 'bekam',
@@ -74,21 +73,18 @@ const HOME_SERVICES = [
     price: 170000,
     description: 'Terapi pengeluaran racun untuk meningkatkan sistem imun tubuh',
     badge: { label: '% Diskon', type: 'discount' as const },
-    image: 'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=300&q=80',
   },
   {
     id: 'shiatsu-japan',
     name: 'Shiatsu Japan',
     price: 190000,
     description: 'Teknik penekanan titik saraf tanpa minyak ala Jepang',
-    image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80',
   },
   {
     id: 'pijat-ibu-hamil',
     name: 'Pijat Ibu Hamil',
     price: 150000,
     description: 'Teknik pijat aman khusus untuk ibu hamil',
-    image: 'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=300&q=80',
   },
 ];
 
@@ -687,7 +683,7 @@ export default function HomeScreen() {
                   }
                 >
                   <Image
-                    source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
+                    source={service.image ? { uri: service.image } : require('@/assets/icon-km.png')}
                     style={styles.gridCardImage}
                   />
                   <View style={styles.gridCardBody}>
@@ -757,7 +753,7 @@ export default function HomeScreen() {
                     >
                       <View style={styles.popularServiceImageWrapper}>
                         <Image
-                          source={{ uri: service.image || 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=300&q=80' }}
+                          source={service.image ? { uri: service.image } : require('@/assets/icon-km.png')}
                           style={styles.popularServiceImage}
                         />
                         <View style={styles.popularServiceBadge}>

@@ -187,7 +187,7 @@ export default function VoucherDetailScreen() {
         {/* Voucher Card Header */}
         <View style={styles.card}>
           <Image 
-            source={{ uri: voucher.image_url || 'https://images.unsplash.com/photo-1544161515-4af6b1d462c2?q=80&w=500' }} 
+            source={voucher.image_url ? { uri: voucher.image_url } : require('@/assets/icon-km.png')} 
             style={styles.voucherImage}
             resizeMode="cover"
           />
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#1A1A2E',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     flex: 1,
     textAlign: 'center',
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   },
   voucherCode: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
     letterSpacing: 3,
     opacity: 0.9,
@@ -500,13 +500,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: '#1A1A2E',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 15,
   },
   descriptionText: {
     color: '#6B7280',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Regular',
     lineHeight: 22,
   },
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   reqValue: {
     color: '#1A1A2E',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
   },
   areaContainer: {
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   },
   useButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
   }
 });
