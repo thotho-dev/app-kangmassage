@@ -52,6 +52,7 @@ export default function ProfileScreen() {
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [syaratModalVisible, setSyaratModalVisible] = useState(false);
+  const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
 
   // Form states for Personal Data
   const [editName, setEditName] = useState('');
@@ -303,6 +304,7 @@ export default function ProfileScreen() {
         { title: 'Ulas Aplikasi', icon: Star, color: COLORS.gold[500], onPress: () => Linking.openURL(playstoreUrl) },
         { title: 'Bantuan & Dukungan', icon: HelpCircle, color: COLORS.primary[300], onPress: () => setSupportModalVisible(true) },
         { title: 'Syarat & Ketentuan', icon: FileText, color: COLORS.primary[400], onPress: () => setSyaratModalVisible(true) },
+        { title: 'Kebijakan Privasi', icon: Shield, color: COLORS.primary[400], onPress: () => setPrivacyModalVisible(true) },
       ],
     },
     {
@@ -854,6 +856,59 @@ export default function ProfileScreen() {
 
               <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 16, lineHeight: 22 }]}>
                 Dengan melanjutkan penggunaan aplikasi, Anda dianggap telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan di atas. Kebijakan ini dapat diperbarui sewaktu-waktu dan akan diinformasikan melalui aplikasi.
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 7. Modal Kebijakan Privasi */}
+      <Modal visible={privacyModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Kebijakan Privasi</Text>
+              <TouchableOpacity onPress={() => setPrivacyModalVisible(false)}>
+                <X size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.faqContent}>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 16, lineHeight: 22 }]}>
+                Kebijakan privasi ini menjelaskan bagaimana Kang Massage mengumpulkan, menggunakan, dan melindungi data pribadi Anda.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>1. Data yang Dikumpulkan</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Kami mengumpulkan data yang Anda berikan saat pendaftaran: nama, nomor telepon, alamat email, dan foto profil. Kami juga mengumpulkan data lokasi untuk memproses pesanan, data penggunaan aplikasi, dan informasi perangkat.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>2. Penggunaan Data</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Data Anda digunakan untuk: memproses dan mengantarkan pesanan, meningkatkan kualitas layanan, mengirim notifikasi terkait pesanan, dan keperluan keamanan akun. Data lokasi hanya digunakan saat Anda membuat pesanan.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>3. Pembagian Data</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Data Anda tidak dijual atau disewakan ke pihak ketiga. Alamat dan nomor telepon Anda hanya dibagikan ke terapis saat pesanan aktif. Kami dapat membagikan data jika diwajibkan oleh hukum.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>4. Keamanan Data</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Kami menerapkan langkah keamanan teknis dan organisasi untuk melindungi data Anda, termasuk enkripsi data, akses terbatas, dan audit keamanan berkala. Namun, tidak ada sistem yang 100% aman.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>5. Penyimpanan & Penghapusan Data</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Data Anda disimpan selama akun Anda aktif. Anda dapat meminta penghapusan data dengan menghubungi tim dukungan. Data pesanan akan tetap disimpan untuk keperluan pencatatan transaksi sesuai ketentuan hukum yang berlaku.
+              </Text>
+
+              <Text style={[styles.faqQuestion, { color: theme.text, marginBottom: 8 }]}>6. Hak Anda</Text>
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 12, lineHeight: 22 }]}>
+                Anda berhak mengakses, memperbarui, atau menghapus data pribadi Anda. Anda dapat menarik persetujuan pemrosesan data kapan saja. Hubungi kami di {supportEmail} untuk pertanyaan terkait data pribadi.
+              </Text>
+
+              <Text style={[styles.faqAnswer, { color: theme.textSecondary, marginBottom: 16, lineHeight: 22 }]}>
+                Kebijakan privasi ini dapat diperbarui sewaktu-waktu. Perubahan akan diinformasikan melalui aplikasi atau email. Dengan terus menggunakan aplikasi setelah perubahan, Anda menyetujui kebijakan yang diperbarui.
               </Text>
             </ScrollView>
           </View>

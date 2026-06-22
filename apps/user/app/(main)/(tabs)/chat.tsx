@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 20,
     fontFamily: 'PlusJakartaSans-Bold',
   },
   headerSubtitle: {
@@ -364,34 +364,7 @@ const styles = StyleSheet.create({
   skeletonContent: {
     flex: 1,
     marginLeft: 12,
-  },
-  skeletonCard: {
-    flexDirection: 'row',
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 12,
-    alignItems: 'center',
-  },
-  skeletonAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  skeletonContent: {
-    flex: 1,
     gap: 8,
-  },
-  skeletonLine: {
-    borderRadius: 6,
-  },
-  skeletonName: {
-    width: '55%',
-    height: 14,
-  },
-  skeletonMsg: {
-    width: '85%',
-    height: 11,
   },
   chatCard: {
     flexDirection: 'row',
@@ -524,14 +497,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Regular',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });
