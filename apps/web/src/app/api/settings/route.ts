@@ -62,7 +62,7 @@ export async function GET() {
         min_app_version: '1.0.0',
         playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
         therapist_min_app_version: '1.0.0',
-        therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist',
+        therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
       }, { headers: noCacheHeaders });
     }
 
@@ -106,7 +106,7 @@ export async function GET() {
       min_app_version: data.min_app_version ?? '1.0.0',
       playstore_url: data.playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
       therapist_min_app_version: data.therapist_min_app_version ?? '1.0.0',
-      therapist_playstore_url: data.therapist_playstore_url ?? 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist',
+      therapist_playstore_url: data.therapist_playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
     }, { headers: noCacheHeaders });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
@@ -235,7 +235,7 @@ export async function PUT(req: NextRequest) {
       min_app_version: data.min_app_version ?? '1.0.0',
       playstore_url: data.playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
       therapist_min_app_version: data.therapist_min_app_version ?? '1.0.0',
-      therapist_playstore_url: data.therapist_playstore_url ?? 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist',
+      therapist_playstore_url: data.therapist_playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
     }, { headers: noCacheHeaders });
   } catch (err) {
     console.error(err);

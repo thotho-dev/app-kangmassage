@@ -53,7 +53,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maintenance_mode: false,
   maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
   min_app_version: '1.0.0',
-  playstore_url: 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist',
+  playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
 };
 
 let cachedSettings: AppSettings | null = null;

@@ -47,6 +47,9 @@ type AppSettings = {
   withdrawal_admin_approval_threshold: number;
   min_app_version: string;
   playstore_url: string;
+  therapist_min_app_version: string;
+  therapist_playstore_url: string;
+  withdrawal_admin_approval: boolean;
 };
 
 const defaultSettings: AppSettings = {
@@ -88,6 +91,9 @@ const defaultSettings: AppSettings = {
   withdrawal_admin_approval_threshold: 0,
   min_app_version: '1.0.0',
   playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
+  therapist_min_app_version: '1.0.0',
+  therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
+  withdrawal_admin_approval: false,
 };
 
 type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
@@ -382,7 +388,7 @@ export default function SettingsPage() {
                       value={settings.therapist_playstore_url}
                       onChange={e => updateField('therapist_playstore_url', e.target.value)}
                       className="input-field"
-                      placeholder="https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist"
+                      placeholder="https://play.google.com/store/apps/details?id=com.kangmassage.mitra"
                     />
                     <p className="text-xs text-text-muted/60 mt-1">URL aplikasi Mitra di Play Store untuk tombol update.</p>
                   </div>

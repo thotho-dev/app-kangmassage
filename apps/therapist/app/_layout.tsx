@@ -49,7 +49,7 @@ function VersionCheck() {
           .single();
 
         if (data?.therapist_min_app_version && compareVersions(currentVersion, data.therapist_min_app_version) < 0) {
-          setStoreUrl(data.therapist_playstore_url || 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist');
+          setStoreUrl(data.therapist_playstore_url || 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra');
           setShowUpdate(true);
         }
       } catch {}

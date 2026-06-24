@@ -79,7 +79,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   min_app_version: '1.0.0',
   playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
   therapist_min_app_version: '1.0.0',
-  therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist',
+  therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
