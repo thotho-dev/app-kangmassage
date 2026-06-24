@@ -27,6 +27,7 @@ export default function ChatsScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [sortBy, setSortBy] = useState<'latest' | 'unread'>('latest');
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+  const onlineStatuses = useRef<Record<string, boolean>>({});
 
   const fetchConversations = async (isRefreshing = false) => {
     if (!profile) return;
@@ -37,13 +38,19 @@ export default function ChatsScreen() {
         .from('conversations')
         .select(`
           *,
-          users (id, full_name, avatar_url)
+          users (id, full_name, avatar_url, is_online, last_seen)
         `)
         .eq('therapist_id', profile.id)
         .order('last_message_at', { ascending: false });
 
       if (error) throw error;
       setConversations(data || []);
+
+      (data || []).forEach(c => {
+        if (c.users?.id) {
+          onlineStatuses.current[c.users.id] = c.users.is_online ?? false;
+        }
+      });
     } catch (error) {
       console.error('Error fetching conversations:', error);
     } finally {
@@ -51,6 +58,38 @@ export default function ChatsScreen() {
       setRefreshing(false);
     }
   };
+
+  // Realtime subscription for user online status changes
+  useEffect(() => {
+    const userIds = conversations.filter(c => c.users?.id).map(c => c.users.id);
+    if (userIds.length === 0) return;
+
+    const channel = supabase
+      .channel(`chat-online-${Math.random().toString(36).substring(7)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=in.(${userIds.join(',')})`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          if (updated?.id && typeof updated.is_online === 'boolean') {
+            onlineStatuses.current[updated.id] = updated.is_online;
+            setConversations(prev => prev.map(c =>
+              c.users?.id === updated.id
+                ? { ...c, users: { ...c.users, is_online: updated.is_online, last_seen: updated.last_seen } }
+                : c
+            ));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [conversations.length]);
 
   useFocusEffect(
     useCallback(() => {
@@ -133,6 +172,7 @@ export default function ChatsScreen() {
               <Text style={{ color: t.primary, fontWeight: 'bold' }}>{item.users?.full_name?.[0]}</Text>
             </View>
           )}
+          {item.users?.is_online && <View style={[styles.onlineBadge, { borderColor: t.surface }]} />}
         </View>
         
         <View style={styles.chatInfo}>

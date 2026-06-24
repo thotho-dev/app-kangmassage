@@ -38,20 +38,6 @@ const NEXT: Record<string, { label: string; status: string }> = {
   in_progress: { label: 'Selesaikan Pesanan',  status: 'completed'   },
 };
 
-const MOCK_ORDER = {
-  id: 'e7b1a1a0-1234-4321-bcde-f1234567890a',
-  users: { full_name: 'Siti Rahayu', phone: '+62 812-3456-7890' },
-  service_name: 'Pijat Relaksasi',
-  duration: 90,
-  address: 'Jl. Sudirman No. 12, Jakarta',
-  latitude: -6.2244,
-  longitude: 106.8166,
-  note: 'Mohon bawa minyak pijat aromaterapi.',
-  total_price: 150000,
-  distance: '1.2',
-  status: 'on_the_way',
-};
-
 // ─── Accordion ─────────────────────────────────────────────────────────────────
 function Accordion({ title, icon, color, children, t }: any) {
   const [open, setOpen] = useState(true);
@@ -115,11 +101,11 @@ function SwipeButton({ label, onSwipe, t, disabled = false }: { label: string; o
       <View style={{ 
         height: 64, 
         borderRadius: 32, 
-        backgroundColor: t.border, 
+        backgroundColor: t.primary + '20',
         overflow: 'hidden',
       }}>
         {/* @ts-ignore */}
-        <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: t.secondary, opacity: bgOpacity }]} />
+        <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: t.primary, opacity: bgOpacity }]} />
         <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]}>
           <Text style={{ ...TYPOGRAPHY.body, color: done ? '#fff' : t.textMuted, fontFamily: 'Inter_700Bold', opacity: 0.9 }}>
             {done ? `✓ ${label}` : disabled ? `Jadwal belum dimulai` : `Geser untuk ${label}`}
@@ -144,7 +130,7 @@ function SwipeButton({ label, onSwipe, t, disabled = false }: { label: string; o
             }}
           >
             <LinearGradient
-              colors={[t.secondary, '#EA580C']}
+              colors={[t.primary, t.primaryDark]}
               style={{ width: thumbW, height: thumbW, borderRadius: thumbW / 2, alignItems: 'center', justifyContent: 'center' }}
             >
               <Ionicons name="chevron-forward" size={24} color="#fff" />
@@ -169,6 +155,7 @@ export default function OrderDetailScreen() {
   const [order, setOrder] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [therapistLoc, setTherapistLoc] = useState<{latitude: number, longitude: number} | null>(null);
   const [fixedCustomerLoc, setFixedCustomerLoc] = useState<{latitude: number, longitude: number} | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -262,10 +249,10 @@ export default function OrderDetailScreen() {
   }, [order?.status, logs, order?.services?.price_type]);
 
   const fetchOrder = useCallback(async () => {
+    setFetchError(null);
     if (!id || typeof id !== 'string') {
-      console.error('[DEBUG OrderDetail] Invalid ID:', id);
-      setOrder(MOCK_ORDER); 
-      setLoading(false); 
+      setFetchError('ID pesanan tidak valid');
+      setLoading(false);
       return;
     }
 
@@ -290,8 +277,7 @@ export default function OrderDetailScreen() {
       }
       
       if (!orderData) {
-        console.error('[DEBUG OrderDetail] No data found for ID:', id);
-        setOrder(MOCK_ORDER);
+        setFetchError('Pesanan tidak ditemukan');
       } else {
         // Fetch Voucher separately if exists to avoid relationship error
         if (orderData.voucher_id) {
@@ -323,8 +309,7 @@ export default function OrderDetailScreen() {
 
     } catch (err) {
       console.error('[DEBUG OrderDetail] Catch Exception:', err);
-      // Fallback to mock only if truly failed
-      if (!order) setOrder(MOCK_ORDER);
+      setFetchError('Gagal memuat data pesanan');
     } finally {
       setLoading(false);
     }
@@ -865,7 +850,27 @@ export default function OrderDetailScreen() {
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={t.secondary} /></View>;
-  if (!order) return <View style={styles.center}><Text style={{color: t.text}}>Pesanan tidak ditemukan</Text></View>;
+  if (fetchError || !order) return (
+    <View style={styles.center}>
+      <Ionicons name="alert-circle-outline" size={64} color={t.danger} />
+      <Text style={{ color: t.text, fontSize: 18, fontFamily: 'Inter_700Bold', marginTop: 16 }}>Oops!</Text>
+      <Text style={{ color: t.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 8, marginHorizontal: 32 }}>{fetchError || 'Pesanan tidak ditemukan'}</Text>
+      <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+        <TouchableOpacity
+          style={{ backgroundColor: t.surface, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: t.border }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: t.text, fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Kembali</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ backgroundColor: t.secondary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }}
+          onPress={() => { setFetchError(null); setLoading(true); fetchOrder(); }}
+        >
+          <Text style={{ color: '#FFFFFF', fontFamily: 'Inter_700Bold', fontSize: 14 }}>Coba Lagi</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   const currentStepIndex = STATUS_STEPS.findIndex(s => s.key === order.status);
   const nextAction = NEXT[order.status];
@@ -1236,7 +1241,20 @@ export default function OrderDetailScreen() {
                         ? 'Alamat disembunyikan'
                         : order.address}
                     </Text>
-                    <Text style={[styles.detailValue, { color: t.textSecondary, fontSize: 11, marginTop: 2 }]}>Estimasi jarak ± {calculatedDistance || order.distance || '0'} KM</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                      <Text style={[styles.detailValue, { color: t.textSecondary, fontSize: 11 }]}>Estimasi jarak ± {calculatedDistance || order.distance || '0'} KM</Text>
+                      {order.status !== 'completed' && order.status !== 'cancelled' && (
+                        <TouchableOpacity onPress={() => {
+                          const url = Platform.OS === 'ios' ? `maps://0,0?q=${order.latitude},${order.longitude}` : `geo:0,0?q=${order.latitude},${order.longitude}`;
+                          Linking.openURL(url);
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: t.primary + '12', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                            <Ionicons name="navigate-outline" size={12} color={t.primary} />
+                            <Text style={{ fontSize: 10, color: t.primary, fontFamily: 'Inter_700Bold' }}>G-Maps</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
 
@@ -1381,46 +1399,28 @@ export default function OrderDetailScreen() {
               </View>
             </View>
 
-            {nextAction && !isMapFull && (
-              <View>
-                {remainingTime && (
-                  <View style={{ alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={{ color: t.textMuted, fontFamily: 'Inter_500Medium' }}>
-                      Mulai dalam {remainingTime}
-                    </Text>
-                  </View>
-                )}
-                <SwipeButton
-                  key={nextAction.status}
-                  label={nextAction.label}
-                  onSwipe={advanceStatus}
-                  t={t}
-                  disabled={order?.scheduled_at && !isScheduleActive(order)}
-                />
-              </View>
-            )}
           </>
         )}
-
-        {isMapFull && nextAction && (
-          <View style={{ marginTop: 10 }}>
-            {remainingTime && (
-              <View style={{ alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ color: t.textMuted, fontFamily: 'Inter_500Medium' }}>
-                  Mulai dalam {remainingTime}
-                </Text>
-              </View>
-            )}
-            <SwipeButton
-              key={nextAction.status + '_full'}
-              label={nextAction.label}
-              onSwipe={advanceStatus}
-              t={t}
-              disabled={order?.scheduled_at && !isScheduleActive(order)}
-            />
-          </View>
-        )}
       </Animated.ScrollView>
+
+      {nextAction && (
+        <View style={styles.stickyBottom}>
+          {remainingTime && (
+            <View style={{ alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{ color: t.textMuted, fontFamily: 'Inter_500Medium', fontSize: 11 }}>
+                Mulai dalam {remainingTime}
+              </Text>
+            </View>
+          )}
+          <SwipeButton
+            key={nextAction.status + (isMapFull ? '_full' : '')}
+            label={nextAction.label}
+            onSwipe={advanceStatus}
+            t={t}
+            disabled={order?.scheduled_at && !isScheduleActive(order)}
+          />
+        </View>
+      )}
 
       {/* QRIS PAYMENT MODAL */}
       <Modal
@@ -1582,7 +1582,14 @@ function getStyles(t: any) {
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: 'rgba(0,0,0,0.05)' },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' },
   statusText: { fontSize: 10, fontFamily: 'Inter_700Bold' },
-  scroll: { paddingBottom: 32 },
+  scroll: { paddingBottom: 120 },
+  stickyBottom: {
+    backgroundColor: t.background,
+    borderTopWidth: 1,
+    borderTopColor: t.border,
+    paddingTop: SPACING.sm,
+    paddingBottom: Platform.OS === 'ios' ? 20 : SPACING.sm,
+  },
   mapContainer: { height: 250, position: 'relative' },
   map: { ...StyleSheet.absoluteFillObject },
   markerContainer: { alignItems: 'center', justifyContent: 'center', width: 40, height: 40 },

@@ -3,14 +3,15 @@
     "name": "Kang Massage Mitra",
     "slug": "kang-massage",
     "scheme": "kang-massage-mitra",
-    "version": "2.0.1",
+    "version": "1.0.0",
+    "icon": "./assets/icon-app-mitra.png",
     "ios": {
       "supportsTablet": true,
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "com.rmhbgr.kangmassagetherapist",
-      "versionCode": 4,
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-app-mitra.png",
@@ -26,6 +27,10 @@
         "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
         "android.permission.POST_NOTIFICATIONS"
       ]
+    },
+    "splash": {
+      "backgroundColor": "#0F172A",
+      "resizeMode": "contain"
     },
     "web": {
       "favicon": "./assets/favicon.png"

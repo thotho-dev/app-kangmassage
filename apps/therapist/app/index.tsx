@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useThemeColors } from '@/store/themeStore';
 import { View, StyleSheet, Animated, Easing, Image, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { TYPOGRAPHY } from '@/constants/Theme';
+import { TYPOGRAPHY, COLORS } from '@/constants/Theme';
 import { getAppSettings, checkMaintenanceMode } from '@/lib/appSettings';
 import { supabase } from '@/lib/supabase';
 import { useTherapistStore } from '@/store/therapistStore';
@@ -13,8 +12,7 @@ import Constants from 'expo-constants';
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 export default function SplashScreen() {
-  const t = useThemeColors();
-  const styles = getStyles(t);
+  const styles = getStyles();
   const router = useRouter();
   const [platformName, setPlatformName] = useState('Kang Massage');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -159,7 +157,7 @@ export default function SplashScreen() {
     return (
       <View style={styles.maintenanceContainer}>
         <View style={styles.maintenanceCard}>
-          <Ionicons name="construct" size={64} color={t.warning} />
+          <Ionicons name="construct" size={64} color={COLORS.warning} />
           <Text style={styles.maintenanceTitle}>Pemeliharaan Sistem</Text>
           <Text style={styles.maintenanceMessage}>{maintenanceMessage}</Text>
           <Text style={styles.maintenanceNote}>Silakan coba lagi nanti. Terima kasih atas pengertiannya.</Text>
@@ -197,36 +195,36 @@ export default function SplashScreen() {
       </Animated.View>
 
       {/* Bottom badge */}
-      <Animated.View style={[styles.badge, { opacity: textOpacity, backgroundColor: t.primary + '15', borderColor: t.primary + '30' }]}>
-        <Ionicons name="shield-checkmark" size={14} color={t.primary} />
+      <Animated.View style={[styles.badge, { opacity: textOpacity }]}>
+        <Ionicons name="shield-checkmark" size={14} color={COLORS.primary} />
         <Animated.Text style={styles.badgeText}>Platform Terpercaya #1 Indonesia</Animated.Text>
       </Animated.View>
     </View>
   );
 }
 
-const getStyles = (t: any) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.background,
+    backgroundColor: COLORS.white,
   },
   maintenanceContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.background,
+    backgroundColor: COLORS.white,
     paddingHorizontal: 32,
   },
   maintenanceCard: {
     alignItems: 'center',
     padding: 32,
-    backgroundColor: t.card,
+    backgroundColor: COLORS.white,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: t.border,
-    shadowColor: t.shadow,
+    borderColor: 'rgba(15,23,42,0.1)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -234,20 +232,20 @@ const getStyles = (t: any) => StyleSheet.create({
   },
   maintenanceTitle: {
     ...TYPOGRAPHY.h2,
-    color: t.text,
+    color: '#0F172A',
     marginTop: 16,
     marginBottom: 12,
     textAlign: 'center',
   },
   maintenanceMessage: {
     ...TYPOGRAPHY.body,
-    color: t.textSecondary,
+    color: 'rgba(15,23,42,0.6)',
     textAlign: 'center',
     marginBottom: 8,
   },
   maintenanceNote: {
     ...TYPOGRAPHY.caption,
-    color: t.textMuted,
+    color: 'rgba(15,23,42,0.5)',
     textAlign: 'center',
   },
   ripple: {
@@ -256,7 +254,7 @@ const getStyles = (t: any) => StyleSheet.create({
     height: 160,
     borderRadius: 80,
     borderWidth: 2,
-    borderColor: t.primary + '20',
+    borderColor: COLORS.primary + '20',
   },
   logoContainer: { alignItems: 'center' },
   logoImage: {
@@ -264,12 +262,12 @@ const getStyles = (t: any) => StyleSheet.create({
   },
   title: {
     ...TYPOGRAPHY.h1,
-    color: t.text,
+    color: '#0F172A',
     fontSize: 36,
   },
   subtitle: {
     ...TYPOGRAPHY.body,
-    color: t.textSecondary,
+    color: 'rgba(15,23,42,0.6)',
     marginTop: 6,
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -285,10 +283,12 @@ const getStyles = (t: any) => StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+    backgroundColor: COLORS.primary + '15',
+    borderColor: COLORS.primary + '30',
   },
   badgeText: {
     ...TYPOGRAPHY.caption,
-    color: t.textSecondary,
+    color: 'rgba(15,23,42,0.5)',
     fontSize: 12,
   },
 });

@@ -359,6 +359,33 @@ export default function SettingsPage() {
                     />
                     <p className="text-xs text-text-muted/60 mt-1">URL aplikasi di Play Store untuk tombol update.</p>
                   </div>
+
+                  <hr className="border-ui-border" />
+
+                  <h3 className="text-sm font-semibold text-text-primary/80">Force Update (Mitra)</h3>
+
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Min App Version Mitra</label>
+                    <input
+                      type="text"
+                      value={settings.therapist_min_app_version}
+                      onChange={e => updateField('therapist_min_app_version', e.target.value)}
+                      className="input-field font-mono"
+                      placeholder="1.0.0"
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">Versi minimum aplikasi Mitra (terapis). Terapis dengan versi di bawah ini akan dipaksa update.</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Play Store URL Mitra</label>
+                    <input
+                      type="text"
+                      value={settings.therapist_playstore_url}
+                      onChange={e => updateField('therapist_playstore_url', e.target.value)}
+                      className="input-field"
+                      placeholder="https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist"
+                    />
+                    <p className="text-xs text-text-muted/60 mt-1">URL aplikasi Mitra di Play Store untuk tombol update.</p>
+                  </div>
                 </div>
               </div>
             </div>

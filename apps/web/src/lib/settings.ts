@@ -37,6 +37,8 @@ export type AppSettings = {
   withdrawal_admin_approval_threshold: number;
   min_app_version: string;
   playstore_url: string;
+  therapist_min_app_version: string;
+  therapist_playstore_url: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -76,6 +78,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   withdrawal_admin_approval_threshold: 0,
   min_app_version: '1.0.0',
   playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
+  therapist_min_app_version: '1.0.0',
+  therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist',
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -128,6 +132,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       withdrawal_admin_approval_threshold: Number(data.withdrawal_admin_approval_threshold) ?? DEFAULT_SETTINGS.withdrawal_admin_approval_threshold,
       min_app_version: data.min_app_version ?? DEFAULT_SETTINGS.min_app_version,
       playstore_url: data.playstore_url ?? DEFAULT_SETTINGS.playstore_url,
+      therapist_min_app_version: data.therapist_min_app_version ?? DEFAULT_SETTINGS.therapist_min_app_version,
+      therapist_playstore_url: data.therapist_playstore_url ?? DEFAULT_SETTINGS.therapist_playstore_url,
     };
   } catch {
     return DEFAULT_SETTINGS;

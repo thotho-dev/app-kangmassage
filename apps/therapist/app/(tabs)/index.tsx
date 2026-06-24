@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import * as Network from 'expo-network';
 import * as Location from 'expo-location';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Theme';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
 import { titleCase } from '@/lib/utils';
 import { useThemeStore, useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
@@ -42,7 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { profile, loading: profileLoading, unreadNotifCount, setUnreadNotifCount } = useTherapistStore();
+  const { profile, loading: profileLoading, unreadNotifCount, setUnreadNotifCount, isOnline, toggleOnline } = useTherapistStore();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(true);
@@ -149,11 +149,9 @@ export default function DashboardScreen() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
         
-        await fetch('https://jfnuusbujagpbzunaomc.supabase.co/rest/v1/', {
+        await fetch(`${supabaseUrl}/rest/v1/`, {
           method: 'GET',
-          headers: {
-            apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmbnV1c2J1amFncGJ6dW5hb21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MDUxNzUsImV4cCI6MjA5MzI4MTE3NX0.HA3q4S6oTtd2RAQuuHR5fYY9a0qAKz5yV05Ho-SDyMU',
-          },
+          headers: { apikey: supabaseAnonKey },
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
@@ -302,7 +300,10 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Image source={logoUrl ? { uri: logoUrl } : require('../../assets/logo-kang-massage.png')} style={styles.logo} />
-          <Text style={styles.companyName}>Kang Massage</Text>
+          <View>
+            <Text style={styles.companyName}>Kang Massage</Text>
+            <Text style={{ fontSize: 12, color: t.textSecondary, fontFamily: 'Inter_600SemiBold', marginTop: -2 }}>Mitra Terapis</Text>
+          </View>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={toggleTheme} style={styles.iconBtn}>
@@ -348,11 +349,18 @@ export default function DashboardScreen() {
           </View>
           
           <View style={styles.greetingRow}>
-            <View style={styles.greetingContainer}>
-              <Text style={styles.greetingText}>{getGreeting()},</Text>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => toggleOnline()}
+                style={[styles.onlineBadge, { backgroundColor: isOnline ? '#10B981' : t.danger, alignSelf: 'flex-start' }]}
+                activeOpacity={0.8}
+              >
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' }} />
+                <Text style={styles.onlineText}>{isOnline ? 'Online' : 'Offline'}</Text>
+              </TouchableOpacity>
+              <Text style={[styles.greetingText, { color: 'rgba(255,255,255,0.6)', marginTop: 4 }]}>{getGreeting()},</Text>
               <Text style={styles.nameText}>{titleCase(profile?.full_name?.split(' ')[0]) || 'Mitra'} 👋</Text>
             </View>
-
             <View style={styles.networkBadge}>
               <View style={[styles.signalDot, { backgroundColor: getSignalColor() }]} />
               <Ionicons 
@@ -388,7 +396,7 @@ export default function DashboardScreen() {
         <View style={styles.statsGrid}>
           <View style={{ flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.md }}>
             {stats.slice(0, 2).map((s, i) => (
-              <View key={s.label} style={[styles.statCard, { flex: i === 0 ? 1.4 : 0.6, borderWidth: 1, borderColor: t.border }]}>
+              <View key={s.label} style={[styles.statCard, { flex: i === 0 ? 1 : 0.6, borderWidth: 1, borderColor: t.border }]}>
                 <View style={[styles.statIcon, { backgroundColor: s.color + '25' }]}>
                   <Ionicons name={s.icon as any} size={22} color={s.color} />
                 </View>
@@ -555,6 +563,8 @@ const getStyles = (t: any) => StyleSheet.create({
   },
   signalDot: { width: 6, height: 6, borderRadius: 3 },
   networkText: { ...TYPOGRAPHY.caption, color: '#FFFFFF', fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  onlineBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  onlineText: { color: '#FFFFFF', fontSize: 9, fontFamily: 'Inter_700Bold' },
   
   balanceContainer: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: SPACING.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', zIndex: 1 },
   balanceHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: 4 },

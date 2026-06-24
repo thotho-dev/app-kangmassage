@@ -24,6 +24,8 @@ export type AppSettings = {
   logo_url: string | null;
   maintenance_mode: boolean;
   maintenance_message: string;
+  min_app_version: string;
+  playstore_url: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -50,6 +52,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   logo_url: null,
   maintenance_mode: false,
   maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+  min_app_version: '1.0.0',
+  playstore_url: 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist',
 };
 
 let cachedSettings: AppSettings | null = null;
@@ -93,6 +97,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       logo_url: data.logo_url ?? null,
       maintenance_mode: data.maintenance_mode ?? DEFAULT_SETTINGS.maintenance_mode,
       maintenance_message: data.maintenance_message ?? DEFAULT_SETTINGS.maintenance_message,
+      min_app_version: data.min_app_version ?? DEFAULT_SETTINGS.min_app_version,
+      playstore_url: data.playstore_url ?? DEFAULT_SETTINGS.playstore_url,
     };
 
     return cachedSettings;

@@ -44,7 +44,7 @@ export default function IncomingOrderModal() {
   // bukan ketika incomingOrder berganti ke order baru.
   useEffect(() => {
     if (!incomingOrder) {
-      stopOrderSound();
+      stopOrderSound().catch(() => {});
     }
   }, [incomingOrder]);
 

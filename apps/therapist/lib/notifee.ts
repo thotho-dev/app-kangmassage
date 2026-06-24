@@ -8,6 +8,10 @@ import { titleCase } from '@/lib/utils';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
+// ── Guard: prompt hanya sekali per sesi ──
+let _fullScreenPrompted = false;
+let _batteryPrompted = false;
+
 // ── Dedup guard: skip duplicate order notifications within 60s ──
 const recentOrderIds = new Set<string>();
 
@@ -206,7 +210,7 @@ export const initializeNotifee = async () => {
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
-        sound: 'sound_expo',
+        sound: 'sound_notifee',
       });
 
       if (!isExpoGo) {
@@ -233,63 +237,71 @@ export const initializeNotifee = async () => {
             vibration: false,
           });
 
-          // Minta izin full screen intent (Android 12+)
-          try {
-            const granted = await PermissionsAndroid.request(
-              'android.permission.USE_FULL_SCREEN_INTENT' as any,
-              {
-                title: 'Izin Notifikasi Prioritas',
-                message: 'Izinkan Kang Massage menampilkan notifikasi prioritas tinggi untuk pesanan baru.',
-                buttonPositive: 'Izinkan',
-                buttonNegative: 'Tolak',
-              }
-            );
-            if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-              console.log('[Notif] USE_FULL_SCREEN_INTENT granted');
-            } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-              Alert.alert(
-                'Aktifkan Tampilan Penuh',
-                'Agar notifikasi pesanan baru muncul langsung di layar kunci:\n\n' +
-                'Buka: Pengaturan → Aplikasi → Kang Massage Therapist → Notifikasi → Tampilan Penuh → Izinkan',
-                [
-                  { text: 'Tutup', style: 'cancel' },
-                  { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
-                ]
+          // Minta izin full screen intent (Android 12+) — sekali saja per sesi
+          if (!_fullScreenPrompted) {
+            _fullScreenPrompted = true;
+            try {
+              const granted = await PermissionsAndroid.request(
+                'android.permission.USE_FULL_SCREEN_INTENT' as any,
+                {
+                  title: 'Izin Notifikasi Prioritas',
+                  message: 'Izinkan Kang Massage menampilkan notifikasi prioritas tinggi untuk pesanan baru.',
+                  buttonPositive: 'Izinkan',
+                  buttonNegative: 'Tolak',
+                }
               );
+              if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+                console.log('[Notif] USE_FULL_SCREEN_INTENT granted');
+              } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+                Alert.alert(
+                  'Aktifkan Tampilan Penuh',
+                  'Agar notifikasi pesanan baru muncul di layar kunci:\n\n' +
+                  'Pengaturan -> Aplikasi -> Kang Massage Mitra -> Notifikasi -> berjalan diatas aplikasi lain -> Izinkan',
+                  [
+                    { text: 'Tutup', style: 'cancel' },
+                    { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
+                  ]
+                );
+              }
+            } catch (e) {
+              console.warn('[Notif] USE_FULL_SCREEN_INTENT request error:', e);
             }
-          } catch (e) {
-            console.warn('[Notif] USE_FULL_SCREEN_INTENT request error:', e);
           }
         }
       }
 
-      // Panduan untuk Chinese ROM (MIUI/Oppo/Realme/Vivo)
-      try {
-        const manufacturer = (Platform.constants as any)?.Manufacturer?.toLowerCase() || '';
-        const isChineseRom = ['xiaomi', 'oppo', 'realme', 'vivo', 'oneplus'].some(m => manufacturer.includes(m));
-        if (isChineseRom) {
-          const batGranted = await PermissionsAndroid.request(
-            'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' as any,
-          );
-          if (batGranted !== PermissionsAndroid.RESULTS.GRANTED) {
-            const brand = (Platform.constants as any)?.Manufacturer || 'HP ini';
-            setTimeout(() => {
-              Alert.alert(
-                '🔔 Atur Notifikasi',
-                `Agar notifikasi pesanan baru tidak terblokir di ${brand}, aktifkan:\n\n` +
-                `1. 📌 Auto-start — izinkan app berjalan di latar\n` +
-                `2. 🔋 Optimasi Baterai — pilih "Tidak Dioptimasi"\n` +
-                `3. 🪟 Izin Pop-up — aktifkan tampilan mengambang\n\n` +
-                `Buka Pengaturan → Aplikasi → Kang Massage Therapist`,
-                [
-                  { text: 'Tutup', style: 'cancel' },
-                  { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
-                ]
-              );
-            }, 1000);
+      // Panduan untuk Chinese ROM (MIUI/Oppo/Realme/Vivo) — sekali saja
+      if (!_batteryPrompted) {
+        _batteryPrompted = true;
+        try {
+          const manufacturer = (Platform.constants as any)?.Manufacturer?.toLowerCase() || '';
+          const isChineseRom = ['xiaomi', 'oppo', 'realme', 'vivo', 'oneplus'].some(m => manufacturer.includes(m));
+          if (isChineseRom) {
+            const batGranted = await PermissionsAndroid.request(
+              'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' as any,
+            );
+            if (batGranted !== PermissionsAndroid.RESULTS.GRANTED) {
+              const brand = (Platform.constants as any)?.Manufacturer || 'HP ini';
+              setTimeout(() => {
+                Alert.alert(
+                  '🔔 Atur Notifikasi',
+                  `Agar notifikasi pesanan baru tidak terblokir di ${brand}, aktifkan:\n\n` +
+                  `1. 📌 Auto-start — izinkan app berjalan di latar\n` +
+                  `2. 🔋 Optimasi Baterai — pilih "Tidak Dioptimasi"\n` +
+                  `3. 🪟 Izin Pop-up — aktifkan tampilan mengambang\n\n` +
+                  `Buka Pengaturan → Aplikasi → Kang Massage Therapist`,
+                  [
+                    { text: 'Tutup', style: 'cancel' },
+                    { text: 'Buka Pengaturan', onPress: () => Linking.openSettings() },
+                  ]
+                );
+              }, 1000);
+            }
           }
+        } catch (e) {
+          console.warn('[Notif] Battery opt prompt error:', e);
         }
-      } catch {}
+      }
     }
   } catch (e) {
     console.error('Expo Notifications Init Error:', e);
@@ -427,20 +439,6 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
               text: bodyText,
             },
             ...(avatarUrl && { largeIcon: avatarUrl }),
-            actions: [
-              {
-                title: '❌ TOLAK',
-                pressAction: {
-                  id: 'reject',
-                },
-              },
-              {
-                title: '✅ TERIMA',
-                pressAction: {
-                  id: 'accept',
-                },
-              },
-            ],
           },
           ios: {
             categoryId: 'order_action',
@@ -475,7 +473,7 @@ export const displayOrderNotification = async (order: any, therapistId?: string)
           orderId: order.id,
           orderData: JSON.stringify(order),
         },
-        sound: 'sound_expo',
+        sound: 'sound_notifee',
         ...(Platform.OS === 'ios' && {
           categoryIdentifier: 'order_action',
           interruptionLevel: 'critical',

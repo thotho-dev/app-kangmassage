@@ -1,22 +1,40 @@
 import { Vibration, Platform } from 'react-native';
+import { Audio } from 'expo-av';
 
-let vibrating = false;
+let active = false;
+let soundObject: Audio.Sound | null = null;
 
-export function playOrderSound() {
-  if (vibrating) return;
-  vibrating = true;
+export async function playOrderSound() {
+  if (active) return;
+  active = true;
 
-  // Pola getar panjang + looping sampai dihentikan
-  // 500ms getar, 300ms jeda, repeat
-  const pattern = Platform.OS === 'android'
-    ? [0, 500, 300, 500, 300, 500, 300, 500, 300]
-    : [0, 1000];
+  Vibration.vibrate([0, 500, 300, 500, 300, 500, 300, 500, 300], true);
 
-  Vibration.vibrate(pattern, true);
+  try {
+    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, shouldDuckAndroid: true });
+    const { sound } = await Audio.Sound.createAsync(
+      require('@/assets/raw/sound_notifee.mp3'),
+      { shouldPlay: true, isLooping: true, volume: 1.0 }
+    );
+    soundObject = sound;
+  } catch (e) {
+    console.warn('[orderSound] Audio playback failed:', e);
+  }
 }
 
-export function stopOrderSound() {
-  if (!vibrating) return;
-  vibrating = false;
+export async function stopOrderSound() {
+  if (!active) return;
+  active = false;
+
   Vibration.cancel();
+
+  if (soundObject) {
+    try {
+      await soundObject.stopAsync();
+      await soundObject.unloadAsync();
+    } catch (e) {
+      console.warn('[orderSound] Stop audio failed:', e);
+    }
+    soundObject = null;
+  }
 }

@@ -3,19 +3,61 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, Text, StyleSheet, Animated, Easing, Image, ActivityIndicator } from 'react-native';
-import LottieView from 'lottie-react-native';
+import LottieWebView from '@/components/LottieWebView';
 import { useThemeColors, useThemeStore } from '@/store/themeStore';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTopupListener } from '@/hooks/useTopupListener';
 import { useMaintenanceListener } from '@/hooks/useMaintenanceListener';
 import { useMaintenanceStore } from '@/store/maintenanceStore';
 import { TYPOGRAPHY } from '@/constants/Theme';
+import * as Application from 'expo-application';
 
 import CustomAlert from '@/components/CustomAlert';
+import UpdateModal from '@/components/UpdateModal';
+import { supabase } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
+
+function compareVersions(a: string, b: string) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+function VersionCheck() {
+  const [showUpdate, setShowUpdate] = useState(false);
+  const [storeUrl, setStoreUrl] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const currentVersion = Application.nativeApplicationVersion;
+        if (!currentVersion) return;
+
+        const { data } = await supabase
+          .from('app_settings')
+          .select('therapist_min_app_version, therapist_playstore_url')
+          .limit(1)
+          .single();
+
+        if (data?.therapist_min_app_version && compareVersions(currentVersion, data.therapist_min_app_version) < 0) {
+          setStoreUrl(data.therapist_playstore_url || 'https://play.google.com/store/apps/details?id=com.rmhbgr.kangmassagetherapist');
+          setShowUpdate(true);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  return <UpdateModal visible={showUpdate} storeUrl={storeUrl} onClose={() => setShowUpdate(false)} />;
+}
 
 export default function RootLayout() {
   const t = useThemeColors();
@@ -79,15 +121,13 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    if (loaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, error]);
 
   if (!loaded && !error) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
-      </View>
-    );
+    return null;
   }
 
   const rippleScale = ripple.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] });
@@ -112,6 +152,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
       </Stack>
       <CustomAlert />
+      <VersionCheck />
       {maintenanceMode && (
         <View style={[styles.maintenanceOverlay, { backgroundColor: t.background }]}>
           <Animated.View
@@ -121,11 +162,9 @@ export default function RootLayout() {
               { transform: [{ scale: rippleScale }], opacity: rippleOpacity },
             ]}
           />
-          <LottieView
+          <LottieWebView
             source={require('../assets/animasi/20d7737c-118a-11ee-823e-077777312ecc.json')}
-            style={styles.maintenanceLottie}
-            autoPlay
-            loop
+            size={200}
           />
           <Animated.View
             style={[

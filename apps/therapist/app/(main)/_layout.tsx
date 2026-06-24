@@ -16,6 +16,7 @@ export default function MainLayout() {
       <Stack.Screen name="notifications/settings" />
       <Stack.Screen name="orders/[id]" />
       <Stack.Screen name="chats/[id]" />
+      <Stack.Screen name="profile/detail" />
       <Stack.Screen name="profile/topup" />
       <Stack.Screen name="profile/webview-payment" />
       <Stack.Screen name="profile/change-password" />

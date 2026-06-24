@@ -162,11 +162,6 @@ export default function TabLayout() {
           }
         )
         .subscribe();
-
-      // Cold start: cek pesanan pending — beri jeda biar UI settle dulu
-      setTimeout(() => {
-        checkPendingOrders(p.id);
-      }, 600);
     });
     
     // Handle notification tap that opened the app (cold start)

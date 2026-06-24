@@ -185,7 +185,7 @@ export const useOrderListener = () => {
             // Set incoming order DULU, baru notifikasi — biar modal effect cleanup
             // (cancelOrderNotification) tidak cancel notifikasi yang baru ditampilkan.
             setIncomingOrder(orderData);
-            playOrderSound();
+            playOrderSound().catch(() => {});
             displayOrderNotification(orderData, profile.id);
           }
         )
