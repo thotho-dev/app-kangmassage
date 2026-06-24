@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { useTherapistStore } from '@/store/therapistStore';
+import { useMaintenanceStore } from '@/store/maintenanceStore';
 import { supabase } from '@/lib/supabase';
 import { API_URL } from '@/lib/config';
 import { titleCase } from '@/lib/utils';
@@ -175,6 +176,10 @@ export const initializeNotifee = async () => {
             if (!profile?.id) return;
             const rejected = useTherapistStore.getState().rejectedOrderIds;
             if (rejected.includes(orderData.id)) return;
+            if (useMaintenanceStore.getState().enabled) {
+              console.log('[Notif] Maintenance mode active — skipping order notification');
+              return;
+            }
             // Set incoming order dulu biar modal effect cleanup tidak cancel
             // notifikasi yang baru ditampilkan.
             useTherapistStore.getState().setIncomingOrder(orderData);

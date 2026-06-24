@@ -1,4 +1,4 @@
-package com.rmhbgr.kangmassagetherapist
+package com.kangmassage.mitra
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

@@ -6,13 +6,13 @@
   },
   "client": [
     {
-      "client_info": {
-        "mobilesdk_app_id": "1:448632334958:android:5f8e323580fb146ec3947f",
-        "android_client_info": {
-          "package_name": "com.kangMassage.kangmassagetherapist"
+      
+      "oauth_client": [
+        {
+          "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+          "client_type": 3
         }
-      },
-      "oauth_client": [],
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAC3Qtmnw29hkoBtYXiEMhQHUX5RsQa0bU"
@@ -20,7 +20,41 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:448632334958:android:509d285fd1569fadc3947f",
+        "android_client_info": {
+          "package_name": "com.kangmassage.mitra"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC3Qtmnw29hkoBtYXiEMhQHUX5RsQa0bU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -31,7 +65,12 @@
           "package_name": "com.rmhbgr.kangmassagetherapist"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAC3Qtmnw29hkoBtYXiEMhQHUX5RsQa0bU"
@@ -39,7 +78,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     },
@@ -50,7 +94,20 @@
           "package_name": "com.thotho.kangmassage.user"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "448632334958-lft4ic2n4n61ibsm86qtfrkjg6g1jmt1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thotho.kangmassage.user",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAC3Qtmnw29hkoBtYXiEMhQHUX5RsQa0bU"
@@ -58,7 +115,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "448632334958-0uunhb3hfsd4fhid4uehbbsq8unrfhc4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

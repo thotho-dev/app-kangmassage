@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:448632334958:android:5f8e323580fb146ec3947f",
         "android_client_info": {
-          "package_name": "com.kangMassage.kangmassagetherapist"
+          "package_name": "com.kangmassage.mitra"
         }
       },
       "oauth_client": [],
@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:448632334958:android:281c23e7886e0fa7c3947f",
         "android_client_info": {
-          "package_name": "com.rmhbgr.kangmassagetherapist"
+          "package_name": "com.kangmassage.mitra"
         }
       },
       "oauth_client": [],

@@ -38,5 +38,10 @@
         <data android:scheme="kang-massage-mitra"/>
       </intent-filter>
     </activity>
+    <service
+      android:name="app.notifee.core.ForegroundService"
+      android:exported="false"
+      android:stopWithTask="false"
+      tools:replace="android:exported,android:stopWithTask" />
   </application>
 </manifest>

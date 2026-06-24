@@ -10,7 +10,7 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "com.rmhbgr.kangmassagetherapist",
+      "package": "com.kangmassage.mitra",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {

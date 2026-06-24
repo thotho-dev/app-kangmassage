@@ -17,6 +17,7 @@ import Constants from 'expo-constants';
 
 let verifyChannel: any = null;
 import { CustomAlertTrigger } from '@/store/alertStore';
+import { useMaintenanceStore } from '@/store/maintenanceStore';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
@@ -280,6 +281,10 @@ export default function TabLayout() {
         appStateTimer = setTimeout(async () => {
           const p = useTherapistStore.getState().profile;
           if (!p?.id) return;
+          if (useMaintenanceStore.getState().enabled) {
+            console.log('[AppState] Maintenance mode active — skip pending order check');
+            return;
+          }
           await checkPendingOrders(p.id);
 
           // Navigate to order page if triggered by background notification tap

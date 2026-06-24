@@ -8,6 +8,7 @@ import {
   stopOrderForegroundService,
 } from '../lib/notifee';
 import { playOrderSound } from '../lib/orderSound';
+import { useMaintenanceStore } from '../store/maintenanceStore';
 import * as Location from 'expo-location';
 import { calculateDistance } from '../lib/utils';
 import { getAppSettings, DEFAULT_SETTINGS } from '../lib/appSettings';
@@ -65,6 +66,11 @@ export const useOrderListener = () => {
             const newOrder = payload.new;
 
             if (!newOrder || newOrder.status !== 'pending') return;
+
+            if (useMaintenanceStore.getState().enabled) {
+              console.log('[DEBUG OrderListener] BLOKIR: Mode pemeliharaan aktif.');
+              return;
+            }
 
             const settings = settingsRef.current;
 

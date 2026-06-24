@@ -1,4 +1,4 @@
-package com.rmhbgr.kangmassagetherapist
+package com.kangmassage.mitra
 
 import android.app.Application
 import android.content.res.Configuration

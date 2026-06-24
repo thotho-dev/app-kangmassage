@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.rmhbgr.kangmassagetherapist'
+    namespace 'com.kangmassage.mitra'
     defaultConfig {
-        applicationId 'com.rmhbgr.kangmassagetherapist'
+        applicationId 'com.kangmassage.mitra'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
