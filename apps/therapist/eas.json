@@ -10,7 +10,15 @@
         "buildType": "apk"
       }
     },
-    "production": {}
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "ANDROID_ENABLE_MINIFY_IN_RELEASE_BUILDS": "1",
+        "ANDROID_ENABLE_SHRINK_RESOURCES_IN_RELEASE_BUILDS": "1"
+      }
+    }
   },
   "submit": {
     "production": {}
