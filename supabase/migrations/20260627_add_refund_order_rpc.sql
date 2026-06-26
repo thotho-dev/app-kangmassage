@@ -22,8 +22,9 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'Order not found');
   END IF;
 
-  -- Cek status boleh refund atau tidak
-  IF v_order.status NOT IN ('pending', 'accepted') THEN
+  -- Status guard: pastikan order masih bisa di-refund
+  -- (status sudah diupdate ke 'cancelled' oleh mobile code sebelumnya)
+  IF v_order.status NOT IN ('pending', 'accepted', 'cancelled') THEN
     RETURN jsonb_build_object('success', false, 'message', 'Order status not refundable');
   END IF;
 
