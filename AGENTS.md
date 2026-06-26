@@ -503,18 +503,19 @@ C:\Android\
 | `apps/user/app/(main)/order.tsx` | `paymentMethod` baca dari `useLocalSearchParams` untuk state awal. `useFocusEffect` + `useEffect (:535)` consume pending voucher via `pickPendingVoucherCode()` — guard `totalPrice > 0` biar tidak hilang. Auto-apply guard (`initialVoucherCode`). Pass `appliedVoucherCode` ke vouchers params. Hardware back & UI back: `router.back()` (pernah dicoba `router.replace('/services')`, di-revert). |
 | `apps/user/lib/voucher.ts` | `_pendingVoucherCode` + `setPendingVoucherCode()` + `pickPendingVoucherCode()` (module-level, persist antar mount tanpa re-render). |
 | `apps/user/app/(main)/voucher-detail/[id].tsx` | "Gunakan Voucher" `router.push` → `router.replace` (Detail diganti Order, bukan nambah stack). Aksen navy. |
-| `apps/user/app/(main)/tracking.tsx` | Cancel: voucher cleanup (`voucher_usages` DELETE + `usage_count` decrement). Double-refund guard: cek `transactions` dulu sebelum refund saldo. |
-| `apps/user/app/(main)/searching-therapist.tsx` | Cancel: voucher cleanup + double-refund guard (sama seperti tracking). |
+| `apps/user/app/(main)/tracking.tsx` | Cancel: panggil RPC `refund_order_saldo` (SELECT FOR UPDATE — atomic, cegah race condition double refund). Voucher cleanup by RPC. |
+| `apps/user/app/(main)/searching-therapist.tsx` | Cancel: panggil RPC `refund_order_saldo` (sama seperti tracking). |
 | `apps/web/src/app/api/refund/create/route.ts` | Filter payment_method — hanya proses refund untuk gateway (`gopay`/qris/dll), **bukan saldo**. Voucher cleanup + double-refund guard. |
-| `apps/web/src/app/api/orders/[id]/route.ts` | Voucher cleanup (`voucher_usages` DELETE + `usage_count` decrement). Double-refund guard. `type: 'credit'` → `type: 'refund'` di transaksi refund. |
+| `apps/web/src/app/api/orders/[id]/route.ts` | Voucher cleanup + double-refund guard. `type: 'credit'` → `type: 'refund'` di transaksi refund. |
+| `supabase/migrations/20260627_add_refund_order_rpc.sql` | **NEW** — RPC `refund_order_saldo`: SELECT FOR UPDATE lock user+order, refund wallet, cleanup voucher, guard double refund. Atomic. |
 
 ### Key decisions
 - Voucher pending state via module variable (`_pendingVoucherCode`) bukan React Context/Zustand — cukup untuk komunikasi Vouchers → Order tanpa re-render global.
 - `router.back()` untuk "Pakai Voucher" + `router.back()` untuk hardware back → maksimal 2 Order di stack (acceptable).
 - Voucher-detail "Gunakan Voucher" pakai `router.replace` → Detail diganti Order, tidak nambah stacking.
 - Voucher cleanup dilakukan di **semua** jalur cancel (mobile client + web API) — tidak ada single point of truth.
-- Double-refund guard: cek `transactions.type === 'refund'` untuk `order_id` yang sama. Hanya process pertama yang jalan.
-- `refund/create/route.ts` sekarang tolak order dengan `payment_method === 'saldo'` (refund saldo handle client-side langsung ke Supabase).
+- Double-refund diatasi pakai **RPC `refund_order_saldo`** dengan `SELECT FOR UPDATE` — lock row user+order secara atomic, bukan query JS biasa yang rawan race condition.
+- `refund/create/route.ts` sekarang tolak order dengan `payment_method === 'saldo'` (refund saldo handle client-side via RPC).
 
 ### Next steps
 - Test end-to-end: buat order dengan voucher saldo → cancel → cek voucher bisa dipakai lagi.

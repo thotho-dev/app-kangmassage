@@ -604,22 +604,6 @@ export default function TrackingScreen() {
                 // Refund Logic
                 const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
                   'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
-                
-                // Cleanup voucher usage: hapus pemakaian + kurangi usage_count
-                if (orderData.voucher_id) {
-                  await supabase.from('voucher_usages').delete().eq('order_id', id);
-                  const { data: voucherData } = await supabase
-                    .from('vouchers')
-                    .select('usage_count')
-                    .eq('id', orderData.voucher_id)
-                    .single();
-                  if (voucherData) {
-                    await supabase
-                      .from('vouchers')
-                      .update({ usage_count: Math.max(0, (voucherData.usage_count || 0) - 1) })
-                      .eq('id', orderData.voucher_id);
-                  }
-                }
 
                 if (gatewayMethods.includes(orderData.payment_method)) {
                   try {
@@ -632,44 +616,12 @@ export default function TrackingScreen() {
                     console.warn('Refund API error:', e);
                   }
                 } else if (orderData.payment_method === 'saldo') {
-                  const { data: userProfile } = await supabase
-                    .from('users')
-                    .select('wallet_balance, cashback_balance')
-                    .eq('id', orderData.user_id)
-                    .single();
+                  // Atomic refund via RPC (SELECT FOR UPDATE — mencegah double refund)
+                  const { data: rpcResult, error: rpcError } = await supabase
+                    .rpc('refund_order_saldo', { p_order_id: id });
 
-                  if (userProfile) {
-                    const usedCashback = Number(orderData.used_cashback) || 0;
-                    const earnedCashback = Number(orderData.earned_cashback) || 0;
-                    const paidAmount = Number(orderData.total_price) || 0;
-                    
-                    // Cegah double refund: skip jika transaksi refund sudah ada
-                    const { data: existingRefund } = await supabase
-                      .from('transactions')
-                      .select('id')
-                      .eq('order_id', id)
-                      .eq('type', 'refund')
-                      .limit(1);
-
-                    if (!existingRefund || existingRefund.length === 0) {
-                      await supabase
-                        .from('users')
-                        .update({ 
-                          wallet_balance: (userProfile.wallet_balance || 0) + paidAmount,
-                          cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
-                        })
-                        .eq('id', orderData.user_id);
-
-                      await supabase.from('transactions').insert({
-                        user_id: orderData.user_id,
-                        order_id: id,
-                        type: 'refund',
-                        amount: paidAmount,
-                        balance_before: userProfile.wallet_balance || 0,
-                        balance_after: (userProfile.wallet_balance || 0) + paidAmount,
-                        description: `Refund pembatalan pesanan ${orderData.order_number} ke saldo`,
-                      });
-                    }
+                  if (rpcError || !rpcResult?.success) {
+                    console.warn('Refund RPC error:', rpcError || rpcResult?.message);
                   }
                 }
 

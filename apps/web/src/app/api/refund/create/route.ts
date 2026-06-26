@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
       'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
 
-    if (order.payment_method !== 'saldo' && !gatewayMethods.includes(order.payment_method)) {
+    if (!gatewayMethods.includes(order.payment_method)) {
       return NextResponse.json({ error: 'Refund not applicable for this payment method' }, { status: 400 });
     }
 
