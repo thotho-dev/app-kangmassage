@@ -11,6 +11,8 @@ import { useLocation } from '@/context/LocationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Skeleton } from '@/components/ui/Skeleton';
 
+const PURPLE = '#240080';
+
 export default function VoucherDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -226,7 +228,7 @@ export default function VoucherDetailScreen() {
           
           <View style={styles.requirementRow}>
             <View style={styles.reqIcon}>
-              <MaterialCommunityIcons name="calendar-clock" size={20} color="#EA580C" />
+              <MaterialCommunityIcons name="calendar-clock" size={20} color={PURPLE} />
             </View>
             <View style={styles.reqInfo}>
               <Text style={styles.reqLabel}>Masa Berlaku</Text>
@@ -238,7 +240,7 @@ export default function VoucherDetailScreen() {
 
           <View style={styles.requirementRow}>
             <View style={styles.reqIcon}>
-              <MaterialCommunityIcons name="cash-multiple" size={20} color="#EA580C" />
+              <MaterialCommunityIcons name="cash-multiple" size={20} color={PURPLE} />
             </View>
             <View style={styles.reqInfo}>
               <Text style={styles.reqLabel}>Minimal Transaksi</Text>
@@ -249,7 +251,7 @@ export default function VoucherDetailScreen() {
           {voucher.max_discount && (
             <View style={styles.requirementRow}>
               <View style={styles.reqIcon}>
-                <MaterialCommunityIcons name="arrow-collapse-down" size={20} color="#EA580C" />
+                <MaterialCommunityIcons name="arrow-collapse-down" size={20} color={PURPLE} />
               </View>
               <View style={styles.reqInfo}>
                 <Text style={styles.reqLabel}>{voucher.is_cashback ? 'Maksimal Cashback' : 'Maksimal Potongan'}</Text>
@@ -291,7 +293,7 @@ export default function VoucherDetailScreen() {
           {voucher.service && (
             <View style={styles.requirementRow}>
               <View style={styles.reqIcon}>
-                <MaterialCommunityIcons name="spa-outline" size={20} color="#EA580C" />
+                <MaterialCommunityIcons name="spa-outline" size={20} color={PURPLE} />
               </View>
               <View style={styles.reqInfo}>
                 <Text style={styles.reqLabel}>Khusus Layanan</Text>
@@ -315,7 +317,7 @@ export default function VoucherDetailScreen() {
           {voucher.category === 'wallet_payment' && (
             <View style={styles.requirementRow}>
               <View style={styles.reqIcon}>
-                <MaterialCommunityIcons name="wallet-outline" size={20} color="#EA580C" />
+                <MaterialCommunityIcons name="wallet-outline" size={20} color={PURPLE} />
               </View>
               <View style={styles.reqInfo}>
                 <Text style={styles.reqLabel}>Metode Pembayaran</Text>
@@ -373,7 +375,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backButton: {
-    backgroundColor: '#EA580C',
+    backgroundColor: PURPLE,
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 12,
@@ -413,9 +415,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     marginBottom: 25,
-    backgroundColor: '#EA580C',
+    backgroundColor: PURPLE,
     elevation: 8,
-    shadowColor: '#EA580C',
+    shadowColor: PURPLE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -519,7 +521,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#EDE9FE',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -580,12 +582,12 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   useButton: {
-    backgroundColor: '#EA580C',
+    backgroundColor: PURPLE,
     height: 55,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#EA580C',
+    shadowColor: PURPLE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,

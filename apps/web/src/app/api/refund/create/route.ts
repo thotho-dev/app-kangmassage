@@ -22,15 +22,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Order cannot be refunded in current status' }, { status: 400 });
     }
 
+    // Only process refund for payment gateway methods (saldo handled client-side)
+    const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
+      'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
+
+    if (order.payment_method !== 'saldo' && !gatewayMethods.includes(order.payment_method)) {
+      return NextResponse.json({ error: 'Refund not applicable for this payment method' }, { status: 400 });
+    }
+
+    // Cegah double refund
+    const { data: existingRefund } = await supabase
+      .from('transactions')
+      .select('id')
+      .eq('order_id', order_id)
+      .eq('type', 'refund')
+      .limit(1);
+
+    if (existingRefund && existingRefund.length > 0) {
+      return NextResponse.json({ error: 'Already refunded' }, { status: 400 });
+    }
+
+    // Cleanup voucher usage
+    if (order.voucher_id) {
+      await supabase.from('voucher_usages').delete().eq('order_id', order_id);
+      const { data: voucherData } = await supabase
+        .from('vouchers')
+        .select('usage_count')
+        .eq('id', order.voucher_id)
+        .single();
+      if (voucherData) {
+        await supabase
+          .from('vouchers')
+          .update({ usage_count: Math.max(0, (voucherData.usage_count || 0) - 1) })
+          .eq('id', order.voucher_id);
+      }
+    }
+
     const userId = order.user_id;
     const totalPrice = Number(order.total_price) || 0;
     const usedCashback = Number(order.used_cashback) || 0;
     const earnedCashback = Number(order.earned_cashback) || 0;
 
     // 1. Call Midtrans cancel/refund if payment gateway method
-    const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
-      'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
-
     if (gatewayMethods.includes(order.payment_method)) {
       const settings = await getAppSettings();
       const serverKey = settings.midtrans_server_key;

@@ -229,11 +229,7 @@ export default function MapsScreen() {
   useFocusEffect(
     useCallback(() => {
       const backAction = () => {
-        if (from === 'order') {
-          router.replace({ pathname: '/order', params: { serviceId, from: sourceFrom as string } });
-          return true;
-        }
-        router.replace({ pathname: '/home' });
+        router.back();
         return true;
       };
 
@@ -243,7 +239,7 @@ export default function MapsScreen() {
       );
 
       return () => backHandler.remove();
-    }, [from, sourceFrom, serviceId])
+    }, [from])
   );
 
   const { address, setAddress, coords, setCoords } = useLocation();
@@ -545,7 +541,7 @@ export default function MapsScreen() {
             setAddress(localAddress);
             setCoords({ latitude: region.latitude, longitude: region.longitude });
             if (from === 'order') {
-              router.push({ pathname: '/order', params: { serviceId, from: sourceFrom as string } });
+              router.back();
             } else {
               router.push({ pathname: '/home' });
             }

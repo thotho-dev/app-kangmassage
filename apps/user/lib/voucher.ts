@@ -185,3 +185,16 @@ export function findBestVoucher(
   }
   return null;
 }
+
+// ─── Pending Voucher (shared state between Vouchers and Order screens) ───
+let _pendingVoucherCode: string | null = null;
+
+export function setPendingVoucherCode(code: string | null) {
+  _pendingVoucherCode = code;
+}
+
+export function pickPendingVoucherCode(): string | null {
+  const code = _pendingVoucherCode;
+  _pendingVoucherCode = null;
+  return code;
+}

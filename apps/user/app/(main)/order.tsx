@@ -49,20 +49,15 @@ export default function OrderScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { showAlert } = useAlert();
-  const { serviceId, therapistId, voucherCode: initialVoucherCode, from } = useLocalSearchParams();
+  const { serviceId, therapistId, voucherCode: initialVoucherCode, from, paymentMethod: paymentMethodParam } = useLocalSearchParams();
   const { data: servicesData } = useServices();
   const [therapist, setTherapist] = useState<any>(null);
 
   useFocusEffect(
     React.useCallback(() => {
       const backAction = () => {
-        if (from === 'services') {
-          router.replace('/services');
-          return true;
-        } else {
-          router.replace('/home');
-          return true;
-        }
+        router.back();
+        return true;
       };
 
       const backHandler = BackHandler.addEventListener(
@@ -71,7 +66,7 @@ export default function OrderScreen() {
       );
 
       return () => backHandler.remove();
-    }, [from])
+    }, [])
   );
 
   React.useEffect(() => {
@@ -158,7 +153,7 @@ export default function OrderScreen() {
   const [bookingType, setBookingType] = useState<'now' | 'schedule'>('now');
   const [userGender, setUserGender] = useState<'male' | 'female'>('male');
   const [therapistGender, setTherapistGender] = useState<'any' | 'male' | 'female'>('any');
-  const [paymentMethod, setPaymentMethod] = useState<'saldo' | 'tunai' | 'transfer' | 'qris'>('tunai');
+  const [paymentMethod, setPaymentMethod] = useState<'saldo' | 'tunai' | 'transfer' | 'qris'>((paymentMethodParam as 'saldo' | 'tunai' | 'transfer' | 'qris') || 'tunai');
   const [loading, setLoading] = useState(false);
 
   // Voucher Logic
@@ -425,7 +420,8 @@ export default function OrderScreen() {
   };
 
   const autoApplyBestVoucher = async () => {
-    if (appliedVoucher) return; // Don't override if already applied from params
+    if (appliedVoucher) return;
+    if (initialVoucherCode) return; // User explicitly chose a voucher, don't override
 
     try {
       const { data: vouchers, error } = await supabase
@@ -540,7 +536,7 @@ export default function OrderScreen() {
   React.useEffect(() => {
     if (initialVoucherCode && totalPrice > 0) {
       checkVoucher(initialVoucherCode as string, true);
-    } else if (totalPrice > 0 && !appliedVoucher) {
+    } else if (totalPrice > 0 && !appliedVoucher && !initialVoucherCode) {
       autoApplyBestVoucher();
     }
   }, [initialVoucherCode, totalPrice, profile]);
@@ -578,7 +574,7 @@ export default function OrderScreen() {
       setDiscountAmount(0);
       setVoucherCode('');
       showAlert('Voucher Terlepas', 'Voucher wallet payment hanya berlaku saat bayar pakai saldo.');
-    } else if (paymentMethod === 'saldo' && !appliedVoucher) {
+    } else if (paymentMethod === 'saldo' && !appliedVoucher && !initialVoucherCode) {
       autoApplyBestVoucher();
     }
   }, [paymentMethod]);
@@ -808,13 +804,7 @@ export default function OrderScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => {
-            if (from === 'services') {
-              router.push('/services');
-            } else {
-              router.push('/home');
-            }
-          }}
+          onPress={() => router.back()}
           style={styles.backButton}
         >
           <ChevronLeft size={24} color={TEXT_DARK} />
@@ -1117,7 +1107,9 @@ export default function OrderScreen() {
                   sourceFrom: from as string,
                   serviceId: serviceId as string,
                   therapistId: therapistId as string,
-                  totalPrice: totalPrice.toString()
+                  totalPrice: totalPrice.toString(),
+                  paymentMethod: paymentMethod,
+                  appliedVoucherCode: appliedVoucher?.code || ''
                 }
               })}
             >

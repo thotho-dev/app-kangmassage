@@ -206,32 +206,56 @@ export async function PATCH(
     );
 
     if (shouldRefund) {
-      const { data: user } = await supabase
-        .from('users')
-        .select('wallet_balance')
-        .eq('id', currentOrder.user_id)
-        .single();
-      
-      if (user) {
-        const refundAmount = currentOrder.total_price;
-        const newBalance = (user.wallet_balance || 0) + refundAmount;
-        
-        // Update user balance
-        await supabase
+      // Cegah double refund
+      const { data: existingRefund } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('order_id', currentOrder.id)
+        .eq('type', 'refund')
+        .limit(1);
+
+      if (!existingRefund || existingRefund.length === 0) {
+        const { data: user } = await supabase
           .from('users')
-          .update({ wallet_balance: newBalance })
-          .eq('id', currentOrder.user_id);
+          .select('wallet_balance')
+          .eq('id', currentOrder.user_id)
+          .single();
         
-        // Log refund transaction
-        await supabase.from('transactions').insert({
-          user_id: currentOrder.user_id,
-          order_id: currentOrder.id,
-          type: 'credit',
-          amount: refundAmount,
-          balance_before: user.wallet_balance,
-          balance_after: newBalance,
-          description: `Refund pembatalan pesanan ${currentOrder.order_number} (${currentOrder.payment_method})`,
-        });
+        if (user) {
+          const refundAmount = currentOrder.total_price;
+          const newBalance = (user.wallet_balance || 0) + refundAmount;
+          
+          await supabase
+            .from('users')
+            .update({ wallet_balance: newBalance })
+            .eq('id', currentOrder.user_id);
+          
+          await supabase.from('transactions').insert({
+            user_id: currentOrder.user_id,
+            order_id: currentOrder.id,
+            type: 'refund',
+            amount: refundAmount,
+            balance_before: user.wallet_balance,
+            balance_after: newBalance,
+            description: `Refund pembatalan pesanan ${currentOrder.order_number} (${currentOrder.payment_method})`,
+          });
+        }
+      }
+    }
+
+    // Cleanup voucher usage on cancellation
+    if (status === 'cancelled' && currentOrder.voucher_id) {
+      await supabase.from('voucher_usages').delete().eq('order_id', currentOrder.id);
+      const { data: voucherData } = await supabase
+        .from('vouchers')
+        .select('usage_count')
+        .eq('id', currentOrder.voucher_id)
+        .single();
+      if (voucherData) {
+        await supabase
+          .from('vouchers')
+          .update({ usage_count: Math.max(0, (voucherData.usage_count || 0) - 1) })
+          .eq('id', currentOrder.voucher_id);
       }
     }
 

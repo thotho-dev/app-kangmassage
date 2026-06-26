@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -210,13 +210,15 @@ export default function HomeScreen() {
   const [modalSaving, setModalSaving] = useState(false);
   const profileModalShownRef = useRef(false);
 
-  useEffect(() => {
-    if (profile && !profile.gender && !profileModalShownRef.current) {
-      profileModalShownRef.current = true;
-      setModalName(profile.full_name || '');
-      setShowProfileModal(true);
-    }
-  }, [profile]);
+  useFocusEffect(
+    useCallback(() => {
+      if (profile && !profile.gender && !profileModalShownRef.current) {
+        profileModalShownRef.current = true;
+        setModalName(profile.full_name || '');
+        setShowProfileModal(true);
+      }
+    }, [profile])
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -575,7 +577,7 @@ export default function HomeScreen() {
                   key={cat.id}
                   style={styles.catItem}
                   activeOpacity={0.75}
-                  onPress={() => router.push('/services')}
+                  onPress={() => handleProtectedAction('/services')}
                 >
                   <View style={[styles.catCircle, { backgroundColor: cat.bg }]}>
                     <IconComp size={22} color={cat.color} />
@@ -646,7 +648,7 @@ export default function HomeScreen() {
                 <Text style={styles.sectionBadgeText}>Rekomendasi</Text>
               </View>
             </View>
-          <TouchableOpacity onPress={() => router.push('/services')}>
+          <TouchableOpacity onPress={() => handleProtectedAction('/services')}>
             <Text style={styles.seeAll}>Lihat Semua</Text>
           </TouchableOpacity>
         </View>
@@ -716,7 +718,7 @@ export default function HomeScreen() {
                 <Text style={styles.sectionBadgeText}>Populer</Text>
               </View>
             </View>
-          <TouchableOpacity onPress={() => router.push('/services')}>
+          <TouchableOpacity onPress={() => handleProtectedAction('/services')}>
             <Text style={styles.seeAll}>Lihat Semua</Text>
           </TouchableOpacity>
         </View>

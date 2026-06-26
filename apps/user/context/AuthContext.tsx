@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
     // Check active sessions
@@ -77,6 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -89,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[Auth] Push registration failed:', e)
       );
     }
+    fetchingRef.current = false;
   };
 
   useEffect(() => {

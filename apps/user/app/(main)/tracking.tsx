@@ -605,6 +605,22 @@ export default function TrackingScreen() {
                 const gatewayMethods = ['gopay', 'qris', 'dana', 'shopeepay', 'ovo', 'linkaja',
                   'bca_va', 'bni_va', 'bri_va', 'bsi_va', 'cimb_va', 'mandiri_va', 'permata_va'];
                 
+                // Cleanup voucher usage: hapus pemakaian + kurangi usage_count
+                if (orderData.voucher_id) {
+                  await supabase.from('voucher_usages').delete().eq('order_id', id);
+                  const { data: voucherData } = await supabase
+                    .from('vouchers')
+                    .select('usage_count')
+                    .eq('id', orderData.voucher_id)
+                    .single();
+                  if (voucherData) {
+                    await supabase
+                      .from('vouchers')
+                      .update({ usage_count: Math.max(0, (voucherData.usage_count || 0) - 1) })
+                      .eq('id', orderData.voucher_id);
+                  }
+                }
+
                 if (gatewayMethods.includes(orderData.payment_method)) {
                   try {
                     await fetch(`${API_URL}/api/refund/create`, {
@@ -627,23 +643,33 @@ export default function TrackingScreen() {
                     const earnedCashback = Number(orderData.earned_cashback) || 0;
                     const paidAmount = Number(orderData.total_price) || 0;
                     
-                    await supabase
-                      .from('users')
-                      .update({ 
-                        wallet_balance: (userProfile.wallet_balance || 0) + paidAmount,
-                        cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
-                      })
-                      .eq('id', orderData.user_id);
+                    // Cegah double refund: skip jika transaksi refund sudah ada
+                    const { data: existingRefund } = await supabase
+                      .from('transactions')
+                      .select('id')
+                      .eq('order_id', id)
+                      .eq('type', 'refund')
+                      .limit(1);
 
-                    await supabase.from('transactions').insert({
-                      user_id: orderData.user_id,
-                      order_id: id,
-                      type: 'refund',
-                      amount: paidAmount,
-                      balance_before: userProfile.wallet_balance || 0,
-                      balance_after: (userProfile.wallet_balance || 0) + paidAmount,
-                      description: `Refund pembatalan pesanan ${orderData.order_number} ke saldo`,
-                    });
+                    if (!existingRefund || existingRefund.length === 0) {
+                      await supabase
+                        .from('users')
+                        .update({ 
+                          wallet_balance: (userProfile.wallet_balance || 0) + paidAmount,
+                          cashback_balance: (userProfile.cashback_balance || 0) + usedCashback - earnedCashback 
+                        })
+                        .eq('id', orderData.user_id);
+
+                      await supabase.from('transactions').insert({
+                        user_id: orderData.user_id,
+                        order_id: id,
+                        type: 'refund',
+                        amount: paidAmount,
+                        balance_before: userProfile.wallet_balance || 0,
+                        balance_after: (userProfile.wallet_balance || 0) + paidAmount,
+                        description: `Refund pembatalan pesanan ${orderData.order_number} ke saldo`,
+                      });
+                    }
                   }
                 }
 

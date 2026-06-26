@@ -21,7 +21,7 @@ const TEXT_MUTED = '#6B7280';
 
 export default function VouchersScreen() {
   const router = useRouter();
-  const { from, sourceFrom, serviceId, therapistId, totalPrice } = useLocalSearchParams();
+  const { from, sourceFrom, serviceId, therapistId, totalPrice, paymentMethod, appliedVoucherCode } = useLocalSearchParams();
   const currentTotalPrice = totalPrice ? parseFloat(totalPrice as string) : 0;
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +30,7 @@ export default function VouchersScreen() {
   const { address } = useLocation();
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
+  const [selectedVoucher, setSelectedVoucher] = useState<any>(null);
   
   useEffect(() => {
     (async () => {
@@ -45,17 +46,6 @@ export default function VouchersScreen() {
   useFocusEffect(
     useCallback(() => {
       const backAction = () => {
-        if (from === 'order') {
-          router.replace({ 
-            pathname: '/order', 
-            params: { 
-              serviceId: serviceId as string, 
-              therapistId: therapistId as string, 
-              from: sourceFrom as string 
-            } 
-          });
-          return true;
-        }
         router.back();
         return true;
       };
@@ -66,7 +56,7 @@ export default function VouchersScreen() {
       );
 
       return () => backHandler.remove();
-    }, [from, sourceFrom, serviceId, therapistId])
+    }, [])
   );
 
   const fetchVouchers = async () => {
@@ -144,6 +134,13 @@ export default function VouchersScreen() {
     fetchVouchers();
   };
 
+  // Pre-select voucher if already applied in order
+  useEffect(() => {
+    if (!appliedVoucherCode || vouchers.length === 0) return;
+    const match = vouchers.find(v => v.code === appliedVoucherCode);
+    if (match) setSelectedVoucher(match);
+  }, [appliedVoucherCode, vouchers]);
+
   const formatExpiry = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -206,7 +203,12 @@ export default function VouchersScreen() {
       return { valid: false, reason: 'Kuota habis' };
     }
 
-    // 5. Context Specific Checks (Only when coming from Order screen)
+    // 5. Wallet Payment Check
+    if (item.category === 'wallet_payment' && paymentMethod !== 'saldo') {
+      return { valid: false, reason: 'Bayar pakai Saldo dompet' };
+    }
+
+    // 6. Context Specific Checks (Only when coming from Order screen)
     if (from === 'order') {
       if (currentTotalPrice < item.min_order_amount) {
         return { valid: false, reason: `Min. order Rp ${item.min_order_amount.toLocaleString('id-ID')}` };
@@ -219,153 +221,184 @@ export default function VouchersScreen() {
     return { valid: true };
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={24} color={TEXT_DARK} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Voucher Saya</Text>
-        <View style={{ width: 40 }} />
-      </View>
+  const handlePakai = () => {
+    if (!selectedVoucher) return;
+    if (from === 'order') {
+      router.replace({
+        pathname: '/order',
+        params: {
+          serviceId: serviceId as string,
+          therapistId: therapistId as string,
+          voucherCode: selectedVoucher.code,
+          from: sourceFrom as string,
+          paymentMethod: paymentMethod as string
+        }
+      });
+    } else {
+      router.replace({ pathname: '/services', params: { voucherCode: selectedVoucher.code } });
+    }
+  };
 
-      {loading && !refreshing ? (
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          {[1, 2, 3, 4].map(i => (
-            <View key={i} style={styles.voucherCard}>
-              <View style={[styles.voucherLeft, { opacity: 0.3 }]} />
-              <View style={styles.voucherRight}>
-                <View style={styles.mainInfo}>
-                  <Skeleton width="60%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
-                  <Skeleton width="90%" height={10} borderRadius={4} style={{ marginBottom: 12 }} />
-                  <Skeleton width="40%" height={22} borderRadius={4} />
+  return (
+    <View style={{ flex: 1, backgroundColor: BG }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <StatusBar barStyle="dark-content" />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={24} color={TEXT_DARK} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Voucher Saya</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        {loading && !refreshing ? (
+          <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 80 }]}>
+            {[1, 2, 3, 4].map(i => (
+              <View key={i} style={styles.voucherCard}>
+                <View style={[styles.voucherLeft, { opacity: 0.3 }]} />
+                <View style={styles.voucherRight}>
+                  <View style={styles.mainInfo}>
+                    <Skeleton width="60%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                    <Skeleton width="90%" height={10} borderRadius={4} style={{ marginBottom: 12 }} />
+                    <Skeleton width="40%" height={22} borderRadius={4} />
+                  </View>
+                  <View style={styles.footerInfo}>
+                    <Skeleton width="50%" height={12} borderRadius={4} />
+                    <Skeleton width={60} height={28} borderRadius={15} />
+                  </View>
                 </View>
-                <View style={styles.footerInfo}>
-                  <Skeleton width="50%" height={12} borderRadius={4} />
-                  <Skeleton width={60} height={28} borderRadius={15} />
-                </View>
+                <View style={styles.cutoutTop} />
+                <View style={styles.cutoutBottom} />
+                <View style={styles.divider} />
               </View>
-              <View style={styles.cutoutTop} />
-              <View style={styles.cutoutBottom} />
-              <View style={styles.divider} />
-            </View>
-          ))}
-          <View style={styles.infoBox}>
-            <Info size={16} color={TEXT_MUTED} />
-            <Text style={styles.infoText}>Voucher dapat digunakan saat proses pemesanan layanan.</Text>
-          </View>
-        </ScrollView>
-      ) : (
-        <FlatList
-          data={[...vouchers].sort((a, b) => {
-            const va = checkVoucherValidity(a);
-            const vb = checkVoucherValidity(b);
-            if (va.valid && !vb.valid) return -1;
-            if (!va.valid && vb.valid) return 1;
-            return 0;
-          })}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PURPLE} />}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ticket size={48} color={TEXT_MUTED} opacity={0.2} />
-              </View>
-              <Text style={styles.emptyTitle}>Belum Ada Voucher</Text>
-              <Text style={styles.emptySubtitle}>Pantau terus halaman ini untuk promo menarik lainnya.</Text>
-            </View>
-          }
-          ListFooterComponent={
+            ))}
             <View style={styles.infoBox}>
               <Info size={16} color={TEXT_MUTED} />
               <Text style={styles.infoText}>Voucher dapat digunakan saat proses pemesanan layanan.</Text>
             </View>
-          }
-          renderItem={({ item }) => {
-            const { valid, reason } = checkVoucherValidity(item);
-            return (
-              <TouchableOpacity 
-                style={[styles.voucherCard, !valid && { opacity: 0.6 }]}
-                onPress={() => router.push({ pathname: '/voucher-detail/[id]', params: { id: item.id } })}
-              >
-                <View style={[styles.statusDot, { backgroundColor: valid ? '#22C55E' : '#D1D5DB' }]} />
-                <View style={styles.voucherLeft}>
-                  <View style={styles.decoCircleS} />
-                  <View style={styles.decoCircleM} />
-                  <View style={styles.leftContent}>
-                    {item.image_url ? (
-                      <Image source={{ uri: item.image_url }} style={styles.voucherImage} />
-                    ) : (
-                      <View style={styles.iconCircle}>
-                        <Ticket size={24} color="#EA580C" />
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.leftEdgeDots}>
-                    <View style={styles.edgeDot} />
-                    <View style={styles.edgeDot} />
-                    <View style={styles.edgeDot} />
-                  </View>
+          </ScrollView>
+        ) : (
+          <FlatList
+            data={[...vouchers].sort((a, b) => {
+              const va = checkVoucherValidity(a);
+              const vb = checkVoucherValidity(b);
+              if (va.valid && !vb.valid) return -1;
+              if (!va.valid && vb.valid) return 1;
+              return 0;
+            })}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 90 }]}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PURPLE} />}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Ticket size={48} color={TEXT_MUTED} opacity={0.2} />
                 </View>
-                
-                <View style={styles.voucherRight}>
-                  <View style={styles.mainInfo}>
-                    <Text style={styles.voucherTitle} numberOfLines={1}>{item.code}</Text>
-                    <Text style={styles.voucherDescription} numberOfLines={1}>{item.description || 'Diskon Spesial untuk Anda'}</Text>
-                    <View style={styles.discountRow}>
-                      <Text style={styles.voucherDiscount}>{formatDiscount(item)}</Text>
+                <Text style={styles.emptyTitle}>Belum Ada Voucher</Text>
+                <Text style={styles.emptySubtitle}>Pantau terus halaman ini untuk promo menarik lainnya.</Text>
+              </View>
+            }
+            ListFooterComponent={
+              <View style={styles.infoBox}>
+                <Info size={16} color={TEXT_MUTED} />
+                <Text style={styles.infoText}>Voucher dapat digunakan saat proses pemesanan layanan.</Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const { valid, reason } = checkVoucherValidity(item);
+              const isSelected = selectedVoucher?.id === item.id;
+              return (
+                <TouchableOpacity 
+                  style={[
+                    styles.voucherCard,
+                    !valid && { opacity: 0.6 },
+                    valid && isSelected && styles.selectedCard
+                  ]}
+                  onPress={() => {
+                    if (!valid) return;
+                    setSelectedVoucher((prev: any) => prev?.id === item.id ? null : item);
+                  }}
+                >
+                <View style={styles.voucherLeft}>
+                    <View style={styles.decoCircleS} />
+                    <View style={styles.decoCircleM} />
+                    <View style={styles.leftContent}>
+                      {item.image_url ? (
+                        <Image source={{ uri: item.image_url }} style={styles.voucherImage} />
+                      ) : (
+                        <View style={styles.iconCircle}>
+                          <Ticket size={24} color={PURPLE} />
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.leftEdgeDots}>
+                      <View style={styles.edgeDot} />
+                      <View style={styles.edgeDot} />
+                      <View style={styles.edgeDot} />
                     </View>
                   </View>
                   
-                  <View style={styles.footerInfo}>
-                    <View>
-                      {!valid && (
-                        <View style={[styles.invalidBadge, { alignSelf: 'flex-start', marginBottom: 4 }]}>
-                          <Info size={10} color="#EF4444" style={{ marginRight: 4 }} />
-                          <Text style={styles.invalidText}>{reason}</Text>
-                        </View>
-                      )}
-                      <View style={styles.expiryRow}>
-                        <Timer size={10} color={TEXT_MUTED} style={{ marginRight: 4 }} />
-                        <Text style={styles.voucherExpiry}>{formatExpiry(item.valid_until)}</Text>
+                  <View style={styles.voucherRight}>
+                    <View style={styles.mainInfo}>
+                      <Text style={styles.voucherTitle} numberOfLines={1}>{item.code}</Text>
+                      <Text style={styles.voucherDescription} numberOfLines={1}>{item.description || 'Diskon Spesial untuk Anda'}</Text>
+                      <View style={styles.discountRow}>
+                        <Text style={styles.voucherDiscount}>{formatDiscount(item)}</Text>
                       </View>
                     </View>
-                    <TouchableOpacity 
-                      style={[styles.useButton, !valid && { backgroundColor: '#E5E7EB' }]}
-                      disabled={!valid}
-                      onPress={() => { if (from === 'order') {
-                          router.replace({ 
-                            pathname: '/order', 
-                            params: { 
-                              serviceId: serviceId as string, 
-                              therapistId: therapistId as string, 
-                              voucherCode: item.code,
-                              from: sourceFrom as string
-                            } 
-                          });
-                        } else {
-                          router.replace({ pathname: '/services', params: { voucherCode: item.code } });
-                        }
-                      }}
-                    >
-                      <Text style={[styles.useButtonText, !valid && { color: TEXT_MUTED }]}>Pakai</Text>
-                    </TouchableOpacity>
+                    
+                    <View style={styles.footerInfo}>
+                      <View>
+                        {!valid && (
+                          <View style={[styles.invalidBadge, { alignSelf: 'flex-start', marginBottom: 4 }]}>
+                            <Info size={10} color="#EF4444" style={{ marginRight: 4 }} />
+                            <Text style={styles.invalidText}>{reason}</Text>
+                          </View>
+                        )}
+                        <View style={styles.expiryRow}>
+                          <Timer size={10} color={TEXT_MUTED} style={{ marginRight: 4 }} />
+                          <Text style={styles.voucherExpiry}>{formatExpiry(item.valid_until)}</Text>
+                        </View>
+                      </View>
+                      {valid && isSelected ? (
+                        <View style={styles.selectedBadge}>
+                          <Text style={styles.selectedBadgeText}>Dipilih</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity 
+                          style={styles.detailButton}
+                          onPress={() => router.push({ pathname: '/voucher-detail/[id]', params: { id: item.id } })}
+                        >
+                          <Text style={styles.detailButtonText}>Detail</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
-                </View>
 
-                <View style={styles.cutoutTop} />
-                <View style={styles.cutoutBottom} />
-                <View style={styles.divider} />
-              </TouchableOpacity>
-            );
-          }}
-        />
+                  <View style={styles.cutoutTop} />
+                  <View style={styles.cutoutBottom} />
+                  <View style={styles.divider} />
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
+      </SafeAreaView>
+
+      {selectedVoucher && (
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={styles.bottomInfo}>
+            <Text style={styles.bottomCode} numberOfLines={1}>{selectedVoucher.code}</Text>
+            <Text style={styles.bottomDiscount}>{formatDiscount(selectedVoucher)}</Text>
+          </View>
+          <TouchableOpacity style={styles.pakaiButton} onPress={handlePakai}>
+            <Text style={styles.pakaiButtonText}>Pakai Voucher</Text>
+          </TouchableOpacity>
+        </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -444,7 +477,7 @@ const styles = StyleSheet.create({
   },
   voucherLeft: {
     width: '28%',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: '#EDE9FE',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -457,7 +490,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFEDD5',
+    backgroundColor: '#E8E0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -498,7 +531,7 @@ const styles = StyleSheet.create({
   voucherDiscount: {
     fontSize: 14,
     fontFamily: 'PlusJakartaSans-Bold',
-    color: '#EA580C',
+    color: PURPLE,
   },
   discountRow: {
     flexDirection: 'row',
@@ -536,19 +569,6 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-SemiBold',
     color: '#9CA3AF',
   },
-  useButton: {
-    backgroundColor: '#FFF7ED',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-  },
-  useButtonText: {
-    fontSize: 10,
-    fontFamily: 'PlusJakartaSans-Bold',
-    color: '#EA580C',
-  },
   cutoutTop: {
     position: 'absolute',
     top: -8,
@@ -581,6 +601,78 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 1,
+  },
+  selectedCard: {
+    borderColor: PURPLE,
+    borderWidth: 2,
+  },
+  selectedBadge: {
+    backgroundColor: '#EBF5EB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  selectedBadgeText: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: '#16A34A',
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EFEFEF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  bottomInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  bottomCode: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: TEXT_DARK,
+  },
+  bottomDiscount: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    color: PURPLE,
+    marginTop: 2,
+  },
+  pakaiButton: {
+    backgroundColor: PURPLE,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  pakaiButtonText: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: '#FFFFFF',
+  },
+  detailButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  detailButtonText: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    color: TEXT_MUTED,
   },
   infoBox: {
     flexDirection: 'row',

@@ -481,3 +481,42 @@ C:\Android\
 - Monitor EAS build status.
 - Cek hasil build + install APK.
 - Verify splash screen tidak putih lagi di build production.
+
+---
+
+## Session 8 (Voucher saldo + cancel cleanup — voucher refund, double refund guard, navigation)
+
+### Problems addressed
+1. Wallet payment voucher (`wallet_payment`) tetap tampil walau metode bayar bukan `saldo`.
+2. Voucher selection flow manual (tap card → "Pakai" button) tidak ada — tiap card punya tombol "Pakai" sendiri.
+3. Routing dari Vouchers ke Order numpuk — `router.replace` ke Order baru atau `router.back()` dengan pending state.
+4. Voucher-detail "Gunakan Voucher" push Order baru → nambah stacking.
+5. Voucher tidak dikembalikan setelah order dibatalkan — `voucher_usages` tidak dihapus, `usage_count` tidak dikurangi.
+6. Saldo refund dobel — refund klien (client-side untuk saldo) + refund API (`/api/refund/create` atau `PATCH`) bisa overlap, saldo jadi bertambah 2×.
+7. Contoh: saldo 300rb, order 100rb, dibatalkan → saldo jadi 400rb (300 + 100 refund, tanpa deduksi).
+8. Navigation back dari Order ke Services pakai `router.replace` vs `router.back` — duplicate services screen.
+
+### Changes made
+| File | Change |
+|---|---|
+| `apps/user/app/(main)/vouchers.tsx` | Select-flow: tap card → selectedVoucher (border navy + badge "Dipilih"), sticky bottom "Pakai Voucher" button, tombol "Detail" (text) navigasi ke detail tanpa select. `wallet_payment` hanya valid jika `paymentMethod === 'saldo'`. Pre-select applied voucher dari `appliedVoucherCode` param. HandlePakai: `router.back()` + `setPendingVoucherCode()` (dulu `router.replace` penuh, lalu balik ke `router.back()`). Aksen orange → navy (`#240080`). |
+| `apps/user/app/(main)/order.tsx` | `paymentMethod` baca dari `useLocalSearchParams` untuk state awal. `useFocusEffect` + `useEffect (:535)` consume pending voucher via `pickPendingVoucherCode()` — guard `totalPrice > 0` biar tidak hilang. Auto-apply guard (`initialVoucherCode`). Pass `appliedVoucherCode` ke vouchers params. Hardware back & UI back: `router.back()` (pernah dicoba `router.replace('/services')`, di-revert). |
+| `apps/user/lib/voucher.ts` | `_pendingVoucherCode` + `setPendingVoucherCode()` + `pickPendingVoucherCode()` (module-level, persist antar mount tanpa re-render). |
+| `apps/user/app/(main)/voucher-detail/[id].tsx` | "Gunakan Voucher" `router.push` → `router.replace` (Detail diganti Order, bukan nambah stack). Aksen navy. |
+| `apps/user/app/(main)/tracking.tsx` | Cancel: voucher cleanup (`voucher_usages` DELETE + `usage_count` decrement). Double-refund guard: cek `transactions` dulu sebelum refund saldo. |
+| `apps/user/app/(main)/searching-therapist.tsx` | Cancel: voucher cleanup + double-refund guard (sama seperti tracking). |
+| `apps/web/src/app/api/refund/create/route.ts` | Filter payment_method — hanya proses refund untuk gateway (`gopay`/qris/dll), **bukan saldo**. Voucher cleanup + double-refund guard. |
+| `apps/web/src/app/api/orders/[id]/route.ts` | Voucher cleanup (`voucher_usages` DELETE + `usage_count` decrement). Double-refund guard. `type: 'credit'` → `type: 'refund'` di transaksi refund. |
+
+### Key decisions
+- Voucher pending state via module variable (`_pendingVoucherCode`) bukan React Context/Zustand — cukup untuk komunikasi Vouchers → Order tanpa re-render global.
+- `router.back()` untuk "Pakai Voucher" + `router.back()` untuk hardware back → maksimal 2 Order di stack (acceptable).
+- Voucher-detail "Gunakan Voucher" pakai `router.replace` → Detail diganti Order, tidak nambah stacking.
+- Voucher cleanup dilakukan di **semua** jalur cancel (mobile client + web API) — tidak ada single point of truth.
+- Double-refund guard: cek `transactions.type === 'refund'` untuk `order_id` yang sama. Hanya process pertama yang jalan.
+- `refund/create/route.ts` sekarang tolak order dengan `payment_method === 'saldo'` (refund saldo handle client-side langsung ke Supabase).
+
+### Next steps
+- Test end-to-end: buat order dengan voucher saldo → cancel → cek voucher bisa dipakai lagi.
+- Test saldo refund: saldo 300rb, order 100rb via saldo, cancel → saldo harus kembali 300rb (bukan 400rb).
+- Test stacking: Order → Vouchers → back → Order (1 screen), Order → Vouchers → Detail → Gunakan → Order (2 Order max).
