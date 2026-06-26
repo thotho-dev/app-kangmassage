@@ -3,7 +3,6 @@
 
 CREATE OR REPLACE FUNCTION refund_order_saldo(p_order_id UUID)
 RETURNS JSONB
-LANGUAGE plpgsql
 AS $$
 DECLARE
   v_order RECORD;
@@ -87,4 +86,4 @@ BEGIN
     )
   );
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

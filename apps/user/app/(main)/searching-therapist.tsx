@@ -185,6 +185,10 @@ export default function SearchingTherapistScreen() {
           router.replace({ pathname: '/tracking', params: { id } });
         } else if (payload.new.status === 'cancelled') {
           stopTimer();
+          // Proses refund & voucher cleanup saat therapist reject (RPC punya double-refund guard)
+          supabase.rpc('refund_order_saldo', { p_order_id: id }).then(res => {
+            if (!res.data?.success) console.warn('Refund on therapist reject (searching):', res.data?.message);
+          });
           setIsTimeout(true);
         }
       })

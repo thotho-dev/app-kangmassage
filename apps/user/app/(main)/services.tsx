@@ -10,10 +10,11 @@ import {
   Image,
   TextInput,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Search, Tag, X } from 'lucide-react-native';
+import { ChevronLeft, Search, Tag, X, Droplets, Shirt, BedDouble, Package } from 'lucide-react-native';
 import { useServices } from '@/hooks/useServices';
 import { COLORS, FONTS } from '@/constants/Theme';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -26,6 +27,13 @@ const CARD_WIDTH = SCREEN_WIDTH - HORIZONTAL_PAD * 2;
 const TEXT_DARK = '#1A1A2E';
 const TEXT_MUTED = '#6B7280';
 const BG = '#F5F5F7';
+
+const EQUIPMENT = [
+  { icon: Droplets, label: 'Minyak Pijat' },
+  { icon: Shirt, label: 'Handuk Bersih' },
+  { icon: BedDouble, label: 'Matras Lipat' },
+  { icon: Package, label: 'Peralatan Lengkap' },
+];
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Service = {
@@ -226,11 +234,33 @@ export default function ServicesScreen() {
 
   const renderHeader = useCallback(
     () => (
-      <View style={styles.introSection}>
-        <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
-        <Text style={styles.introSubtitle}>
-          Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
-        </Text>
+      <View>
+        <View style={styles.introSection}>
+          <Text style={styles.introTitle}>Pilih Perawatan Terbaik</Text>
+          <Text style={styles.introSubtitle}>
+            Nikmati berbagai pilihan layanan pijat profesional langsung ke tempat Anda.
+          </Text>
+        </View>
+
+        {/* Equipment Section */}
+        <View style={styles.equipSection}>
+          <View style={styles.equipCard}>
+            <Text style={styles.equipTitle}>Perlengkapan yang Dibawa Terapis</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.equipContent}>
+              {EQUIPMENT.map((eq, i) => {
+                const Icon = eq.icon;
+                return (
+                  <View key={i} style={styles.equipItem}>
+                    <View style={styles.equipIconBox}>
+                      <Icon size={20} color="#240080" />
+                    </View>
+                    <Text style={styles.equipLabel}>{eq.label}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
       </View>
     ),
     []
@@ -420,9 +450,8 @@ const styles = StyleSheet.create({
   // ─ Intro ───────────────────────────────────────────────────────────────────
   introSection: {
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 12,
     paddingHorizontal: 4,
-    marginBottom: 15,
   },
   introTitle: {
     fontFamily: FONTS.extraBold,
@@ -435,6 +464,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: TEXT_MUTED,
     lineHeight: 20,
+  },
+
+  // ─ Equipment ────────────────────────────────────────────────────────────────
+  equipSection: {
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  equipCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    paddingVertical: 14,
+    paddingLeft: 14,
+  },
+  equipTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 12,
+    color: '#1A1A2E',
+    marginBottom: 12,
+  },
+  equipContent: {
+    gap: 12,
+    paddingRight: 14,
+  },
+  equipItem: {
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 80,
+  },
+  equipIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: 'rgba(36, 0, 128, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  equipLabel: {
+    fontSize: 10,
+    fontFamily: FONTS.semiBold,
+    color: '#1A1A2E',
+    textAlign: 'center',
   },
 
   // ─ Card ────────────────────────────────────────────────────────────────────
@@ -459,11 +531,11 @@ const styles = StyleSheet.create({
     borderColor: '#F3F4F6',
   },
   cardImageWrap: {
-    width: 120,
-    height: 120,
+    width: 90,
+    height: 90,
     position: 'relative',
-    margin: 12,
-    borderRadius: 16,
+    margin: 10,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   cardImage: {

@@ -7,7 +7,6 @@ import { ChevronLeft, MapPin, Search, Navigation } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useLocation } from '@/context/LocationContext';
-import { Asset } from 'expo-asset';
 import { supabase } from '@/lib/supabase';
 
 const PURPLE = '#240080';
@@ -15,7 +14,7 @@ const TEXT_DARK = '#1A1A2E';
 const TEXT_MUTED = '#6B7280';
 const BORDER = '#EFEFEF';
 
-const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
+const LEAFLET_HTML = (lat: number, lng: number) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -50,21 +49,10 @@ const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
       0% { transform: translate(-50%, -130%); filter: drop-shadow(0 8px 16px rgba(36,0,128,0.4)); }
       100% { transform: translate(-50%, -100%); filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
     }
-    #centerPin img {
+    #centerPin svg {
       display: block;
-      width: 48px;
-      height: 48px;
-      object-fit: contain;
-    }
-    #centerPin svg { display: block; }
-    .pin-leg {
-      width: 0;
-      height: 0;
-      margin: -2px auto 0;
-      border-left: 7px solid transparent;
-      border-right: 7px solid transparent;
-      border-top: 14px solid #240080;
-      filter: drop-shadow(0 2px 3px rgba(36,0,128,0.4));
+      width: 36px;
+      height: 46px;
     }
     .therapist-popup .leaflet-popup-content-wrapper {
       border-radius: 12px;
@@ -100,13 +88,9 @@ const LEAFLET_HTML = (lat: number, lng: number, pinUri: string) => `
 </head>
 <body>
   <div id="map"></div>
-  <div id="centerPin">
-    ${pinUri
-      ? `<img src="${pinUri}" alt="pin" />`
-      : `<svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" fill="#240080"/><circle cx="24" cy="24" r="10" fill="white"/><path d="M24 4C15.16 4 8 11.16 8 20c0 12 16 24 16 24s16-12 16-24c0-8.84-7.16-16-16-16z" fill="#240080"/><circle cx="24" cy="20" r="8" fill="white"/></svg>`
-    }
-    <div class="pin-leg"></div>
-  </div>
+    <div id="centerPin">
+      <svg width="36" height="46" viewBox="0 0 36 46" fill="none"><path d="M18 2C10.268 2 4 8.268 4 16c0 8.4 14 24 14 24s14-15.6 14-24c0-7.732-6.268-14-14-14z" fill="#240080" stroke="#1A0050" stroke-width="1.5"/><circle cx="18" cy="16" r="6" fill="white"/></svg>
+    </div>
   <script>
     var map = L.map('map', {
       zoomControl: false,
@@ -197,34 +181,6 @@ export default function MapsScreen() {
   const insets = useSafeAreaInsets();
   const { serviceId, from, sourceFrom } = useLocalSearchParams();
   const webViewRef = useRef<WebView>(null);
-  const [pinUri, setPinUri] = useState('');
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const asset = Asset.fromModule(require('@/assets/icon-app-user.png'));
-        await asset.downloadAsync();
-        const uri = asset.localUri || asset.uri;
-
-        // Convert to base64 using fetch + blob (works with http:// and file:// URIs)
-        const resp = await fetch(uri);
-        const blob = await resp.blob();
-        const b64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        setPinUri(`data:image/png;base64,${b64}`);
-      } catch {
-        // Fallback: use a simple SVG pin
-        setPinUri('');
-      }
-    })();
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -461,7 +417,7 @@ export default function MapsScreen() {
       <View style={styles.mapContainer}>
         <WebView
           ref={webViewRef}
-          source={{ html: LEAFLET_HTML(region.latitude, region.longitude, pinUri) }}
+          source={{ html: LEAFLET_HTML(region.latitude, region.longitude) }}
           style={styles.map}
           onMessage={onMessage}
           javaScriptEnabled={true}

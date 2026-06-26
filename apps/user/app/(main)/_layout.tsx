@@ -61,6 +61,7 @@ export default function MainLayout() {
         <Stack.Screen name="pin-setup" />
         <Stack.Screen name="topup-history" />
         <Stack.Screen name="withdraw-history" />
+        <Stack.Screen name="transaction-history" />
       </Stack>
     </LocationProvider>
   );

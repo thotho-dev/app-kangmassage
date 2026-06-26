@@ -5,10 +5,10 @@ import { useRouter } from 'expo-router';
 import { 
   ChevronLeft, 
   CreditCard, 
-  History,
   TrendingUp,
   Plus,
   ChevronRight,
+  ChevronDown,
   Wallet,
   Star,
   RotateCcw,
@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
 import { COLORS } from '@/constants/Theme';
 import { supabase } from '@/lib/supabase';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const PURPLE = '#240080';
 const PURPLE_DARK = '#12004D';
@@ -38,6 +39,11 @@ export default function WalletScreen() {
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [withdrawalStatuses, setWithdrawalStatuses] = React.useState<Record<string, string>>({});
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+
+  const toggleExpand = (id: string) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -143,6 +149,19 @@ export default function WalletScreen() {
     }
   };
 
+  const TxSkeleton = () => (
+    <View style={styles.cardWrap}>
+      <View style={styles.txItem}>
+        <Skeleton width={42} height={42} borderRadius={13} style={{ marginRight: 12 }} />
+        <View style={styles.txInfo}>
+          <Skeleton width="60%" height={13} borderRadius={4} style={{ marginBottom: 6 }} />
+          <Skeleton width="40%" height={10} borderRadius={3} />
+        </View>
+        <Skeleton width={80} height={13} borderRadius={4} />
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: BG }]} edges={['top']}>
       <StatusBar barStyle="dark-content" />
@@ -153,9 +172,7 @@ export default function WalletScreen() {
           <ChevronLeft size={24} color={TEXT_DARK} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Dompet Saya</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/history')}>
-          <History size={20} color={GOLD} />
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView 
@@ -229,57 +246,90 @@ export default function WalletScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Aktivitas Terbaru</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/transaction-history')}>
               <Text style={styles.seeAll}>Lihat Semua</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.txList}>
-            {transactions.length > 0 ? (
+            {loading ? (
+              <>
+                <TxSkeleton />
+                <TxSkeleton />
+                <TxSkeleton />
+              </>
+            ) : transactions.length > 0 ? (
               transactions.map((tx) => {
                 const info = getTxInfo(tx);
                 const Icon = getTxIcon(info);
                 const isCredit = tx.type === 'credit' || tx.type === 'topup' || tx.type === 'refund';
+                const isExpanded = expandedId === tx.id;
                 return (
-                  <TouchableOpacity
-                    key={tx.id}
-                    activeOpacity={0.7}
-                    style={styles.txItem}
-                    onPress={() => {
-                      const d = (tx.description || '').toLowerCase();
-                      if (tx.type === 'payment' || d.includes('pembayaran')) {
-                        // No specific history page for orders yet
-                      } else if (d.includes('penarikan') || d.includes('withdrawal')) {
-                        router.push('/withdraw-history');
-                      } else if (d.includes('top up') || d.includes('topup') || d.includes('isi saldo')) {
-                        router.push('/topup-history');
-                      }
-                    }}
-                  >
-                    <View style={[
-                      styles.txIconBox,
-                      { backgroundColor: isCredit ? 'rgba(0,168,150,0.08)' : 'rgba(231,76,60,0.08)' }
-                    ]}>
-                      <Icon size={18} color={info.color as any} />
-                    </View>
-                    <View style={styles.txInfo}>
-                      <Text style={styles.txTitle} numberOfLines={1}>{info.label}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                        <Text style={styles.txDate}>{formatTxDate(tx.created_at)}</Text>
-                        {info.status && (
-                          <View style={{ backgroundColor: `${info.statusColor}15`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                            <Text style={{ fontSize: 10, fontFamily: 'PlusJakartaSans-Bold', color: info.statusColor }}>{info.status}</Text>
+                  <View key={tx.id} style={styles.cardWrap}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      style={styles.txItem}
+                      onPress={() => toggleExpand(tx.id)}
+                    >
+                      <View style={[
+                        styles.txIconBox,
+                        { backgroundColor: isCredit ? 'rgba(0,168,150,0.08)' : 'rgba(231,76,60,0.08)' }
+                      ]}>
+                        <Icon size={18} color={info.color as any} />
+                      </View>
+                      <View style={styles.txInfo}>
+                        <Text style={styles.txTitle} numberOfLines={1}>{info.label}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                          <Text style={styles.txDate}>{formatTxDate(tx.created_at)}</Text>
+                          {info.status && (
+                            <View style={{ backgroundColor: `${info.statusColor}15`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                              <Text style={{ fontSize: 10, fontFamily: 'PlusJakartaSans-Bold', color: info.statusColor }}>{info.status}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.txRight}>
+                        <Text style={[styles.txAmount, { color: isCredit ? SUCCESS : '#E74C3C' }]}>
+                          {isCredit ? '+' : '-'} Rp {Math.abs(tx.amount).toLocaleString('id-ID')}
+                        </Text>
+                        {isExpanded ? (
+                          <ChevronDown size={14} color={TEXT_MUTED} style={{ marginTop: 2 }} />
+                        ) : (
+                          <ChevronRight size={14} color={TEXT_MUTED} style={{ marginTop: 2 }} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                    {isExpanded && (
+                      <View style={styles.txDetail}>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>ID Transaksi</Text>
+                          <Text style={styles.detailValue}>{tx.id?.slice(0, 12)}...</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Tipe</Text>
+                          <Text style={[styles.detailValue, { textTransform: 'capitalize' }]}>{tx.type || '-'}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Metode</Text>
+                          <Text style={[styles.detailValue, { textTransform: 'capitalize' }]}>{tx.payment_method || '-'}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Waktu</Text>
+                          <Text style={styles.detailValue}>{new Date(tx.created_at).toLocaleString('id-ID')}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Status</Text>
+                          <Text style={[styles.detailValue, { color: info.statusColor }]}>{info.status}</Text>
+                        </View>
+                        {tx.description && (
+                          <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+                            <Text style={styles.detailLabel}>Keterangan</Text>
+                            <Text style={[styles.detailValue, { flex: 1, textAlign: 'right' }]}>{tx.description}</Text>
                           </View>
                         )}
                       </View>
-                    </View>
-                    <View style={styles.txRight}>
-                      <Text style={[styles.txAmount, { color: isCredit ? SUCCESS : '#E74C3C' }]}>
-                        {isCredit ? '+' : '-'} Rp {Math.abs(tx.amount).toLocaleString('id-ID')}
-                      </Text>
-                      <ChevronRight size={14} color={TEXT_MUTED} style={{ marginTop: 2 }} />
-                    </View>
-                  </TouchableOpacity>
+                    )}
+                  </View>
                 );
               })
             ) : (
@@ -475,16 +525,7 @@ const styles = StyleSheet.create({
   txItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
     padding: 14,
-    borderWidth: 1,
-    borderColor: BORDER,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
   },
   txIconBox: {
     width: 42,
@@ -516,5 +557,41 @@ const styles = StyleSheet.create({
   txAmount: {
     fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
+  },
+  cardWrap: {
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: BORDER,
+    overflow: 'hidden',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  txDetail: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Medium',
+    color: TEXT_MUTED,
+  },
+  detailValue: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-SemiBold',
+    color: TEXT_DARK,
   },
 });

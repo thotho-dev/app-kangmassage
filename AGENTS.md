@@ -499,9 +499,9 @@ C:\Android\
 ### Changes made
 | File | Change |
 |---|---|
-| `apps/user/app/(main)/vouchers.tsx` | Select-flow: tap card → selectedVoucher (border navy + badge "Dipilih"), sticky bottom "Pakai Voucher" button, tombol "Detail" (text) navigasi ke detail tanpa select. `wallet_payment` hanya valid jika `paymentMethod === 'saldo'`. Pre-select applied voucher dari `appliedVoucherCode` param. HandlePakai: `router.back()` + `setPendingVoucherCode()` (dulu `router.replace` penuh, lalu balik ke `router.back()`). Aksen orange → navy (`#240080`). |
+| `apps/user/app/(main)/vouchers.tsx` | Select-flow: tap card → selectedVoucher (border navy + badge "Dipilih"), sticky bottom "Pakai Voucher" button, tombol "Detail" (text) navigasi ke detail tanpa select. `wallet_payment` hanya valid jika `paymentMethod === 'saldo'`. Pre-select applied voucher dari `appliedVoucherCode` param. HandlePakai: `router.replace({ pathname: '/order', params: { voucherCode, serviceId, therapistId, from, paymentMethod } })` — full params, tanpa pending state module variable. Aksen orange → navy (`#240080`). |
 | `apps/user/app/(main)/order.tsx` | `paymentMethod` baca dari `useLocalSearchParams` untuk state awal. `useFocusEffect` + `useEffect (:535)` consume pending voucher via `pickPendingVoucherCode()` — guard `totalPrice > 0` biar tidak hilang. Auto-apply guard (`initialVoucherCode`). Pass `appliedVoucherCode` ke vouchers params. Hardware back & UI back: `router.back()` (pernah dicoba `router.replace('/services')`, di-revert). |
-| `apps/user/lib/voucher.ts` | `_pendingVoucherCode` + `setPendingVoucherCode()` + `pickPendingVoucherCode()` (module-level, persist antar mount tanpa re-render). |
+| `apps/user/lib/voucher.ts` | `_pendingVoucherCode` + `setPendingVoucherCode()` + `pickPendingVoucherCode()` (module-level, persist antar mount tanpa re-render) — **diubah di Session 9** jadi tanpa pending state, full params langsung via `router.replace`. |
 | `apps/user/app/(main)/voucher-detail/[id].tsx` | "Gunakan Voucher" `router.push` → `router.replace` (Detail diganti Order, bukan nambah stack). Aksen navy. |
 | `apps/user/app/(main)/tracking.tsx` | Cancel: panggil RPC `refund_order_saldo` (SELECT FOR UPDATE — atomic, cegah race condition double refund). Voucher cleanup by RPC. |
 | `apps/user/app/(main)/searching-therapist.tsx` | Cancel: panggil RPC `refund_order_saldo` (sama seperti tracking). |
@@ -510,8 +510,8 @@ C:\Android\
 | `supabase/migrations/20260627_add_refund_order_rpc.sql` | **NEW** — RPC `refund_order_saldo`: SELECT FOR UPDATE lock user+order, refund wallet, cleanup voucher, guard double refund. Atomic. |
 
 ### Key decisions
-- Voucher pending state via module variable (`_pendingVoucherCode`) bukan React Context/Zustand — cukup untuk komunikasi Vouchers → Order tanpa re-render global.
-- `router.back()` untuk "Pakai Voucher" + `router.back()` untuk hardware back → maksimal 2 Order di stack (acceptable).
+- Voucher pending state via module variable (`_pendingVoucherCode`) — **diganti di Session 9** dengan `router.replace` full params.
+- `router.back()` untuk "Pakai Voucher" + `router.back()` untuk hardware back → **diganti di Session 9** dengan `router.replace` full params.
 - Voucher-detail "Gunakan Voucher" pakai `router.replace` → Detail diganti Order, tidak nambah stacking.
 - Voucher cleanup dilakukan di **semua** jalur cancel (mobile client + web API) — tidak ada single point of truth.
 - Double-refund diatasi pakai **RPC `refund_order_saldo`** dengan `SELECT FOR UPDATE` — lock row user+order secara atomic, bukan query JS biasa yang rawan race condition.
@@ -521,3 +521,68 @@ C:\Android\
 - Test end-to-end: buat order dengan voucher saldo → cancel → cek voucher bisa dipakai lagi.
 - Test saldo refund: saldo 300rb, order 100rb via saldo, cancel → saldo harus kembali 300rb (bukan 400rb).
 - Test stacking: Order → Vouchers → back → Order (1 screen), Order → Vouchers → Detail → Gunakan → Order (2 Order max).
+
+## Session 9 (Voucher routing fix — router.replace, therapist cancel refund via Realtime)
+
+### Problems addressed
+1. Session 8's `router.back()` + pending state (`setPendingVoucherCode`) approach rawan hilang — pending state di module variable bisa ter-reset saat order screen mount ulang, voucher jadi tidak terapply.
+2. RPC `refund_order_saldo` tanpa `SECURITY DEFINER` — mobile client tidak punya permisson DELETE voucher_usages / UPDATE vouchers / INSERT transactions, RPC gagal silent.
+3. Therapist reject order (targeted → status 'cancelled') tidak trigger refund — Realtime handler hanya redirect/stop timer, user harus cancel manual.
+4. Therapist cancel setelah accept (kembalikan ke antrian → status 'pending') — tidak refund karena order masih pending, tapi tracking screen jadi error (therapist null). Tidak ada notifikasi refresh ke user.
+
+### Changes made
+| File | Change |
+|---|---|
+| `apps/user/app/(main)/vouchers.tsx` | `handlePakai` diubah dari `router.back()` + `setPendingVoucherCode()` → `router.replace({ pathname: '/order', params: { voucherCode, serviceId, therapistId, from, paymentMethod } })` dengan full params. Reliable — tidak bergantung pada module variable yang bisa hilang. |
+| `apps/user/app/(main)/order.tsx` | Hapus `useFocusEffect` + `pickPendingVoucherCode()`. Voucher dibaca langsung dari `useLocalSearchParams().voucherCode`. Back buttons tetap `router.back()`. |
+| `apps/user/lib/voucher.ts` | Hapus `_pendingVoucherCode`, `setPendingVoucherCode()`, `pickPendingVoucherCode()` — tidak dipakai lagi. |
+| `apps/user/app/(main)/tracking.tsx` | Realtime handler: saat status berubah **pending → cancelled** (therapist reject), panggil `supabase.rpc('refund_order_saldo')` untuk proses refund + voucher cleanup. Saat **accepted → cancelled** (therapist cancel after accept), panggil RPC **sebelum** redirect ke searching-therapist. |
+| `apps/user/app/(main)/searching-therapist.tsx` | Realtime handler: saat status berubah **pending → cancelled** (therapist reject), panggil `supabase.rpc('refund_order_saldo')` dulu sebelum `setIsTimeout(true)`. |
+| `apps/web/src/app/api/refund/create/route.ts` | Fix guard: `payment_method !== 'saldo'` → `!gatewayMethods.includes(order.payment_method)`. Sebelumnya `!==` membuat semua payment_method kecuali 'saldo' ketolak karena negasi ganda. |
+| `supabase/migrations/20260627_add_refund_order_rpc.sql` | Ditambahkan `SECURITY DEFINER` — RPC sekarang bypass RLS, punya permission untuk DELETE voucher_usages, UPDATE vouchers, INSERT transactions. |
+
+### Key decisions
+- **`router.replace` dengan full params** lebih reliable daripada `router.back()` + pending state — pending state module variable bisa hilang saat order screen mount ulang. Semua params dikirim via URL, di-extract di order via `useLocalSearchParams()`.
+- Therapist reject refund via Realtime: Refund diproses **client-side** via RPC call dalam Realtime handler. Tidak perlu perubahan di therapist app atau web API.
+- RPC `refund_order_saldo` wajib `SECURITY DEFINER` — mobile client via `supabase.rpc()` hanya punya `authenticated` role dengan RLS terbatas. Tanpa SECURITY DEFINER, RPC gagal pada operasi INSERT transactions / DELETE voucher_usages / UPDATE vouchers walau SELECT FOR UPDATE berhasil.
+- Voucher cleanup pada therapist cancel (kembalikan ke antrian) tidak diperlukan — order masih 'pending', voucher usage tetap valid. Jika tidak ada therapist yang pick up, user bisa cancel sendiri (refund + voucher cleanup berjalan normal).
+
+### Remaining issues
+- Realtime event bisa terlewat saat app di background. `fetchOrder()` hanya dipanggil di mount + Realtime — tidak ada polling periodik. Perlu `useFocusEffect` untuk re-fetch setiap kali screen fokus sebagai fallback.
+- Therapist cancel flow langsung dari therapist app tidak ada notifikasi/trigger ke user app untuk refresh — user harus sudah di tracking/screen searching-therapist agar Realtime bekerja.
+
+---
+
+## Session 10 (Transaction history page — expandable cards — UI refinements)
+
+### Problems addressed
+1. Wallet "Lihat Semua" navigasi ke `/history` (tab) — tidak ada halaman khusus untuk riwayat transaksi.
+2. Tidak ada filter tanggal dan pencarian di riwayat transaksi.
+3. Card transaksi tidak bisa di-expand untuk lihat detail (ID, tipe, metode, dll).
+4. Gambar layanan di services terlalu besar (120×120).
+5. Tidak ada informasi perlengkapan therapist di halaman layanan.
+6. Pin map masih pakai logo Kang Massage — tidak konsisten.
+7. Tidak ada loading skeleton untuk card transaksi.
+
+### Changes made
+| File | Change |
+|---|---|
+| `apps/user/app/(main)/transaction-history.tsx` | **NEW** — Halaman khusus riwayat transaksi: search bar, filter chips (Semua/Hari Ini/Minggu Ini/Bulan Ini), date picker single date, semua transaksi (tanpa limit), expandable card detail. |
+| `apps/user/app/(main)/wallet.tsx` | Hapus tombol History di header bar. "Lihat Semua" → `/transaction-history`. Card transaksi jadi expandable (ID, Tipe, Metode, Waktu, Status, Keterangan). Loading skeleton 3 card. Import `Skeleton`, `ChevronDown`. |
+| `apps/user/app/(main)/_layout.tsx` | Register `transaction-history` screen. |
+| `apps/user/app/(main)/services.tsx` | Image card 120×120 → 90×90. Tambah section "Perlengkapan yang Dibawa Terapis" (1 card white, horizontal scroll: Minyak, Handuk, Matras, Peralatan Lengkap). |
+| `apps/user/app/(main)/maps.tsx` | Hapus logo KM dari center pin. Ganti SVG pin dengan bentuk MapPin murni (teardrop navy + circle putih). Hapus `pinUri` state, `Asset` import, `useEffect` load image. |
+
+### Key decisions
+- **Expandable card detail**: `expandedId` state, toggle on tap, detail panel muncul di bawah card dengan border separator.
+- **Filter chips + date picker**: `activeFilter` state (all/today/week/month/custom) instead of inferring from dates — prevent double selection bug.
+- **Single date picker**: Not date range — "Pilih tanggal" chip triggers one DateTimePicker, `activeFilter='custom'`.
+- **Equipment section**: 1 white card wrapper with title inside + horizontal ScrollView of icon+label items, consistent with card design system.
+- **Map pin**: SVG inline di LEAFLET_HTML, no base64 image conversion needed — simpler and faster.
+- **TxSkeleton**: Pattern: Skeleton width/height mimic real card elements (icon 42×42, title 60%, date 40%, amount 80px).
+
+### Relevant files
+- `apps/user/app/(main)/transaction-history.tsx` — full transaction history page
+- `apps/user/app/(main)/wallet.tsx` — expandable cards + skeleton
+- `apps/user/app/(main)/services.tsx` — equipment slider
+- `apps/user/app/(main)/maps.tsx` — SVG pin only

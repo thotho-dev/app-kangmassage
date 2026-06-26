@@ -11,6 +11,10 @@ import {
   Animated,
   Modal,
   TextInput,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -18,7 +22,6 @@ import { useRouter } from 'expo-router';
 import {
   Bell,
   MapPin,
-  Ticket,
   Wallet,
   ChevronRight,
   Star,
@@ -55,6 +58,10 @@ const CARD_BG = '#FFFFFF';
 const BORDER = '#EFEFEF';
 const PURPLE = '#240080';
 const PURPLE_SOFT = '#F3E8FF';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // ─── (No hardcoded BANNERS — fetched from DB) ───────────────────────────────────
 
@@ -201,7 +208,53 @@ export default function HomeScreen() {
 
   const [floatingOrder, setFloatingOrder] = useState<any>(null);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [walletExpanded, setWalletExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const walletAnim = useRef(new Animated.Value(0)).current;
+  const walletIconScale = walletAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1.56, 1],
+  });
+  const walletTextOpacity = walletAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
   const stepScrollRef = useRef<ScrollView>(null);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refreshProfile(),
+      refreshLocation(),
+      fetchFloatingOrder(),
+    ]);
+    setRefreshing(false);
+  }, [profile?.id]);
+
+  const handleWalletPress = () => {
+    if (walletExpanded) {
+      handleProtectedAction('/wallet');
+    } else {
+      Animated.timing(walletAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setWalletExpanded(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!walletExpanded) return;
+    const timer = setTimeout(() => {
+      Animated.timing(walletAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setWalletExpanded(false);
+      });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [walletExpanded]);
   const [activeStep, setActiveStep] = useState(0);
   const [popularIds, setPopularIds] = useState<Set<string>>(new Set());
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -466,6 +519,14 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         stickyHeaderIndices={[1]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[PURPLE]}
+            tintColor={PURPLE}
+          />
+        }
       >
         {/* ── Header brand ── */}
         <View style={styles.brandRow}>
@@ -510,19 +571,26 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity 
-              style={[styles.circleAction, { backgroundColor: '#FEF3C7' }]} 
+            <TouchableOpacity
+              style={walletExpanded ? styles.walletBtn : [styles.circleAction, { backgroundColor: PURPLE }]}
               activeOpacity={0.85}
-              onPress={() => handleProtectedAction('/vouchers')}
+              onPress={handleWalletPress}
             >
-              <Ticket size={25} color="#D97706" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.circleAction, { backgroundColor: '#DBEAFE' }]} 
-              activeOpacity={0.85}
-              onPress={() => handleProtectedAction('/wallet')}
-            >
-              <Wallet size={25} color="#2563EB" />
+              <Animated.View style={{ transform: [{ scale: walletIconScale }] }}>
+                <Wallet size={16} color="#FFFFFF" />
+              </Animated.View>
+              {walletExpanded && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Animated.View style={{ opacity: walletTextOpacity }}>
+                    <Text style={styles.walletBtnLabel}>Saldo</Text>
+                    <Text style={styles.walletBtnText}>
+                      {isAuthenticated && profile?.wallet_balance != null
+                        ? `Rp ${Number(profile.wallet_balance).toLocaleString('id-ID')}`
+                        : 'Rp 0'}
+                    </Text>
+                  </Animated.View>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -644,7 +712,7 @@ export default function HomeScreen() {
               <Star size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
             <Text style={styles.sectionTitle}>Rekomendasi</Text>
-              <View style={[styles.sectionBadge, { backgroundColor: '#240080' }]}>
+              <View style={[styles.sectionBadge, { backgroundColor: '#10B981' }]}>
                 <Text style={styles.sectionBadgeText}>Rekomendasi</Text>
               </View>
             </View>
@@ -714,7 +782,7 @@ export default function HomeScreen() {
               <Flame size={14} color="#FFFFFF" fill="#FFFFFF" />
             </View>
             <Text style={styles.sectionTitle}>Banyak Dipesan</Text>
-              <View style={[styles.sectionBadge, { backgroundColor: '#240080' }]}>
+              <View style={[styles.sectionBadge, { backgroundColor: '#F97316' }]}>
                 <Text style={styles.sectionBadgeText}>Populer</Text>
               </View>
             </View>
@@ -723,66 +791,53 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.popularCardOuter}>
-          <View style={styles.popularCardAccent} />
-          <View style={styles.popularCard}>
-            {isLoading ? (
-              <View style={styles.grid}>
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <View key={i} style={styles.gridCardWrapper}>
-                    <View style={styles.gridCard}>
-                      <Skeleton width="100%" height={110} borderRadius={0} />
-                      <View style={styles.gridCardBody}>
-                        <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
-                        <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: 4 }} />
-                        <Skeleton width="100%" height={10} borderRadius={4} style={{ marginBottom: 8 }} />
-                        <Skeleton width="50%" height={26} borderRadius={13} />
+        <View style={styles.grid}>
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <View key={i} style={styles.gridCardWrapper}>
+                <View style={styles.gridCard}>
+                  <Skeleton width="100%" height={110} borderRadius={0} />
+                  <View style={styles.gridCardBody}>
+                    <Skeleton width="85%" height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+                    <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: 4 }} />
+                    <Skeleton width="100%" height={10} borderRadius={4} style={{ marginBottom: 8 }} />
+                    <Skeleton width="50%" height={26} borderRadius={13} />
+                  </View>
+                </View>
+              </View>
+            ))
+          ) : (
+              displayPopular.map((service) => (
+                <View key={service.id} style={styles.gridCardWrapper}>
+                  <TouchableOpacity
+                    style={styles.gridCard}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
+                    }
+                  >
+                    <Image
+                      source={service.image ? { uri: service.image } : require('@/assets/icon-km.png')}
+                      style={styles.gridCardImage}
+                    />
+                    <View style={styles.gridCardBody}>
+                      <Text style={styles.gridCardName} numberOfLines={1}>
+                        {service.name}
+                      </Text>
+                      <Text style={styles.gridCardPrice}>
+                        Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
+                      </Text>
+                      <Text style={styles.gridCardDesc} numberOfLines={1}>
+                        {service.description}
+                      </Text>
+                      <View style={styles.recCardBtn}>
+                        <Text style={styles.recCardBtnText}>Pilih</Text>
                       </View>
                     </View>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.grid}>
-                {displayPopular.map((service) => (
-                  <View key={service.id} style={styles.gridCardWrapper}>
-                    <TouchableOpacity
-                      style={styles.popularServiceCard}
-                      activeOpacity={0.85}
-                      onPress={() =>
-                        handleProtectedAction('/order', { serviceId: service.id, from: 'home' })
-                      }
-                    >
-                      <View style={styles.popularServiceImageWrapper}>
-                        <Image
-                          source={service.image ? { uri: service.image } : require('@/assets/icon-km.png')}
-                          style={styles.popularServiceImage}
-                        />
-                        <View style={styles.popularServiceBadge}>
-                          <Flame size={8} color="#FFFFFF" fill="#FFFFFF" />
-                          <Text style={styles.popularServiceBadgeText}>Populer</Text>
-                        </View>
-                      </View>
-                      <View style={styles.gridCardBody}>
-                        <Text style={styles.gridCardName} numberOfLines={1}>
-                          {service.name}
-                        </Text>
-                        <Text style={styles.gridCardPrice}>
-                          Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
-                        </Text>
-                        <Text style={styles.gridCardDesc} numberOfLines={1}>
-                          {service.description}
-                        </Text>
-                        <View style={styles.popularServiceBtn}>
-                          <Text style={styles.popularServiceBtnText}>Pilih</Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
+                  </TouchableOpacity>
+                </View>
+              )))
+          }
         </View>
 
         {/* ── Mengapa Pilih Kami ── */}
@@ -1044,8 +1099,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginHorizontal: -16,
     paddingHorizontal: 16,
-    zIndex: 9999,
-    elevation: 2,
   },
   userRow: {
     flexDirection: 'row',
@@ -1056,13 +1109,18 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD_BG,
+    backgroundColor: '#EEF0FF',
     borderRadius: 32,
     padding: 6,
     paddingRight: 14,
     gap: 10,
     borderWidth: 1,
     borderColor: BORDER,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   avatar: {
     width: 42,
@@ -1097,6 +1155,7 @@ const styles = StyleSheet.create({
     backgroundColor: CARD_BG,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: BORDER,
     shadowColor: '#000',
@@ -1104,6 +1163,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  walletBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: PURPLE,
+    paddingHorizontal: 16,
+    height: 54,
+    borderRadius: 32,
+    minWidth: '35%',
+  },
+  walletBtnLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 9,
+    fontFamily: 'PlusJakartaSans-Regular',
+    lineHeight: 11,
+  },
+  walletBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Bold',
+    lineHeight: 14,
   },
 
   // Location
@@ -1185,11 +1266,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: BORDER,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
   },
   catScroll: {
     gap: 16,
@@ -1220,11 +1296,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: BORDER,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
   },
   stepsScroll: {
     gap: 10,
@@ -1395,11 +1466,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: BORDER,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
   },
   gridCardImage: {
     width: '100%',
@@ -1528,11 +1594,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#D4D0EB',
-    shadowColor: '#240080',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 5,
   },
   recCardBtn: {
     marginTop: 6,

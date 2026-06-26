@@ -239,8 +239,19 @@ export default function TrackingScreen() {
         
         // Jika therapist cancel setelah accept → redirect ke searching-therapist
         if (payload.new.status === 'cancelled' && payload.old?.status === 'accepted') {
+          // Proses refund & voucher cleanup (RPC punya double-refund guard)
+          supabase.rpc('refund_order_saldo', { p_order_id: id }).then(res => {
+            if (!res.data?.success) console.warn('Refund on therapist cancel:', res.data?.message);
+          });
           router.replace({ pathname: '/searching-therapist', params: { id } });
           return;
+        }
+        
+        // Jika therapist reject (pending → cancelled) — proses refund
+        if (payload.new.status === 'cancelled' && payload.old?.status === 'pending') {
+          supabase.rpc('refund_order_saldo', { p_order_id: id }).then(res => {
+            if (!res.data?.success) console.warn('Refund on therapist reject:', res.data?.message);
+          });
         }
         
         // Re-fetch full order to get nested data (therapist, service)
