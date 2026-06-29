@@ -64,7 +64,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" backgroundColor={slides[currentIndex].bg[0]} />
+      <StatusBar style="light" />
       <Animated.FlatList
         ref={flatListRef}
         data={slides}

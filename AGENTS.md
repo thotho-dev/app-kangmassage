@@ -586,3 +586,49 @@ C:\Android\
 - `apps/user/app/(main)/wallet.tsx` — expandable cards + skeleton
 - `apps/user/app/(main)/services.tsx` — equipment slider
 - `apps/user/app/(main)/maps.tsx` — SVG pin only
+
+---
+
+## Session 11 (Registration payment — GoPay/QRIS via Midtrans, admin CRUD perlengkapan)
+
+### Goal
+Ubah metode pembayaran pendaftaran mitra dari saldo wallet menjadi GoPay / QRIS seperti halaman topup.
+
+### Problems addressed
+1. Biaya pendaftaran & perlengkapan hanya bisa dibayar via saldo wallet — harus gopay/qris.
+2. Admin tidak punya halaman untuk CRUD perlengkapan registrasi.
+3. Belum ada endpoint untuk cek status pembayaran Midtrans di flow registrasi.
+4. Halaman pembayaran font terlalu besar, safearea tidak konsisten.
+
+### Changes made
+| File | Change |
+|---|---|
+| `supabase/migrations/20260629_add_registration_payment.sql` | **NEW** — Tabel `registration_equipment`, `therapist_registration_payments`, kolom di `therapists` & `app_settings`, trigger `enforce_therapist_verified_for_online`, RLS, realtime. |
+| `supabase/migrations/20260629_add_discount_price.sql` | **NEW** — Tambah kolom `discount_price` ke `registration_equipment`. |
+| `supabase/migrations/20260629_add_is_mandatory.sql` | **NEW** — Tambah kolom `is_mandatory boolean default false`. |
+| `supabase/migrations/20260629_add_registration_payment_external_id.sql` | **NEW** — Tambah kolom `external_id` untuk tracking Midtrans. |
+| `apps/web/src/types/index.ts` | Interface `RegistrationEquipment` (termasuk `discount_price`, `is_mandatory`) & `TherapistRegistrationPayment`. Field `registration_fee_paid` dll di `Therapist`. |
+| `apps/web/src/lib/settings.ts` & `api/settings/route.ts` | Field `therapist_registration_fee` & `registration_payment_required`. |
+| `apps/web/src/app/dashboard/settings/page.tsx` | Tab "Pendaftaran Mitra": toggle wajib bayar + input nominal. |
+| `apps/web/src/app/dashboard/registration-equipment/page.tsx` | **NEW** — CRUD perlengkapan: form + list + upload gambar, toggle aktif/nonaktif, toggle mandatory (pill button), badge "Wajib". |
+| `apps/web/src/app/api/registration-equipment/route.ts` + `[id]/route.ts` | **NEW** — CRUD API perlengkapan dengan `is_mandatory`. |
+| `apps/web/src/app/api/therapists/registration-payment/route.ts` | POST **diubah** dari wallet ke Midtrans gopay/qris. GET tetap untuk status overview. |
+| `apps/web/src/app/api/therapists/registration-payment/check-status/route.ts` | **NEW** — Cek status Midtrans transaction + mark paid jika settlement/capture. |
+| `apps/therapist/app/(main)/registration-payment.tsx` | **REWRITE** — 4 state screen (loading/ready/pending_payment/success/error). GoPay icon pakai `require('@/assets/Gopay.png')`. Font diperkecil, safearea konsisten. |
+
+### Key decisions
+- Pembayaran via Midtrans Core API (langsung charge, bukan Snap) mengikuti pola topup yang sudah ada.
+- Payment verification via polling: therapist tap "Cek Status Pembayaran" → backend call Midtrans status API → mark paid jika settlement.
+- `is_mandatory` dibuat kolom terpisah (not in original CREATE TABLE) — migration sendiri.
+- GoPay image icon pakai file assets `Gopay.png`, bukan Ionicons logo-bitcoin.
+
+### Migrations to run (Supabase SQL Editor)
+1. `20260629_add_registration_payment.sql`
+2. `20260629_add_discount_price.sql`
+3. `20260629_add_is_mandatory.sql`
+4. `20260629_add_registration_payment_external_id.sql`
+
+### Next steps
+- Deploy `apps/web` ke production agar endpoint baru aktif.
+- Test end-to-end: admin set fee & equipment → therapist login → pilih perlengkapan → bayar gopay/qris → cek status → sukses.
+- Pastikan Storage bucket `registration-equipment` dibuat di Supabase Dashboard untuk upload gambar.

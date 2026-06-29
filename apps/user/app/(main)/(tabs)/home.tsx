@@ -572,7 +572,7 @@ export default function HomeScreen() {
               </View>
             </View>
             <TouchableOpacity
-              style={walletExpanded ? styles.walletBtn : [styles.circleAction, { backgroundColor: PURPLE }]}
+              style={walletExpanded ? styles.walletBtn : styles.circleAction}
               activeOpacity={0.85}
               onPress={handleWalletPress}
             >
@@ -620,6 +620,54 @@ export default function HomeScreen() {
           <BannerSlideshow banners={banners || []} />
         )}
 
+        {/* ── Cara Pesan ── */}
+        <View style={styles.stepsSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionIconBox, { backgroundColor: '#7C3AED' }]}>
+                <BookOpen size={14} color="#FFFFFF" />
+              </View>
+              <Text style={styles.sectionTitle}>Cara Pesan</Text>
+              <View style={[styles.sectionBadge, { backgroundColor: '#7C3AED' }]}>
+                <Text style={styles.sectionBadgeText}>3 Langkah</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView
+            ref={stepScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.stepsScroll}
+            snapToInterval={stepWidth}
+            decelerationRate="fast"
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / stepWidth);
+              setActiveStep(idx);
+            }}
+          >
+            {HOW_IT_WORKS.map((step) => {
+              const StepIcon = step.icon === 'Search' ? Search : step.icon === 'MapPin' ? MapPin : Heart;
+              return (
+                <View key={step.id} style={[styles.stepCard, { backgroundColor: step.bg, overflow: 'hidden' }]}>
+                  <View style={[styles.stepOrb, { backgroundColor: step.color + '15' }]} />
+                  <View style={[styles.stepOrbSmall, { backgroundColor: step.color + '20', top: 20, right: 20 }]} />
+                  <View style={[styles.stepOrbSmall, { backgroundColor: step.color + '15', bottom: 30, left: 10, width: 20, height: 20 }]} />
+                  <View style={[styles.stepNum, { backgroundColor: step.color }]}>
+                    <StepIcon size={22} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <Text style={styles.stepDesc}>{step.desc}</Text>
+                  </View>
+                  <View style={[styles.stepBadge, { backgroundColor: step.color + '20' }]}>
+                    <Text style={[styles.stepBadgeText, { color: step.color }]}>{step.id}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {/* ── Kategori Layanan ── */}
         <View style={styles.catSection}>
           <View style={styles.sectionHeader}>
@@ -655,54 +703,6 @@ export default function HomeScreen() {
               );
             })}
           </ScrollView>
-        </View>
-
-        {/* ── Cara Pesan ── */}
-        <View style={styles.stepsSection}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <View style={[styles.sectionIconBox, { backgroundColor: '#7C3AED' }]}>
-                <BookOpen size={14} color="#FFFFFF" />
-              </View>
-              <Text style={styles.sectionTitle}>Cara Pesan</Text>
-              <View style={[styles.sectionBadge, { backgroundColor: '#7C3AED' }]}>
-                <Text style={styles.sectionBadgeText}>3 Langkah</Text>
-              </View>
-            </View>
-          </View>
-          <ScrollView
-            ref={stepScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.stepsScroll}
-            snapToInterval={stepWidth}
-            decelerationRate="fast"
-            onMomentumScrollEnd={(e) => {
-              const idx = Math.round(e.nativeEvent.contentOffset.x / stepWidth);
-              setActiveStep(idx);
-            }}
-          >
-            {HOW_IT_WORKS.map((step) => {
-              const StepIcon = step.icon === 'Search' ? Search : step.icon === 'MapPin' ? MapPin : Heart;
-              return (
-                <View key={step.id} style={[styles.stepCard, { backgroundColor: step.bg, overflow: 'hidden' }]}>
-                  <View style={[styles.stepOrb, { backgroundColor: step.color + '15' }]} />
-                  <View style={[styles.stepOrbSmall, { backgroundColor: step.color + '20', top: 20, right: 20 }]} />
-                  <View style={[styles.stepOrbSmall, { backgroundColor: step.color + '15', bottom: 30, left: 10, width: 20, height: 20 }]} />
-                  <View style={[styles.stepNum, { backgroundColor: step.color }]}>
-                    <StepIcon size={18} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.stepTitle}>{step.title}</Text>
-                  <Text style={styles.stepDesc}>{step.desc}</Text>
-                </View>
-              );
-            })}
-          </ScrollView>
-          <View style={styles.stepDots}>
-            {HOW_IT_WORKS.map((_, i) => (
-              <View key={i} style={[styles.stepDot, i === activeStep && styles.stepDotActive]} />
-            ))}
-          </View>
         </View>
 
         {/* ── Rekomendasi section ── */}
@@ -757,13 +757,13 @@ export default function HomeScreen() {
                     style={styles.gridCardImage}
                   />
                   <View style={styles.gridCardBody}>
-                    <Text style={[styles.gridCardName, { color: '#1E1B4B' }]} numberOfLines={1}>
+                    <Text style={[styles.gridCardName, { color: '#1E1B4B' }]}>
                       {service.name}
                     </Text>
                     <Text style={[styles.gridCardPrice, { color: '#240080' }]}>
                       Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
                     </Text>
-                    <Text style={[styles.gridCardDesc, { color: '#6B7280' }]} numberOfLines={1}>
+                    <Text style={[styles.gridCardDesc, { color: '#6B7280' }]} numberOfLines={2}>
                       {service.description}
                     </Text>
                     <View style={styles.recCardBtn}>
@@ -821,13 +821,13 @@ export default function HomeScreen() {
                       style={styles.gridCardImage}
                     />
                     <View style={styles.gridCardBody}>
-                      <Text style={styles.gridCardName} numberOfLines={1}>
+                      <Text style={styles.gridCardName}>
                         {service.name}
                       </Text>
                       <Text style={styles.gridCardPrice}>
                         Mulai {formatRupiah(service.duration_options?.[0]?.price || service.price)}
                       </Text>
-                      <Text style={styles.gridCardDesc} numberOfLines={1}>
+                      <Text style={styles.gridCardDesc} numberOfLines={2}>
                         {service.description}
                       </Text>
                       <View style={styles.recCardBtn}>
@@ -1109,18 +1109,18 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF0FF',
+    backgroundColor: 'rgba(255,255,255,0.5)',
     borderRadius: 32,
     padding: 6,
     paddingRight: 14,
     gap: 10,
     borderWidth: 1,
-    borderColor: BORDER,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    borderColor: 'rgba(255,255,255,0.8)',
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
   },
   avatar: {
     width: 42,
@@ -1152,17 +1152,17 @@ const styles = StyleSheet.create({
     width: 55,
     height: 55,
     borderRadius: 360,
-    backgroundColor: CARD_BG,
+    backgroundColor: PURPLE,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: BORDER,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   walletBtn: {
     flexDirection: 'row',
@@ -1172,6 +1172,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 54,
     borderRadius: 32,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
     minWidth: '35%',
   },
   walletBtnLabel: {
@@ -1304,52 +1311,38 @@ const styles = StyleSheet.create({
   stepCard: {
     width: SCREEN_WIDTH - 70,
     borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   stepNum: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginRight: 14,
     position: 'relative',
     zIndex: 1,
   },
-  stepOrb: {
+  stepContent: {
+    flex: 1,
+    zIndex: 1,
+  },
+  stepBadge: {
     position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    top: -20,
-    left: -15,
-  },
-  stepTitle: {
-    fontSize: 14,
-    fontFamily: 'PlusJakartaSans-Bold',
-    color: TEXT_DARK,
-    marginBottom: 4,
-    textAlign: 'center',
-    zIndex: 1,
-  },
-  stepDesc: {
-    fontSize: 11,
-    fontFamily: 'PlusJakartaSans-Regular',
-    color: TEXT_MUTED,
-    textAlign: 'center',
-    lineHeight: 15,
-    zIndex: 1,
-  },
-  stepNum: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
-    position: 'relative',
-    zIndex: 1,
+    zIndex: 2,
+  },
+  stepBadgeText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Bold',
   },
   stepOrb: {
     position: 'absolute',
@@ -1366,19 +1359,19 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   stepTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
-    marginBottom: 6,
-    textAlign: 'center',
+    marginBottom: 3,
+    textAlign: 'left',
     zIndex: 1,
   },
   stepDesc: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Regular',
     color: TEXT_MUTED,
-    textAlign: 'center',
-    lineHeight: 17,
+    textAlign: 'left',
+    lineHeight: 15,
     zIndex: 1,
   },
   stepDots: {
@@ -1461,6 +1454,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   gridCard: {
+    flex: 1,
     backgroundColor: CARD_BG,
     borderRadius: 20,
     overflow: 'hidden',
@@ -1474,16 +1468,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
   },
   gridCardBody: {
+    flex: 1,
+    justifyContent: 'space-between',
     padding: 10,
     gap: 4,
   },
   gridCardName: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans-Bold',
     color: TEXT_DARK,
   },
   gridCardPrice: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Bold',
     color: PURPLE,
   },
@@ -1589,6 +1585,7 @@ const styles = StyleSheet.create({
 
   // Rekomendasi — blue cards
   recCard: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     overflow: 'hidden',

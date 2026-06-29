@@ -39,6 +39,8 @@ export type AppSettings = {
   playstore_url: string;
   therapist_min_app_version: string;
   therapist_playstore_url: string;
+  therapist_registration_fee: number;
+  registration_payment_required: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -80,6 +82,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.customer',
   therapist_min_app_version: '1.0.0',
   therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
+  therapist_registration_fee: 0,
+  registration_payment_required: false,
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -134,6 +138,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       playstore_url: data.playstore_url ?? DEFAULT_SETTINGS.playstore_url,
       therapist_min_app_version: data.therapist_min_app_version ?? DEFAULT_SETTINGS.therapist_min_app_version,
       therapist_playstore_url: data.therapist_playstore_url ?? DEFAULT_SETTINGS.therapist_playstore_url,
+      therapist_registration_fee: Number(data.therapist_registration_fee) ?? DEFAULT_SETTINGS.therapist_registration_fee,
+      registration_payment_required: data.registration_payment_required ?? DEFAULT_SETTINGS.registration_payment_required,
     };
   } catch {
     return DEFAULT_SETTINGS;

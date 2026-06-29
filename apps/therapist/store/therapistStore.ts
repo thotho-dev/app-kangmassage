@@ -33,6 +33,9 @@ interface TherapistProfile {
   bank_account_number?: string;
   bank_account_name?: string;
   commission_rate?: number;
+  registration_fee_paid?: boolean;
+  registration_paid_at?: string;
+  registration_payment_id?: string;
 }
 
 interface TherapistState {
@@ -167,6 +170,12 @@ export const useTherapistStore = create<TherapistState>((set, get) => ({
     if (!profile.is_verified) {
       set({ isOnline: false, profile: { ...profile, status: 'offline' } });
       throw new Error('Akun belum diverifikasi oleh admin');
+    }
+
+    // Registration payment required
+    if (profile.is_verified && !profile.registration_fee_paid) {
+      set({ isOnline: false, profile: { ...profile, status: 'offline' } });
+      throw new Error('Silakan selesaikan pembayaran pendaftaran terlebih dahulu');
     }
 
     const newStatus = isOnline ? 'offline' : 'online';

@@ -81,7 +81,7 @@ function ServiceCard({
         </View>
 
         <View style={styles.cardBody}>
-          <Text style={styles.cardName} numberOfLines={1}>
+          <Text style={styles.cardName}>
             {item.name}
           </Text>
           <Text style={styles.cardDesc} numberOfLines={2}>

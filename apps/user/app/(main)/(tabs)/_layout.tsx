@@ -23,7 +23,7 @@ const INACTIVE_ICON = '#9CA3AF';
 const BAR_BG = '#FFFFFF';
 
 const TAB_META: Record<string, { label: string; Icon: any; bg: string; color: string }> = {
-  home:    { label: 'Home',    Icon: Home,    bg: '#F3E8FF', color: '#7C3AED' },
+  home:    { label: 'Home',    Icon: Home,    bg: '#E8E0F0', color: '#240080' },
   history: { label: 'Riwayat', Icon: Clock,  bg: '#EFF6FF', color: '#3B82F6' },
   chat:    { label: 'Chat',    Icon: MessageCircle, bg: '#FFFBEB', color: '#F59E0B' },
   profile: { label: 'Profil',  Icon: User,   bg: '#ECFDF5', color: '#10B981' },
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     backgroundColor: BAR_BG,
     borderRadius: 36,
     paddingVertical: 8,
-    paddingHorizontal: 17,
+    paddingHorizontal: 20,
     width: '100%',
     maxWidth: 480,
     // Shadow

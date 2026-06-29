@@ -37,6 +37,7 @@ export default function MainLayout() {
       <Stack.Screen name="support/privacy" />
       <Stack.Screen name="support/terms" />
       <Stack.Screen name="support/about" />
+      <Stack.Screen name="registration-payment" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
     </Stack>
   );
 }

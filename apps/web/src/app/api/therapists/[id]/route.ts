@@ -86,23 +86,33 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (body.is_verified === true && currentTherapist?.is_verified !== true) {
       const settings = await getAppSettings();
       const platformName = settings.platform_name || DEFAULT_SETTINGS.platform_name;
+
+      const needsPayment = settings.registration_payment_required && Number(settings.therapist_registration_fee) > 0;
+      const approveBody = needsPayment
+        ? `Selamat! Akun Anda telah diverifikasi oleh admin. Silakan lakukan pembayaran pendaftaran untuk mulai menerima pesanan.`
+        : `Selamat! Akun Anda telah diverifikasi oleh admin. Sekarang Anda dapat menerima pesanan.`;
+
       await supabase.from('notifications').insert({
         therapist_id: params.id,
         title: `Akun ${platformName} Terverifikasi! 🎉`,
-        body: `Selamat! Akun Anda telah diverifikasi oleh admin. Sekarang Anda dapat menerima pesanan.`,
+        body: approveBody,
         type: 'account_verified',
-        data: { is_verified: true },
+        data: { is_verified: true, needs_registration_payment: needsPayment },
       });
 
       if (pushToken) {
+        const pushBody = needsPayment
+          ? 'Selamat! Akun Anda telah diverifikasi. Silakan lakukan pembayaran pendaftaran.'
+          : 'Selamat! Akun Anda telah diverifikasi. Sekarang Anda dapat menerima pesanan.';
+
         fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             to: pushToken,
             title: `Akun ${platformName} Terverifikasi! 🎉`,
-            body: 'Selamat! Akun Anda telah diverifikasi. Sekarang Anda dapat menerima pesanan.',
-            data: { type: 'account_verified' },
+            body: pushBody,
+            data: { type: 'account_verified', needs_registration_payment: needsPayment },
             sound: 'default',
             priority: 'high',
           }),

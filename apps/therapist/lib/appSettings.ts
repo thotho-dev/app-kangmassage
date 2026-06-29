@@ -26,6 +26,8 @@ export type AppSettings = {
   maintenance_message: string;
   min_app_version: string;
   playstore_url: string;
+  therapist_registration_fee: number;
+  registration_payment_required: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -54,6 +56,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maintenance_message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
   min_app_version: '1.0.0',
   playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
+  therapist_registration_fee: 0,
+  registration_payment_required: false,
 };
 
 let cachedSettings: AppSettings | null = null;
@@ -99,6 +103,8 @@ export async function getAppSettings(): Promise<AppSettings> {
       maintenance_message: data.maintenance_message ?? DEFAULT_SETTINGS.maintenance_message,
       min_app_version: data.min_app_version ?? DEFAULT_SETTINGS.min_app_version,
       playstore_url: data.playstore_url ?? DEFAULT_SETTINGS.playstore_url,
+      therapist_registration_fee: Number(data.therapist_registration_fee) ?? DEFAULT_SETTINGS.therapist_registration_fee,
+      registration_payment_required: data.registration_payment_required ?? DEFAULT_SETTINGS.registration_payment_required,
     };
 
     return cachedSettings;

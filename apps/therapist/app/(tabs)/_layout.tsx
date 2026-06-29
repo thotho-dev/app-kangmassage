@@ -147,10 +147,16 @@ export default function TabLayout() {
             const updated = payload.new as any;
             const old = payload.old as any;
             if (updated.is_verified === true && old?.is_verified === false) {
-              CustomAlertTrigger.show({
-                type: 'success',
-                title: 'Akun Terverifikasi! 🎉',
-                message: 'Selamat! Akun Anda telah diverifikasi oleh admin. Sekarang Anda dapat menerima pesanan.',
+              supabase.from('app_settings').select('registration_payment_required, therapist_registration_fee').limit(1).single().then(({ data: settings }) => {
+                if (settings?.registration_payment_required && Number(settings.therapist_registration_fee) > 0 && !updated.registration_fee_paid) {
+                  router.replace('/(main)/registration-payment');
+                  return;
+                }
+                CustomAlertTrigger.show({
+                  type: 'success',
+                  title: 'Akun Terverifikasi! 🎉',
+                  message: 'Selamat! Akun Anda telah diverifikasi oleh admin. Sekarang Anda dapat menerima pesanan.',
+                });
               });
             } else if (updated.revision_note && updated.revision_note !== old?.revision_note) {
               CustomAlertTrigger.show({

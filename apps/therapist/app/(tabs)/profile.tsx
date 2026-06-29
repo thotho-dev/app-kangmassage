@@ -106,6 +106,10 @@ export default function ProfileScreen() {
       showAlert('error', 'Akun Belum Terverifikasi', 'Anda belum bisa online karena akun masih menunggu verifikasi admin.');
       return;
     }
+    if (profile.is_verified && !profile.registration_fee_paid) {
+      showAlert('error', 'Pembayaran Pendaftaran', 'Silakan selesaikan pembayaran pendaftaran terlebih dahulu.');
+      return;
+    }
     setIsToggling(true);
     try {
       await toggleOnline();
@@ -238,6 +242,23 @@ export default function ProfileScreen() {
               </View>
             );
           })()}
+
+          {/* Registration Payment Banner */}
+          {profile?.is_verified && !profile?.registration_fee_paid && (
+            <TouchableOpacity
+              onPress={() => router.push('/(main)/registration-payment')}
+              activeOpacity={0.8}
+              style={[styles.verificationBanner, { backgroundColor: t.secondary + '20', borderColor: t.secondary + '40' }]}
+            >
+              <Ionicons name="wallet" size={20} color={t.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.verificationText, { color: t.secondary }]}>
+                  Selesaikan pembayaran pendaftaran untuk mulai menerima pesanan.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={t.secondary} />
+            </TouchableOpacity>
+          )}
 
           {/* Stats */}
           <View style={[styles.statsRow, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : t.surfaceLight, borderColor: t.border, borderWidth: 1 }]}>

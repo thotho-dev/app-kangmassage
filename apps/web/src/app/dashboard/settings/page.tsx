@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings, Bell, Shield, Globe, MapPin, Star, Wallet, Landmark, Save, Loader2, CheckCircle2, AlertCircle, Sliders, Image as ImageIcon, Bot, CreditCard } from 'lucide-react';
+import { Settings, Bell, Shield, Globe, MapPin, Star, Wallet, Landmark, Save, Loader2, CheckCircle2, AlertCircle, Sliders, Image as ImageIcon, Bot, CreditCard, UserPlus } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -50,6 +50,8 @@ type AppSettings = {
   therapist_min_app_version: string;
   therapist_playstore_url: string;
   withdrawal_admin_approval: boolean;
+  therapist_registration_fee: number;
+  registration_payment_required: boolean;
 };
 
 const defaultSettings: AppSettings = {
@@ -94,12 +96,15 @@ const defaultSettings: AppSettings = {
   therapist_min_app_version: '1.0.0',
   therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
   withdrawal_admin_approval: false,
+  therapist_registration_fee: 0,
+  registration_payment_required: false,
 };
 
-type TabKey = 'general' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
+type TabKey = 'general' | 'registration' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
 
 const tabs: { key: TabKey; label: string; icon: any }[] = [
   { key: 'general', label: 'general', icon: Settings },
+  { key: 'registration', label: 'Pendaftaran Mitra', icon: UserPlus },
   { key: 'matching', label: 'matching_settings', icon: MapPin },
   { key: 'commission', label: 'commission_settings', icon: Star },
   { key: 'topup', label: 'topup_settings', icon: Wallet },
@@ -438,6 +443,47 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Registration Payment */}
+          {activeTab === 'registration' && (
+            <div className="glass-card p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-violet-600/30 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-violet-400" />
+                </div>
+                <h2 className="font-semibold text-text-primary">Pendaftaran Mitra</h2>
+              </div>
+              <p className="text-xs text-text-muted/70 mb-4">Konfigurasi biaya pendaftaran dan perlengkapan untuk mitra terapis baru.</p>
+              <div className="space-y-4 max-w-lg">
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-sm text-text-primary/70">Wajib Bayar Pendaftaran</p>
+                    <p className="text-xs text-text-muted/60 mt-0.5">Aktifkan untuk mewajibkan pembayaran pendaftaran sebelum mitra bisa menerima pesanan.</p>
+                  </div>
+                  <button
+                    onClick={() => updateField('registration_payment_required', !settings.registration_payment_required)}
+                    className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${settings.registration_payment_required ? 'bg-primary-600' : 'bg-dark-600'}`}
+                  >
+                    <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform absolute top-0.5 ${settings.registration_payment_required ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Biaya Pendaftaran</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none z-10">Rp</span>
+                    <input
+                      type="text"
+                      value={Number(settings.therapist_registration_fee).toLocaleString('id-ID')}
+                      onChange={e => updateField('therapist_registration_fee', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                      className="input-field pl-10"
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="text-xs text-text-muted/60 mt-1">Biaya pendaftaran yang harus dibayar mitra setelah disetujui admin. Biarkan 0 jika gratis.</p>
+                </div>
+              </div>
             </div>
           )}
 

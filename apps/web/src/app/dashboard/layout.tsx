@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Image,
   Wallet,
+  Backpack,
 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useState, useEffect } from 'react';
@@ -66,6 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/dashboard', label: t('dashboard'), icon: LayoutDashboard },
     { href: '/dashboard/users', label: t('users'), icon: Users },
     { href: '/dashboard/therapists', label: t('therapists'), icon: UserCheck },
+    { href: '/dashboard/registration-equipment', label: 'Perlengkapan', icon: Backpack },
     { href: '/dashboard/orders', label: t('orders'), icon: ShoppingBag },
     { href: '/dashboard/services', label: t('services'), icon: Tag },
     { href: '/dashboard/vouchers', label: t('vouchers'), icon: Ticket },

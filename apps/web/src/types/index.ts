@@ -58,6 +58,9 @@ export interface Therapist {
   is_verified: boolean;
   is_active: boolean;
   tier: TherapistTier;
+  registration_fee_paid?: boolean;
+  registration_paid_at?: string;
+  registration_payment_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -183,6 +186,35 @@ export interface Notification {
   data?: Record<string, unknown>;
   is_read: boolean;
   created_at: string;
+}
+
+export interface RegistrationEquipment {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  discount_price?: number;
+  image_url?: string;
+  is_active: boolean;
+  is_mandatory?: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TherapistRegistrationPayment {
+  id: string;
+  therapist_id: string;
+  registration_fee: number;
+  equipment_items: { id: string; name: string; price: number }[];
+  equipment_total: number;
+  total_amount: number;
+  payment_method?: string;
+  payment_status: string;
+  payment_data?: Record<string, unknown>;
+  paid_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // API Response types
