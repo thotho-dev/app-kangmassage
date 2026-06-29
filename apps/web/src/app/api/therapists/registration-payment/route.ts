@@ -64,8 +64,8 @@ export async function GET(req: NextRequest) {
 // POST /api/therapists/registration-payment - Process registration payment (gopay/qris via Midtrans)
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    const bearerToken = req.headers.get('authorization');
+    const token = bearerToken?.replace('Bearer ', '');
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const supabase = createAdminClient();
