@@ -137,18 +137,6 @@ export default function SplashScreen() {
           } else if (step === 'otp_verified') {
             go('/(auth)/register?continue=1');
           } else {
-            // Cek apakah perlu bayar pendaftaran
-            if (therapist.is_verified && !therapist.registration_fee_paid) {
-              const { data: settings } = await supabase
-                .from('app_settings')
-                .select('registration_payment_required, therapist_registration_fee')
-                .limit(1)
-                .single();
-              if (settings?.registration_payment_required && Number(settings.therapist_registration_fee) > 0) {
-                go('/(main)/registration-payment');
-                return;
-              }
-            }
             // Cek pending order duluan sebelum navigasi ke tabs
             checkPendingOrders(therapist.id);
             go('/(tabs)');

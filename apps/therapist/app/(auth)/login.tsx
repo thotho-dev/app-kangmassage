@@ -184,25 +184,6 @@ export default function LoginScreen() {
             [{ text: 'Mengerti' }]
           );
         } else {
-          // Success - check registration payment
-          const { data: therapistFull } = await supabase
-            .from('therapists')
-            .select('is_verified, registration_fee_paid')
-            .eq('id', therapist.id)
-            .single();
-
-          if (therapistFull?.is_verified && !therapistFull?.registration_fee_paid) {
-            const { data: settings } = await supabase
-              .from('app_settings')
-              .select('registration_payment_required, therapist_registration_fee')
-              .limit(1)
-              .single();
-            if (settings?.registration_payment_required && Number(settings.therapist_registration_fee) > 0) {
-              router.replace('/(main)/registration-payment');
-              return;
-            }
-          }
-
           setWelcomeMessage(`Selamat Datang ${welcomeName}! Udah siap aktifitas lagi?`);
           router.replace('/(tabs)');
         }
