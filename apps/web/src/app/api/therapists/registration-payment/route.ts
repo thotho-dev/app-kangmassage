@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { getAppSettings } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
@@ -64,11 +64,13 @@ export async function GET(req: NextRequest) {
 // POST /api/therapists/registration-payment - Process registration payment (gopay/qris via Midtrans)
 export async function POST(req: NextRequest) {
   try {
-    const userClient = createClient();
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const supabase = createAdminClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { data: therapist, error: tError } = await supabase
       .from('therapists')
