@@ -52,6 +52,7 @@ type AppSettings = {
   withdrawal_admin_approval: boolean;
   therapist_registration_fee: number;
   registration_payment_required: boolean;
+  therapist_min_initial_topup: number;
 };
 
 const defaultSettings: AppSettings = {
@@ -98,6 +99,7 @@ const defaultSettings: AppSettings = {
   withdrawal_admin_approval: false,
   therapist_registration_fee: 0,
   registration_payment_required: false,
+  therapist_min_initial_topup: 0,
 };
 
 type TabKey = 'general' | 'registration' | 'matching' | 'commission' | 'topup' | 'withdrawal' | 'order_fees' | 'payment' | 'notifications' | 'security' | 'ai';
@@ -483,6 +485,24 @@ export default function SettingsPage() {
                   </div>
                   <p className="text-xs text-text-muted/60 mt-1">Biaya pendaftaran yang harus dibayar mitra setelah disetujui admin. Biarkan 0 jika gratis.</p>
                 </div>
+
+                <hr className="border-ui-border my-2" />
+                <h3 className="text-sm font-semibold text-text-primary/80">Topup Awal Mitra Baru</h3>
+
+                <div>
+                  <label className="text-sm text-text-primary/60 mb-2 block">Minimal Topup Awal</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none z-10">Rp</span>
+                    <input
+                      type="text"
+                      value={Number(settings.therapist_min_initial_topup).toLocaleString('id-ID')}
+                      onChange={e => updateField('therapist_min_initial_topup', parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0)}
+                      className="input-field pl-10"
+                      placeholder="0"
+                    />
+                  </div>
+                  <p className="text-xs text-text-muted/60 mt-1">Total topup minimal yang harus dipenuhi akun mitra baru sebelum bisa online. Biarkan 0 jika tidak ada minimal.</p>
+                </div>
               </div>
             </div>
           )}
@@ -679,7 +699,7 @@ export default function SettingsPage() {
 
                 <hr className="border-ui-border my-2" />
 
-                <h3 className="text-sm font-semibold text-text-primary/80">Security & Limits</h3>
+                <h3 className="text-sm font-semibold text-text-primary/80">Security & Limits <span className="text-xs text-text-muted font-normal">(Berlaku untuk User & Mitra)</span></h3>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -693,10 +713,10 @@ export default function SettingsPage() {
                         className="input-field pl-10"
                       />
                     </div>
-                    <p className="text-xs text-text-muted/60 mt-1">Di atas nominal ini perlu verifikasi OTP</p>
+                    <p className="text-xs text-text-muted/60 mt-1">Di atas nominal ini perlu verifikasi OTP (khusus User)</p>
                   </div>
                   <div>
-                    <label className="text-sm text-text-primary/60 mb-2 block">Daily Limit</label>
+                    <label className="text-sm text-text-primary/60 mb-2 block">Daily Limit (Nominal)</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none z-10">Rp</span>
                       <input
@@ -706,7 +726,7 @@ export default function SettingsPage() {
                         className="input-field pl-10"
                       />
                     </div>
-                    <p className="text-xs text-text-muted/60 mt-1">Maksimal total penarikan per hari</p>
+                    <p className="text-xs text-text-muted/60 mt-1">Maksimal total penarikan per hari (User & Mitra)</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -719,7 +739,7 @@ export default function SettingsPage() {
                       onChange={e => updateField('withdrawal_max_count_per_day', parseInt(e.target.value) || 1)}
                       className="input-field"
                     />
-                    <p className="text-xs text-text-muted/60 mt-1">Maksimal kali penarikan per hari</p>
+                    <p className="text-xs text-text-muted/60 mt-1">Maksimal kali penarikan per hari (User & Mitra)</p>
                   </div>
                   <div>
                     <label className="text-sm text-text-primary/60 mb-2 block">Admin Approval Threshold</label>
@@ -732,7 +752,7 @@ export default function SettingsPage() {
                         className="input-field pl-10"
                       />
                     </div>
-                    <p className="text-xs text-text-muted/60 mt-1">0 = auto-proses (tanpa admin). Isi nominal untuk pembatasan</p>
+                    <p className="text-xs text-text-muted/60 mt-1">0 = auto-proses (tanpa admin). Isi nominal untuk pembatasan (khusus User)</p>
                   </div>
                 </div>
               </div>

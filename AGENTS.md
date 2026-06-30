@@ -632,3 +632,41 @@ Ubah metode pembayaran pendaftaran mitra dari saldo wallet menjadi GoPay / QRIS 
 - Deploy `apps/web` ke production agar endpoint baru aktif.
 - Test end-to-end: admin set fee & equipment → therapist login → pilih perlengkapan → bayar gopay/qris → cek status → sukses.
 - Pastikan Storage bucket `registration-equipment` dibuat di Supabase Dashboard untuk upload gambar.
+
+---
+
+## Session 12 (Therapist withdrawal daily limit, min initial topup, registration info modal)
+
+### Problems addressed
+1. Therapist withdrawal tidak punya batas harian — berbeda dengan user yang sudah punya daily limit (Rp 3jt / 3× per hari).
+2. Therapist baru bisa online dengan saldo Rp 0 — tidak ada minimal topup awal untuk akun baru.
+3. Halaman daftar terapis tidak menampilkan informasi biaya pendaftaran dan minimal topup — user baru bingung harus menyiapkan apa.
+4. Banner "Selesaikan Pembayaran" di profil therapist lebarnya tidak konsisten dengan card di bawahnya (double indentation dari marginHorizontal + parent padding).
+
+### Changes made
+| File | Change |
+|---|---|
+| `supabase/migrations/20260630_add_min_initial_topup_setting.sql` | **NEW** — Tambah kolom `therapist_min_initial_topup` di `app_settings` (default 0). Update trigger `enforce_therapist_verified_for_online` — cek total completed topups subquery, force offline jika < minimal. |
+| `apps/web/src/app/api/withdraw/create/route.ts` | Added daily limit check (nominal + count) untuk therapist — menggunakan `withdrawal_daily_limit` & `withdrawal_max_count_per_day` dari `app_settings`. Query `therapist_withdrawals` hari ini status pending/completed. |
+| `apps/web/src/app/api/settings/route.ts` | Field `therapist_min_initial_topup` di GET/PUT response + allowedFields. |
+| `apps/web/src/lib/settings.ts` | Tipe `AppSettings` + default `therapist_min_initial_topup: 0` + mapping di `getAppSettings()`. |
+| `apps/web/src/app/dashboard/settings/page.tsx` | Tab Withdrawal: label & deskripsi diperjelas "(Berlaku untuk User & Mitra)". Tab Pendaftaran Mitra: section "Topup Awal Mitra Baru" — input `therapist_min_initial_topup`. |
+| `apps/therapist/store/therapistStore.ts` | `toggleOnline()` — fetch `therapist_min_initial_topup` dari `app_settings`, query sum completed `therapist_topups`, throw error jika belum terpenuhi. |
+| `apps/therapist/app/(tabs)/profile.tsx` | `handleToggle` — catch error dari `toggleOnline()` dan tampilkan `showAlert`. Hapus `marginHorizontal: SPACING.lg` dari `verificationBanner` style agar lebar konsisten dengan card di bawahnya. |
+| `apps/therapist/lib/appSettings.ts` | Tipe `AppSettings` + default + mapping untuk `therapist_min_initial_topup`. |
+| `apps/therapist/app/(auth)/register.tsx` | **NEW** — Info modal saat masuk halaman daftar. Menampilkan daftar dokumen yang perlu disiapkan (data diri, KTP, keahlian, sertifikat, selfie), biaya pendaftaran (card, jika > 0), minimal topup awal (card, jika > 0). Data dari `getAppSettings()`. Tombol "Lanjutkan". Tidak muncul di continueMode. |
+
+### Key decisions
+- Daily limit therapist menggunakan setting yang sama dengan user (`withdrawal_daily_limit`, `withdrawal_max_count_per_day`) — admin atur di tab Withdrawal Settings.
+- Minimal topup awal di-enforce di 2 tempat: **DB trigger** (`enforce_therapist_verified_for_online`) dan **client-side** (`therapistStore.toggleOnline`) — defense in depth.
+- Info modal di register hanya muncul saat pertama kali masuk (bukan continue mode), agar user yang lanjut OTP tidak terganggu.
+- Nominal biaya pendaftaran & minimal topup di modal bersifat dinamis dari `app_settings` — tidak hardcoded.
+
+### Migrations to run (Supabase SQL Editor)
+1. `20260630_add_min_initial_topup_setting.sql`
+
+### Next steps
+- Jalankan migration `20260630_add_min_initial_topup_setting.sql` di Supabase SQL Editor.
+- Test daily limit therapist: buat 3x withdrawal dalam sehari → ke-4 harus ditolak.
+- Test min initial topup: set Rp 50rb di admin → buat akun baru → coba online tanpa topup → harus ditolak.
+- Test info modal di register: buka halaman daftar → modal muncul → "Lanjutkan" → form.

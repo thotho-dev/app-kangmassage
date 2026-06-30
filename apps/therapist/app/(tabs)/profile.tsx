@@ -10,6 +10,7 @@ import { useThemeStore, useThemeColors } from '@/store/themeStore';
 import { useTherapistStore } from '@/store/therapistStore';
 import { useAlert } from '@/components/CustomAlert';
 import { Platform } from 'react-native';
+import { getAppSettings } from '@/lib/appSettings';
 
 const MENU_ITEMS = [
   {
@@ -113,8 +114,8 @@ export default function ProfileScreen() {
     setIsToggling(true);
     try {
       await toggleOnline();
-    } catch (error) {
-      console.error('Status Toggle Error:', error);
+    } catch (error: any) {
+      showAlert('error', 'Gagal Online', error?.message || 'Terjadi kesalahan');
     } finally {
       setIsToggling(false);
     }
@@ -374,7 +375,7 @@ const getStyles = (t: any) => StyleSheet.create({
   verifiedBadge: { position: 'absolute', bottom: -2, right: -2, backgroundColor: t.success, borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: t.background },
   verificationBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginHorizontal: SPACING.lg, marginTop: SPACING.md,
+    marginTop: SPACING.md,
     padding: SPACING.md, borderRadius: RADIUS.lg,
     borderWidth: 1,
   },

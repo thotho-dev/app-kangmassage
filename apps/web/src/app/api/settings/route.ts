@@ -65,6 +65,7 @@ export async function GET() {
         therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
         therapist_registration_fee: 0,
         registration_payment_required: false,
+        therapist_min_initial_topup: 0,
       }, { headers: noCacheHeaders });
     }
 
@@ -111,6 +112,7 @@ export async function GET() {
       therapist_playstore_url: data.therapist_playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
       therapist_registration_fee: Number(data.therapist_registration_fee) ?? 0,
       registration_payment_required: data.registration_payment_required ?? false,
+      therapist_min_initial_topup: Number(data.therapist_min_initial_topup) ?? 0,
     }, { headers: noCacheHeaders });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
@@ -164,6 +166,7 @@ export async function PUT(req: NextRequest) {
       'therapist_playstore_url',
       'therapist_registration_fee',
       'registration_payment_required',
+      'therapist_min_initial_topup',
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -244,6 +247,7 @@ export async function PUT(req: NextRequest) {
       therapist_playstore_url: data.therapist_playstore_url ?? 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
       therapist_registration_fee: Number(data.therapist_registration_fee) ?? 0,
       registration_payment_required: data.registration_payment_required ?? false,
+      therapist_min_initial_topup: Number(data.therapist_min_initial_topup) ?? 0,
     }, { headers: noCacheHeaders });
   } catch (err) {
     console.error(err);

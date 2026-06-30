@@ -41,6 +41,7 @@ export type AppSettings = {
   therapist_playstore_url: string;
   therapist_registration_fee: number;
   registration_payment_required: boolean;
+  therapist_min_initial_topup: number;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -84,6 +85,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   therapist_playstore_url: 'https://play.google.com/store/apps/details?id=com.kangmassage.mitra',
   therapist_registration_fee: 0,
   registration_payment_required: false,
+  therapist_min_initial_topup: 0,
 };
 
 export async function getAppSettings(): Promise<AppSettings> {
@@ -140,6 +142,7 @@ export async function getAppSettings(): Promise<AppSettings> {
       therapist_playstore_url: data.therapist_playstore_url ?? DEFAULT_SETTINGS.therapist_playstore_url,
       therapist_registration_fee: Number(data.therapist_registration_fee) ?? DEFAULT_SETTINGS.therapist_registration_fee,
       registration_payment_required: data.registration_payment_required ?? DEFAULT_SETTINGS.registration_payment_required,
+      therapist_min_initial_topup: Number(data.therapist_min_initial_topup) ?? DEFAULT_SETTINGS.therapist_min_initial_topup,
     };
   } catch {
     return DEFAULT_SETTINGS;

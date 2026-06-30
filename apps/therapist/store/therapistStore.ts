@@ -178,6 +178,28 @@ export const useTherapistStore = create<TherapistState>((set, get) => ({
       throw new Error('Silakan selesaikan pembayaran pendaftaran terlebih dahulu');
     }
 
+    // Check min initial topup for new therapists
+    const { data: settings } = await supabase
+      .from('app_settings')
+      .select('therapist_min_initial_topup')
+      .limit(1)
+      .single();
+
+    const minInitialTopup = Number(settings?.therapist_min_initial_topup) || 0;
+    if (minInitialTopup > 0) {
+      const { data: topups } = await supabase
+        .from('therapist_topups')
+        .select('amount')
+        .eq('therapist_id', profile.id)
+        .eq('status', 'completed');
+
+      const totalTopup = (topups || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      if (totalTopup < minInitialTopup) {
+        set({ isOnline: false, profile: { ...profile, status: 'offline' } });
+        throw new Error(`Anda harus melakukan topup minimal Rp ${minInitialTopup.toLocaleString('id-ID')} sebelum bisa online`);
+      }
+    }
+
     const newStatus = isOnline ? 'offline' : 'online';
     
     try {

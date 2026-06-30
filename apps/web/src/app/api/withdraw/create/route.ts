@@ -25,8 +25,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Maksimal penarikan adalah Rp ${Number(settings.withdraw_max_amount).toLocaleString('id-ID')}` }, { status: 400 });
     }
 
-    debugStep = 'CREATE_SUPABASE_CLIENT';
+    debugStep = 'DAILY_LIMIT_CHECK';
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
     const supabase = createAdminClient();
+
+    const { data: todayWithdrawals } = await supabase
+      .from('therapist_withdrawals')
+      .select('amount')
+      .eq('therapist_id', therapist_id)
+      .in('status', ['pending', 'completed'])
+      .gte('created_at', todayStart.toISOString());
+
+    const todayTotal = (todayWithdrawals || []).reduce((sum: number, w: any) => sum + Number(w.amount), 0);
+    const dailyLimit = Number(settings.withdrawal_daily_limit) || 3000000;
+    if (todayTotal + amount > dailyLimit) {
+      return NextResponse.json({
+        error: `Batas penarikan harian Rp ${dailyLimit.toLocaleString('id-ID')}. Sisa hari ini: Rp ${Math.max(0, dailyLimit - todayTotal).toLocaleString('id-ID')}`
+      }, { status: 400 });
+    }
+
+    const maxPerDay = Number(settings.withdrawal_max_count_per_day) || 3;
+    const todayCount = (todayWithdrawals || []).length;
+    if (todayCount >= maxPerDay) {
+      return NextResponse.json({
+        error: `Anda sudah mencapai batas maksimal ${maxPerDay}x penarikan per hari`
+      }, { status: 400 });
+    }
 
     debugStep = 'FETCH_THERAPIST';
     const { data: therapist, error: tError } = await supabase

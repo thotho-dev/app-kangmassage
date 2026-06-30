@@ -99,6 +99,9 @@ const [form, setForm] = useState<FormData>({
   const [platformName, setPlatformName] = useState('Pijat On-Demand');
   const [revisionNote, setRevisionNote] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(!continueMode);
+  const [registrationFee, setRegistrationFee] = useState(0);
+  const [minInitialTopup, setMinInitialTopup] = useState(0);
 
   const REVISION_FIELD_MAP: Record<string, string[]> = {
     'KTP (NIK & Foto)': ['nik', 'full_name', 'ktp_photo_url', 'address', 'rt_rw', 'kelurahan', 'district', 'city', 'province'],
@@ -122,7 +125,11 @@ const [form, setForm] = useState<FormData>({
   );
 
   useEffect(() => {
-    getAppSettings().then(s => setPlatformName(s.platform_name));
+    getAppSettings().then(s => {
+      setPlatformName(s.platform_name);
+      setRegistrationFee(Number(s.therapist_registration_fee) || 0);
+      setMinInitialTopup(Number(s.therapist_min_initial_topup) || 0);
+    });
   }, []);
 
   useEffect(() => {
@@ -1194,6 +1201,80 @@ const [form, setForm] = useState<FormData>({
         </ScrollView>
       </SafeAreaView>
 
+      {/* ─── Info Modal ──────────────────────────── */}
+      <Modal visible={showInfoModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.infoModalIconWrap}>
+              <Ionicons name="information-circle" size={40} color={t.primary} />
+            </View>
+            <Text style={styles.modalTitle}>Informasi Pendaftaran</Text>
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalText}>
+                Sebelum mendaftar, pastikan Anda menyiapkan dokumen dan informasi berikut:
+              </Text>
+
+              <View style={styles.infoList}>
+                <View style={styles.infoListItem}>
+                  <Ionicons name="document-text" size={18} color={t.secondary} />
+                  <Text style={styles.infoListItemText}>Data diri lengkap (NIK, nama, alamat, kontak)</Text>
+                </View>
+                <View style={styles.infoListItem}>
+                  <Ionicons name="camera" size={18} color={t.secondary} />
+                  <Text style={styles.infoListItemText}>Foto KTP untuk verifikasi identitas</Text>
+                </View>
+                <View style={styles.infoListItem}>
+                  <Ionicons name="fitness" size={18} color={t.secondary} />
+                  <Text style={styles.infoListItemText}>Pilih keahlian bidang pijat yang Anda kuasai</Text>
+                </View>
+                <View style={styles.infoListItem}>
+                  <Ionicons name="ribbon" size={18} color={t.secondary} />
+                  <Text style={styles.infoListItemText}>Upload sertifikat (opsional, jika ada)</Text>
+                </View>
+                <View style={styles.infoListItem}>
+                  <Ionicons name="person" size={18} color={t.secondary} />
+                  <Text style={styles.infoListItemText}>Foto selfie untuk verifikasi profil</Text>
+                </View>
+              </View>
+
+              {(registrationFee > 0 || minInitialTopup > 0) && (
+                <>
+                  <View style={styles.infoDivider} />
+                  <Text style={styles.infoSectionTitle}>Biaya & Ketentuan</Text>
+
+                  {registrationFee > 0 && (
+                    <View style={[styles.infoFeeCard, { backgroundColor: t.primary + '15', borderColor: t.primary + '30' }]}>
+                      <Ionicons name="card" size={20} color={t.primary} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.infoFeeLabel, { color: t.primary }]}>Biaya Pendaftaran</Text>
+                        <Text style={[styles.infoFeeValue, { color: t.primary }]}>Rp {registrationFee.toLocaleString('id-ID')}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {minInitialTopup > 0 && (
+                    <View style={[styles.infoFeeCard, { backgroundColor: t.warning + '20', borderColor: t.warning + '40' }]}>
+                      <Ionicons name="wallet" size={20} color={t.warning} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.infoFeeLabel, { color: t.warning }]}>Minimal Topup Awal</Text>
+                        <Text style={[styles.infoFeeValue, { color: t.warning }]}>Rp {minInitialTopup.toLocaleString('id-ID')}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <Text style={[styles.modalText, { marginTop: 8, fontSize: 12 }]}>
+                    Setelah akun diverifikasi, Anda harus melunasi biaya di atas sebelum bisa menerima pesanan.
+                  </Text>
+                </>
+              )}
+            </ScrollView>
+            <TouchableOpacity style={styles.infoModalBtn} onPress={() => setShowInfoModal(false)}>
+              <Text style={styles.infoModalBtnText}>Lanjutkan</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ─── T&C Modal ───────────────────────────── */}
       <Modal visible={showTnc} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -1472,6 +1553,25 @@ const getStyles = (t: any) => StyleSheet.create({
     color: t.textMuted,
     fontStyle: 'italic',
   },
+  infoModalIconWrap: { alignItems: 'center', marginBottom: SPACING.sm },
+  infoList: { marginTop: SPACING.lg, gap: 12 },
+  infoListItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  infoListItemText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: t.textSecondary, flex: 1, lineHeight: 18 },
+  infoDivider: { height: 1, backgroundColor: t.border, marginVertical: SPACING.lg },
+  infoSectionTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: t.text, marginBottom: SPACING.md },
+  infoFeeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: SPACING.md, borderRadius: RADIUS.lg,
+    borderWidth: 1, marginBottom: SPACING.md,
+  },
+  infoFeeLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  infoFeeValue: { fontSize: 16, fontFamily: 'Inter_800ExtraBold', marginTop: 2 },
+  infoModalBtn: {
+    width: '100%', paddingVertical: 14, borderRadius: RADIUS.lg,
+    backgroundColor: t.primary, alignItems: 'center', justifyContent: 'center',
+    marginTop: SPACING.md,
+  },
+  infoModalBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFF' },
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center', alignItems: 'center', padding: SPACING.lg,
